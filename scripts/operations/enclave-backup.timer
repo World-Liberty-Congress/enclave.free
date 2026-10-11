@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Enclave application backup
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 UTC
+Persistent=true
+RandomizedDelaySec=15m
+Unit=enclave-backup.service
+
+[Install]
+WantedBy=timers.target

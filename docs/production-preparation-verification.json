@@ -1,0 +1,47 @@
+{
+  "checked_at": "2026-10-11T17:12:33.778191+00:00",
+  "scope": "Preparation and invented-data rehearsal only; no demo or production data migrated",
+  "source_baseline": {
+    "enclave": "43703a9db18f2bbc07aefa94bb24b257d4c896ab",
+    "demo_backend": "285d2e1ab474cf954737fea8d5db58de95c2af5a",
+    "demo_frontend": "b8f1625da5c1198af2dda52cf19aec083575e363",
+    "organization_sage": "661b118343dc3d7567f0fb05431ade9175adc93f",
+    "backend_source_matches_demo": true,
+    "frontend_application_source_matches_demo": true,
+    "frontend_dependencies": "supported security updates in lockfile"
+  },
+  "checks": {
+    "operations_unit_tests": {
+      "passed": 11,
+      "fresh_environment": true
+    },
+    "isolated_storage_rehearsal": {
+      "passed": 2,
+      "qdrant": "1.12.6",
+      "postgres": "pgvector/Postgres17, production image digest",
+      "restic": "0.19.1",
+      "docker_backup_lifecycle": "simulated; real encrypted repository backup, file restore and full data check",
+      "data": "invented fixtures"
+    },
+    "production_compose": {
+      "passed": true,
+      "service_count": 10,
+      "public_ports": "loopback only"
+    },
+    "frontend_production_build": {
+      "passed": true,
+      "branding": "wlc"
+    },
+    "npm_audit": {
+      "findings": 0
+    }
+  },
+  "outstanding": [
+    "Build and record final Linux AMD64 application image digests",
+    "Create and verify a fresh complete demo backup in the selected off-host repository",
+    "Rehearse the transfer using real retained configuration and knowledge",
+    "Restore and verify the complete application stack",
+    "Organization billing, domain, provider credentials and backup repository/key setup",
+    "Production acceptance, credential handoff, and demo retirement"
+  ]
+}

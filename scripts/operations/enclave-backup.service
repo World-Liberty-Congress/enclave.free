@@ -1,0 +1,14 @@
+[Unit]
+Description=Encrypted consistent Enclave application backup
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+EnvironmentFile=/etc/enclave/backup.env
+# Adjust the checkout path and private config paths when installing.
+ExecStart=/usr/bin/python3 /opt/liberator/scripts/operations/backup.py backup --project liberator --config-path /etc/enclave/production.env --config-path /etc/caddy/Caddyfile --config-path /etc/enclave/backup.env
+TimeoutStartSec=infinity

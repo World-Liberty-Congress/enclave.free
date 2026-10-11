@@ -1,4 +1,4 @@
 [submodule "runtime/sage"]
 	path = runtime/sage
-	url = https://github.com/enclave-free/sage.git
-	branch = master
+	url = https://github.com/World-Liberty-Congress/sage.git
+	branch = production/liberator-baseline

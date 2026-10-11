@@ -49,6 +49,7 @@ embedding_cache/
 
 # Backups
 backups/
+migration-bundles/
 
 # Sanctum logs
 logs/
