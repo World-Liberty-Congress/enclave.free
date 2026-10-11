@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -182,6 +183,15 @@ class CarryoverTests(unittest.TestCase):
 
 
 class BackupTests(unittest.TestCase):
+    def test_legacy_wrappers_reject_ambiguous_positional_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            marker = Path(temp) / "existing-state"
+            marker.write_text("must remain unchanged")
+            for command in ("backup", "restore"):
+                result = subprocess.run(["bash", str(ROOT / "scripts" / (command + ".sh")), temp], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(marker.read_text(), "must remain unchanged")
+
     def test_backup_restarts_original_services_if_upload_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

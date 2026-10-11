@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-11T17:12:33.778191+00:00",
+  "checked_at": "2026-10-11T17:42:04.259216+00:00",
   "scope": "Preparation and invented-data rehearsal only; no demo or production data migrated",
   "source_baseline": {
     "enclave": "43703a9db18f2bbc07aefa94bb24b257d4c896ab",
@@ -12,7 +12,7 @@
   },
   "checks": {
     "operations_unit_tests": {
-      "passed": 11,
+      "passed": 12,
       "fresh_environment": true
     },
     "isolated_storage_rehearsal": {
@@ -34,14 +34,80 @@
     },
     "npm_audit": {
       "findings": 0
+    },
+    "frontend_tests": {
+      "passed": 493,
+      "files": 83,
+      "actual_commit_hook": true
+    },
+    "backend_image_schema_and_crypto": {
+      "passed": true,
+      "network": "none",
+      "data": "invented"
+    },
+    "backend_cpu_runtime": {
+      "passed": true,
+      "torch": "2.8.0+cpu",
+      "torchvision": "0.23.0+cpu",
+      "cuda_available": false
+    },
+    "application_startup": {
+      "passed": true,
+      "health": {
+        "liberator-runtime-backend-fixture": "{\"status\":\"degraded\",\"services\":{\"qdrant\":\"unhealthy: [Errno 111] Connection refused\",\"shared_rate_limit_store\":\"unknown\"}}",
+        "liberator-runtime-sage-fixture": "{\"status\":\"healthy\",\"service\":\"enclave_web\"}"
+      },
+      "sage_counts": {
+        "agents": 0,
+        "web_sessions": 0,
+        "messages": 0,
+        "ai_config": 9
+      },
+      "network": "internal, no host ports",
+      "providers": "disabled fixture values; no live inference/email",
+      "scope": "Minimal backend + Sage + Postgres startup fixture; Qdrant/Valkey absent so backend health is degraded; not full-stack acceptance"
     }
   },
   "outstanding": [
-    "Build and record final Linux AMD64 application image digests",
+    "Publish accepted application images and record registry manifest digests",
     "Create and verify a fresh complete demo backup in the selected off-host repository",
     "Rehearse the transfer using real retained configuration and knowledge",
     "Restore and verify the complete application stack",
     "Organization billing, domain, provider credentials and backup repository/key setup",
     "Production acceptance, credential handoff, and demo retirement"
-  ]
+  ],
+  "application_images": {
+    "build_passed": true,
+    "published": false,
+    "digest_kind": "local Docker image IDs; registry manifest digests not yet established",
+    "images": [
+      {
+        "service": "backend",
+        "local_tag": "liberator/backend:rehearsal-59a76bb",
+        "local_image_id": "sha256:7b4d2681e45bd259e4844206a70f84145bf46be39d6c2e17b1404ae8af760c18",
+        "os": "linux",
+        "architecture": "amd64",
+        "source_revision": "59a76bba925bfe7109093021cdf2bc4c36aebf51",
+        "source_repository": "https://github.com/World-Liberty-Congress/enclave.free"
+      },
+      {
+        "service": "frontend",
+        "local_tag": "liberator/frontend:rehearsal-59a76bb",
+        "local_image_id": "sha256:6141c6979bb89872273d83e41e578309e59bb576c96e216c4050bb9dacbbd9d8",
+        "os": "linux",
+        "architecture": "amd64",
+        "source_revision": "59a76bba925bfe7109093021cdf2bc4c36aebf51",
+        "source_repository": "https://github.com/World-Liberty-Congress/enclave.free"
+      },
+      {
+        "service": "sage",
+        "local_tag": "liberator/sage:rehearsal-59a76bb",
+        "local_image_id": "sha256:87dd44c962afd231be8cf4bd0f4c48ca01a3870b754e7f65ed55f238cc0e9ae2",
+        "os": "linux",
+        "architecture": "amd64",
+        "source_revision": "661b118343dc3d7567f0fb05431ade9175adc93f",
+        "source_repository": "https://github.com/World-Liberty-Congress/sage"
+      }
+    ]
+  }
 }

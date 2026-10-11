@@ -4,12 +4,16 @@ on:
   pull_request:
     paths:
       - scripts/operations/**
+      - scripts/backup.sh
+      - scripts/restore.sh
       - backend/app/**
       - .github/workflows/migration-tools.yml
   push:
     branches: [main]
     paths:
       - scripts/operations/**
+      - scripts/backup.sh
+      - scripts/restore.sh
       - backend/app/**
       - .github/workflows/migration-tools.yml
 

@@ -15,6 +15,7 @@ services:
       - sqlite_data:/data
     environment:
       ENCLAVE_ENV: production
+      LLM_MODEL: ${TINFOIL_MODEL:?Set the accepted production Tinfoil model}
       INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:?Set a fresh internal token}
       CONTENT_ENCRYPTION_KEY: ${CONTENT_ENCRYPTION_KEY:?Set a fresh content encryption key}
       DOCUMENT_ARTIFACT_ENCRYPTION: required
@@ -37,6 +38,7 @@ services:
     restart: unless-stopped
     environment:
       ENCLAVE_ENV: production
+      TINFOIL_MODEL: ${TINFOIL_MODEL:?Set the accepted production Tinfoil model}
       DATABASE_URL: postgres://sage:${POSTGRES_PASSWORD:?Set a fresh URL-safe database password}@postgres:5432/sage
       INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:?Set a fresh internal token}
       FRONTEND_URL: ${FRONTEND_URL:?Set the production HTTPS origin}
