@@ -1,0 +1,299 @@
+{
+  "checked_at": "2026-10-12T23:37:16Z",
+  "scope": "Final source export and actual organization production replay; public access remains closed.",
+  "admin_conversation_review": {
+    "reviewed_at": "2026-10-12",
+    "admin_sessions_reviewed": 45,
+    "messages_reviewed": 205,
+    "admin_prompts_reviewed": 88,
+    "result": "No required unsaved organization instruction identified. The direct, compassionate, practical style is already saved in Sage. Preserve the latest saved automatic approval setting. Questions and test conversations are excluded from production.",
+    "production_conversations_carried": 0
+  },
+  "source_backup_and_export": {
+    "backup": {
+      "project": "enclave-free",
+      "snapshot_id": "6f8dbe5aac3733538afad631d337cda9faf8b1f3b5e6f531aefa97b7462abe69",
+      "source_count": 23,
+      "custom_image_count": 3
+    },
+    "export": {
+      "status": "encrypted carryover exported",
+      "retained_counts": {
+        "instance_settings": 34,
+        "user_types": 3,
+        "user_field_definitions": 23,
+        "ai_config": 13,
+        "ai_config_user_type_overrides": 0,
+        "country_regions": 197,
+        "resources": 23,
+        "ingest_jobs": 33,
+        "document_defaults": 33,
+        "document_defaults_user_type_overrides": 0,
+        "retrieval_chunks": 964,
+        "deployment_config": 52
+      },
+      "active_artifact_count": 30,
+      "absent_inactive_artifact_count": 3,
+      "knowledge_vector_count": 910
+    },
+    "writer_outage_seconds": 105.14,
+    "total_seconds": 165.64
+  },
+  "transfer_sha256": "d99c502140166d46114618e64af73f24b0f2d6f8e538cf9cc5bee319afa8f54e",
+  "transfer_hashes_match_on_demo_operator_and_production": true,
+  "temporary_organization_credentials_removed_from_demo": true,
+  "production_replay": {
+    "offline": {
+      "status": "offline replay verified",
+      "retained_counts": {
+        "ai_config": 13,
+        "ai_config_user_type_overrides": 0,
+        "country_regions": 197,
+        "deployment_config": 52,
+        "document_defaults": 33,
+        "document_defaults_user_type_overrides": 0,
+        "ingest_jobs": 33,
+        "instance_settings": 34,
+        "resources": 23,
+        "retrieval_chunks": 964,
+        "user_field_definitions": 23,
+        "user_types": 3
+      },
+      "encrypted_artifact_count": 30,
+      "knowledge_vector_count": 910,
+      "absent_inactive_artifact_count": 3,
+      "excluded_identity_and_history_rows": 0,
+      "remaining": "Apply Sage settings and vectors to an isolated clean stack, then verify full product behavior"
+    },
+    "sage": {
+      "status": "Sage Agent Settings applied and compared",
+      "config_count": 9,
+      "override_count": 1
+    },
+    "index": {
+      "status": "knowledge index applied and compared",
+      "point_count": 910,
+      "maximum_vector_difference": 0.0
+    },
+    "checked_at": "2026-10-12T23:15:56Z",
+    "production_values": true,
+    "application_ownership_applied": true,
+    "identity_and_history_carried": 0,
+    "public_access": false,
+    "stage": "Stores installed; application startup next",
+    "sage_schema_initialization": "Pinned Sage application ran its own migrations, then retained settings reapplied; initial empty schema-only fixture was replaced because it lacked migration bookkeeping."
+  },
+  "production_live": {
+    "application_reader": {
+      "sqlite_integrity": true,
+      "foreign_keys_valid": true,
+      "retained_counts_match": true,
+      "retained_settings_and_metadata_hash_match": true,
+      "deployment_values_match": true,
+      "application_decrypted_chunks": 964,
+      "application_decrypted_artifacts": 30,
+      "users": 0,
+      "admins": 0,
+      "source_history": 0
+    },
+    "sage_counts": {
+      "agents": 0,
+      "web_sessions": 0,
+      "messages": 0,
+      "ai_config": 9,
+      "ai_config_user_type_overrides": 1
+    },
+    "services": {
+      "frontend": "healthy",
+      "backend": "healthy",
+      "sage": "healthy",
+      "core-backend": "healthy",
+      "maple-proxy": "healthy",
+      "tinfoil-proxy": "healthy",
+      "valkey": "healthy",
+      "searxng": "healthy",
+      "postgres": "healthy",
+      "qdrant": "healthy"
+    },
+    "gateway_health": {
+      "status": "healthy",
+      "services": {
+        "qdrant": "healthy",
+        "shared_rate_limit_store": "healthy"
+      }
+    },
+    "checked_at": "2026-10-12T23:36:41Z",
+    "public_access": false,
+    "admin_bootstrapped": false,
+    "protected_browser_https_setup_page": true,
+    "protected_browser_access_currently_enabled": false
+  },
+  "admin_recovery": {
+    "proton_pass_saved": true,
+    "signal_handoff_completed": false,
+    "signal_recipient_pending": true,
+    "admin_bootstrapped": false
+  },
+  "public_unauthenticated_http_status": 503,
+  "private_browser_access": "Verified at HTTPS production origin, then revoked. Active edge matches the closed Caddy template; public requests receive HTTP 503.",
+  "backup_timer_enabled": false,
+  "technical_acceptance": false,
+  "remaining": [
+    "Signal Admin-key handoff to the organization",
+    "Organization Admin bootstrap and protected product acceptance",
+    "Application email sign-in acceptance and final zero-user cleanup",
+    "Admin/email acceptance in an isolated recovery environment",
+    "Enable daily backups after acceptance",
+    "Organization handoff, then demo retirement; public opening belongs to the organization"
+  ],
+  "production_backup": {
+    "project": "liberator",
+    "snapshot_id": "9251216271f2b8c8e853512c3de905ce4972fdb564e24772a707c278e0ed0678",
+    "source_count": 17,
+    "custom_image_count": 3
+  },
+  "production_file_restore": {
+    "snapshot_id": "9251216271f2b8c8e853512c3de905ce4972fdb564e24772a707c278e0ed0678",
+    "isolated_restore": "/srv/enclave-migration/production-recovery-20261012",
+    "status": "restored and verified; application startup drill still required",
+    "elapsed_seconds": 42.49,
+    "retention_preview": {
+      "status": "retention dry run passed; no snapshots removed",
+      "project": "liberator",
+      "keep_daily": 14,
+      "keep_weekly": 4
+    }
+  },
+  "production_isolated_application_restore": {
+    "started_at_epoch": 1791847854.8429086,
+    "elapsed_seconds": 135.2,
+    "network_internal": true,
+    "containers": [
+      {
+        "name": "/liberator-production-restore-frontend",
+        "running": true,
+        "health": "healthy",
+        "ports": {}
+      },
+      {
+        "name": "/liberator-production-restore-backend",
+        "running": true,
+        "health": "healthy",
+        "ports": {}
+      },
+      {
+        "name": "/liberator-production-restore-sage",
+        "running": true,
+        "health": "healthy",
+        "ports": {}
+      },
+      {
+        "name": "/liberator-production-restore-core-backend",
+        "running": true,
+        "health": "healthy",
+        "ports": {}
+      },
+      {
+        "name": "/liberator-production-restore-maple-proxy",
+        "running": true,
+        "health": "disabled for isolated provider proxy",
+        "ports": {}
+      },
+      {
+        "name": "/liberator-production-restore-tinfoil-proxy",
+        "running": false,
+        "health": "disabled for isolated provider proxy",
+        "ports": {}
+      },
+      {
+        "name": "/liberator-production-restore-valkey",
+        "running": true,
+        "health": "healthy",
+        "ports": {}
+      },
+      {
+        "name": "/liberator-production-restore-searxng",
+        "running": true,
+        "health": "healthy",
+        "ports": {}
+      },
+      {
+        "name": "/liberator-production-restore-postgres",
+        "running": true,
+        "health": "healthy",
+        "ports": {}
+      },
+      {
+        "name": "/liberator-production-restore-qdrant",
+        "running": true,
+        "health": "healthy",
+        "ports": {}
+      }
+    ],
+    "provider_and_mail_connectivity": "blocked by internal Docker network",
+    "changes_from_source": [
+      "isolated names/network/mounts",
+      "no published test ports",
+      "backend seed/reload omitted",
+      "provider healthchecks disabled"
+    ],
+    "gateway_health": {
+      "status": "healthy",
+      "services": {
+        "qdrant": "healthy",
+        "shared_rate_limit_store": "healthy"
+      }
+    },
+    "frontend_html": true
+  },
+  "production_recovery_data": {
+    "application_reader": {
+      "sqlite_integrity": true,
+      "foreign_keys_valid": true,
+      "retained_counts_match": true,
+      "retained_settings_and_metadata_hash_match": true,
+      "deployment_values_match": true,
+      "application_decrypted_chunks": 964,
+      "application_decrypted_artifacts": 30,
+      "users": 0,
+      "admins": 0,
+      "source_history": 0
+    },
+    "sage_counts": {
+      "agents": 0,
+      "web_sessions": 0,
+      "messages": 0,
+      "ai_config": 9,
+      "ai_config_user_type_overrides": 1
+    },
+    "sage_settings_match": true,
+    "restored_vectors_match": true,
+    "stored_vector_retrieval": true,
+    "checked_at": "2026-10-12T23:33:16Z",
+    "mail_and_inference_blocked_by_internal_network": true,
+    "public_access": false,
+    "admin_and_email_login_acceptance": false
+  },
+  "production_rollback": {
+    "checked_at": "2026-10-12T23:35:21Z",
+    "scope": "First-deployment prelaunch rollback: restore closed edge and stop application writers, then recover the same accepted release with unchanged data volumes. Version downgrade across schema changes is not exercised.",
+    "public_status_during_rollback": 503,
+    "original_services_recovered": true,
+    "elapsed_seconds": 80.15,
+    "public_open": false
+  },
+  "production_recovery_cleanup": {
+    "checked_at": "2026-10-12T23:35:54Z",
+    "temporary_recovery_containers_removed": 10,
+    "temporary_recovery_directories_removed": true,
+    "private_preview_access_revoked": true,
+    "public_open": false
+  },
+  "fresh_final_demo_backup_file_restore": {
+    "snapshot_id": "6f8dbe5aac3733538afad631d337cda9faf8b1f3b5e6f531aefa97b7462abe69",
+    "isolated_restore": "/srv/enclave-migration/final-demo-backup-verification",
+    "status": "restored and verified; application startup drill still required",
+    "elapsed_seconds": 16.51,
+    "temporary_restored_copy_removed": true
+  }
+}
