@@ -201,8 +201,19 @@
           "tls": true
         }
       },
-      "inbox_placement": "awaiting recipient confirmation",
-      "recipient": "user-authorized Proton address; omitted from public evidence"
+      "inbox_placement": "Inbox",
+      "recipient": "user-authorized Proton address; omitted from public evidence",
+      "recipient_confirmation": {
+        "checked_at": "2026-10-12T22:56:48.195768+00:00",
+        "recipient_confirmed": true,
+        "native_browser": "Safari",
+        "message_inspected": true,
+        "folder": "Inbox",
+        "subject": "Liberator production migration test",
+        "sender": "Liberator <noreply@mg.liberator.global>",
+        "message_body_matches_authorized_test": true,
+        "proton_tracking_indicator": "No trackers found, No links cleaned"
+      }
     }
   },
   "setup_recovery": {
@@ -221,7 +232,6 @@
     "production_timer_enabled": false
   },
   "remaining": [
-    "Recipient confirmation of inbox versus spam placement",
     "Review unsaved Admin-conversation instructions and freeze retained source state",
     "Final replay with actual organization values and fresh keys",
     "Bootstrap new Admin after manual recovery-key handoff",
