@@ -193,6 +193,21 @@ def restore(snapshot: str, target: Path) -> dict:
     return {"snapshot_id": snapshot, "isolated_restore": str(target), "status": "restored and verified; application startup drill still required"}
 
 
+def retention(project: str, apply: bool = False) -> dict:
+    if not project or any(not (c.isalnum() or c in "-_") for c in project):
+        raise BackupError("Retention requires a simple Compose project name")
+    args = ["restic", "forget", "--tag", f"enclave:{project}", "--group-by", "tags",
+            "--keep-daily", "14", "--keep-weekly", "4"]
+    # One policy across release paths/hosts, scoped to complete project backups.
+    # Candidate snapshots and release archives have separate tags and survive.
+    args += ["--prune"] if apply else ["--dry-run"]
+    run(args)
+    if apply:
+        run(["restic", "check"])
+    return {"status": "retention applied" if apply else "retention dry run passed; no snapshots removed",
+            "project": project, "keep_daily": 14, "keep_weekly": 4}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--allow-local-repository", action="store_true", help="Only for isolated tooling tests")
@@ -207,6 +222,8 @@ def main() -> None:
     sub.add_parser("check")
     f = sub.add_parser("retention-preview")
     f.add_argument("--project", required=True)
+    f = sub.add_parser("retention-apply", help="Apply the accepted 14-daily/4-weekly policy to complete project backups")
+    f.add_argument("--project", required=True)
     args = parser.parse_args()
     os.umask(0o077)
     try:
@@ -219,9 +236,7 @@ def main() -> None:
             run(["restic", "check", "--read-data"])
             result = {"status": "repository contents verified"}
         else:
-            # Deletion is separate from taking a backup; preview before enabling.
-            run(["restic", "forget", "--dry-run", "--tag", f"enclave:{args.project}", "--keep-daily", "14", "--keep-weekly", "4"])
-            result = {"status": "retention dry run passed; no snapshots removed"}
+            result = retention(args.project, apply=args.command == "retention-apply")
         print(json.dumps(result))
     except (BackupError, OSError, ValueError) as exc:
         print(f"Backup operation failed: {exc}", file=sys.stderr)

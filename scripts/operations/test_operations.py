@@ -183,6 +183,19 @@ class CarryoverTests(unittest.TestCase):
 
 
 class BackupTests(unittest.TestCase):
+    def test_retention_rejects_a_project_that_could_select_multiple_tag_sets(self):
+        with patch.object(backup, "run") as runner, self.assertRaises(backup.BackupError):
+            backup.retention("liberator,other", apply=True)
+        runner.assert_not_called()
+
+    def test_retention_does_not_report_success_after_a_repository_check_fails(self):
+        def runner(args, **kwargs):
+            if args == ["restic", "check"]:
+                raise backup.BackupError("fixture repository check failure")
+            return ""
+        with patch.object(backup, "run", side_effect=runner), self.assertRaisesRegex(backup.BackupError, "repository check failure"):
+            backup.retention("liberator", apply=True)
+
     def test_legacy_wrappers_reject_ambiguous_positional_paths(self):
         with tempfile.TemporaryDirectory() as temp:
             marker = Path(temp) / "existing-state"

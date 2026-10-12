@@ -7,6 +7,7 @@ import sqlite3
 import subprocess
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import backup
@@ -16,6 +17,39 @@ import test_operations
 
 @unittest.skipUnless(os.getenv("ENCLAVE_RUN_STORAGE_REHEARSAL") == "1", "Requires dedicated rehearsal containers; see operations runbook")
 class StorageRehearsal(unittest.TestCase):
+    def test_retention_across_release_paths_preserves_other_snapshot_types(self):
+        with tempfile.TemporaryDirectory(prefix="enclave-retention-rehearsal-") as temp:
+            root = Path(temp)
+            password = root / "password"
+            password.write_text(os.urandom(32).hex())
+            password.chmod(0o600)
+            with patch.dict(os.environ, {"RESTIC_REPOSITORY": str(root / "repository"), "RESTIC_PASSWORD_FILE": str(password)}):
+                backup.run(["restic", "init"])
+                newest = datetime.now(timezone.utc).replace(hour=4, minute=0, second=0, microsecond=0)
+                for day in range(35):
+                    source = root / ("release-a" if day % 2 else "release-b")
+                    source.write_text("invented retention fixture")
+                    backup.run(["restic", "backup", "--tag", "enclave:liberator", "--host", "old-host" if day % 2 else "new-host",
+                                "--time", (newest - timedelta(days=day)).strftime("%Y-%m-%d %H:%M:%S"), str(source)])
+                for tag in ("enclave:liberator:candidate", "enclave:other", "liberator:release"):
+                    backup.run(["restic", "backup", "--tag", tag, str(source)])
+                before = json.loads(backup.run(["restic", "snapshots", "--json"]))
+                backup.retention("liberator")
+                self.assertEqual(len(json.loads(backup.run(["restic", "snapshots", "--json"]))), len(before))
+                backup.retention("liberator", apply=True)
+                after = json.loads(backup.run(["restic", "snapshots", "--json"]))
+                retained = [s for s in after if s.get("tags") == ["enclave:liberator"]]
+                self.assertLess(len(retained), 25, "Paths/hosts must not each receive their own 14-daily policy")
+                retained_days = {datetime.fromisoformat(s["time"].replace("Z", "+00:00")).date() for s in retained}
+                self.assertTrue({(newest - timedelta(days=n)).date() for n in range(14)} <= retained_days)
+                # Calendar-week copies overlap daily copies; four weeks do not
+                # imply that the oldest retained copy is 21 full days old.
+                self.assertGreaterEqual(len({d.isocalendar()[:2] for d in retained_days}), 4)
+                self.assertTrue(any(d <= (newest - timedelta(days=14)).date() for d in retained_days))
+                for tag in ("enclave:liberator:candidate", "enclave:other", "liberator:release"):
+                    self.assertEqual(sum(s.get("tags") == [tag] for s in after), 1)
+                backup.run(["restic", "check", "--read-data"])
+
     def test_real_qdrant_and_postgres_replay(self):
         case = test_operations.CarryoverTests()
         case.setUp()

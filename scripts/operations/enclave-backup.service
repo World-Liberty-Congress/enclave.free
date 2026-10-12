@@ -8,7 +8,9 @@ Requires=docker.service
 Type=oneshot
 User=root
 UMask=0077
-EnvironmentFile=/etc/enclave/backup.env
-# Adjust the checkout path and private config paths when installing.
-ExecStart=/usr/bin/python3 /opt/liberator/scripts/operations/backup.py backup --project liberator --config-path /etc/enclave/production.env --config-path /etc/caddy/Caddyfile --config-path /etc/enclave/backup.env
+EnvironmentFile=/etc/enclave-backup/production-backup.env
+# Install the reviewed operations tool here; enable only after acceptance.
+ExecStart=/usr/bin/python3 /usr/local/lib/enclave-operations/backup.py backup --project liberator --config-path /etc/enclave/production.env --config-path /etc/caddy/Caddyfile --config-path /var/lib/caddy --config-path /etc/enclave-backup/production-backup.env --config-path /etc/enclave-backup/restic-password.key
+# Runs only after backup and application recovery have both returned success.
+ExecStartPost=/usr/bin/python3 /usr/local/lib/enclave-operations/backup.py retention-apply --project liberator
 TimeoutStartSec=infinity

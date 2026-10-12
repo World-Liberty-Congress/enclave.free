@@ -12,7 +12,7 @@
   },
   "checks": {
     "operations_unit_tests": {
-      "passed": 15,
+      "passed": 17,
       "fresh_environment": true,
       "latest_checked_at": "2026-10-12T21:21:48.868284+00:00"
     },
@@ -28,7 +28,8 @@
     "production_compose": {
       "passed": true,
       "service_count": 10,
-      "public_ports": "loopback only"
+      "public_ports": "loopback only",
+      "stable_uploads_host_path": "/srv/liberator/uploads"
     },
     "frontend_production_build": {
       "passed": true,
@@ -68,6 +69,14 @@
       "network": "internal, no host ports",
       "providers": "disabled fixture values; no live inference/email",
       "scope": "Minimal backend + Sage + Postgres startup fixture; Qdrant/Valkey absent so backend health is degraded; not full-stack acceptance"
+    },
+    "retention_rehearsal": {
+      "passed": true,
+      "daily_fixture_snapshots": 35,
+      "paths_and_hosts": "varied; single complete-project policy",
+      "preview": "non-mutating",
+      "other_snapshot_types": "preserved",
+      "read_data_check_after_prune": true
     }
   },
   "outstanding": [
@@ -112,5 +121,6 @@
       }
     ]
   },
-  "live_recovery_and_real_replay_evidence": "production-infrastructure-verification.json"
+  "live_recovery_and_real_replay_evidence": "production-infrastructure-verification.json",
+  "backup_operations_evidence": "production-backup-operations-verification.json"
 }
