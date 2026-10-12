@@ -1,0 +1,193 @@
+{
+  "scope": "Versioned release staging and encrypted artifact recovery; not production acceptance",
+  "manifest": {
+    "release": "release-cd26fb4",
+    "application_revision": "cd26fb4dd950aaa23ca01f4752516ded67cea02f",
+    "deployment_revision": "7413ff1bdbc601faedb56791965d5219889e4bed",
+    "sage_revision": "661b118343dc3d7567f0fb05431ade9175adc93f",
+    "application_build_inputs_unchanged_between_revisions": true,
+    "enclave_repository": "https://github.com/World-Liberty-Congress/enclave.free",
+    "sage_repository": "https://github.com/World-Liberty-Congress/sage",
+    "delivery": "Docker archive and pinned source archives; encrypted off-host restic copy",
+    "images": [
+      {
+        "service": "backend",
+        "tag": "liberator/backend:release-cd26fb4",
+        "image_id": "sha256:71289174840d986574a837dd7cba06d5606f6a1440c736a13010c8fc358b0c51",
+        "architecture": "amd64",
+        "os": "linux",
+        "source_revision": "cd26fb4dd950aaa23ca01f4752516ded67cea02f",
+        "source_repository": "https://github.com/World-Liberty-Congress/enclave.free",
+        "builder_image_id": "sha256:6d3409c504da67e52174c60298951e7f0da28a4154b6a73c2352f5d2094e1a8e",
+        "rootfs_layer_diff_ids": [
+          "sha256:15f1c8eb1ab18eae260c7fb6296434cbe1ff0e1e30fd814ae92a80dd54005e62",
+          "sha256:56864e09c37360dbf846cf5ac9fc3090034f02e382fd0fbe4c7b576207436200",
+          "sha256:ba18d048b43a42f86dc288babadbdfe01602571200fd60c9e172deb8abf4147f",
+          "sha256:020f37c339b9fc549a11bcc5a937b81e3500281270bb62edde29022b27919d86",
+          "sha256:a20a58f5190dbbf7e089c416b2d3472a718917128b01b364eeef19d7ed9feb06",
+          "sha256:4c122bfd65601a5b20a1a2f113e2ee04b8824e624eda6145131bf39272523fb9",
+          "sha256:a489e21dd869766e924d58acb53efbc2d9d67302bc549e57356c2e7fd9f9db58",
+          "sha256:d1e28cf5a9e81f97e8a3384a082b58a88d913a47d527d8465850374cb08d3e1a",
+          "sha256:eeaa027ea6fcfcd76f0f552664dc2d9862715bb4dcb2cd3198fbe31a55360aed",
+          "sha256:cdf0ec5bc3540b44401a4e4ffdc84f74b38732a811bc6402e9b2e43eb9de6c79",
+          "sha256:649adf6908349cb4c3dd108cc9d819658b3c96517b960587ff2fd0e5bb1bc1f1",
+          "sha256:6b33e550a3754a19f54de968c0345ec5909dd995b30f1e77e60b8a4b568bfe2e"
+        ],
+        "image_configuration_sha256": "bb17297c2c6919a2c6f3daf693bec5b21564ba88fef30781cd3cdf29eb14b1c2",
+        "image_id_scope": "Observed target-store ID; config/layer hashes are the portable checks"
+      },
+      {
+        "service": "frontend",
+        "tag": "liberator/frontend:release-cd26fb4",
+        "image_id": "sha256:d7369b4c23ef91d1b77d588d8691a94b391a8b87c1c50797704f97ec73aa42d7",
+        "architecture": "amd64",
+        "os": "linux",
+        "source_revision": "cd26fb4dd950aaa23ca01f4752516ded67cea02f",
+        "source_repository": "https://github.com/World-Liberty-Congress/enclave.free",
+        "builder_image_id": "sha256:02b64ee0e0884a7dd9f6b137204a359d4c2c5262193cfaf25052a993e48b1bca",
+        "rootfs_layer_diff_ids": [
+          "sha256:08000c18d16dadf9553d747a58cf44023423a9ab010aab96cf263d2216b8b350",
+          "sha256:d71eae0084c1aa823dd8fb2ecf8604d5c0f4911226c042bb1f8297e819f4b192",
+          "sha256:c56f134d380585340a68d0db2f2c170641a1c0ff72ccf2438cf2f693df756a85",
+          "sha256:e244aa659f612a80c40dd8645812301e3def6b15ec67b9e486ed2201172b51d1",
+          "sha256:b8d7d1d2263425d6044e059b2810017d062d659b9b755241f3747eda77726250",
+          "sha256:811a4dbbf4a5309e4390cf655c12db92e1a4304fb9d9731f83e7b02e95a617c6",
+          "sha256:947e805a4ac71f68e6703550c0b36c2aa2e554c4fa670ca2da6a25c6d7dccb66",
+          "sha256:0d853d50b128aa460b47e7121849463a14b18d4fd976caf5014744aae24d28aa",
+          "sha256:e30a3e135dfaa1cf1cfe953499181a248fa2acdd2f37aed31c303d9f891d53bf",
+          "sha256:cdc0d38b1cbf284d0478e077d07af02022e610a8657ff83af3adc904e3705270"
+        ],
+        "image_configuration_sha256": "54b895ef5554626f32a553359a7e6835a5d42104d863a01e790e314221c5171a",
+        "image_id_scope": "Observed target-store ID; config/layer hashes are the portable checks"
+      },
+      {
+        "service": "sage",
+        "tag": "liberator/sage:release-cd26fb4",
+        "image_id": "sha256:f29bcbd8b247485cd6f448e89fe447ed874c446367dbdf056b08ca5dc06cc659",
+        "architecture": "amd64",
+        "os": "linux",
+        "source_revision": "661b118343dc3d7567f0fb05431ade9175adc93f",
+        "source_repository": "https://github.com/World-Liberty-Congress/sage",
+        "builder_image_id": "sha256:87dd44c962afd231be8cf4bd0f4c48ca01a3870b754e7f65ed55f238cc0e9ae2",
+        "rootfs_layer_diff_ids": [
+          "sha256:e58989146fcec76699871403b9897b5c014af1ccd85f5a9300a215e7975525d7",
+          "sha256:5d90dc1df4a1d5c2f310a2ef113482b636c2b09dd453bb9c274e469d59aeb429",
+          "sha256:839740c0f2f98c2ce896a3cb013a3840abcc6d5096c11bb0d380c6d86acdd6d0",
+          "sha256:4015fe15cb7ccbfc8d454cbf9807ceb07762be9e6db19c3b01310f1b8fd6348f",
+          "sha256:32a60def4d4591c771318df5dc0e3dbbc86191f6063faa26fe43bd2176102aa8",
+          "sha256:b200b3699700c9d325512f0a4e033d3fe4a2bab6a4c85f1311f5132bd6f7653a",
+          "sha256:b70d365c9b8d583cb5431e138c1ddc551c7c87f798d5fcde41bbe6d23243c2ef",
+          "sha256:a81d94ec7c993303ff03b46bc969380de056c9acaf61b453fb559e5f22769c8c",
+          "sha256:662539721c99750274a5ea27b8079bf36b84eb0c5a8d0048e3b539e58a23e291",
+          "sha256:01a06f05924c027ee72ccaa50854f88fe03bcfe3b120b743b73fac593fca42bb",
+          "sha256:c6db661ad7ea874913b327c482fc04dca4545ff57fa32a2f1d6e637cdc796b20",
+          "sha256:e7920917a1bac1721a20f5e7eaae4faa2d2dc50529a9670fd55b9d738289a629",
+          "sha256:a1829830fbb0644e37dfde318e5352506206e420a81e176204b7e1704a4c45c5",
+          "sha256:797ec727e2282f66ad336b7d1ac3f8a895ca1187a2193deb27053b3dfead9c4f",
+          "sha256:527b7949430cdf9704dc59615fb8852abe3599fbb07fe880fb052f7bec0c23d5"
+        ],
+        "image_configuration_sha256": "7974854a9348eeca075a59113c831c19a17c85396cbc559c9f1e3f7158f22aa5",
+        "image_id_scope": "Observed target-store ID; config/layer hashes are the portable checks"
+      }
+    ],
+    "files": [
+      {
+        "file": "application-images.tar.gz",
+        "bytes": 1284972915,
+        "sha256": "0ce0f283f95bc2edb6d12de3e11c88f8667137bb3118b98b07bb212a1d7328a1"
+      },
+      {
+        "file": "enclave-source.tar",
+        "bytes": 23367680,
+        "sha256": "e0e98a6076fc0c72ee1d902d31f6ecf928d5f51709cd5ea278a89c324e49cd74"
+      },
+      {
+        "file": "sage-source.tar",
+        "bytes": 1730560,
+        "sha256": "adbb6973bd467cdabd01cdecf06be23b51c80d62d4343c62be6a4ef153634d1d"
+      }
+    ],
+    "production_uploaded_files": "/srv/liberator/uploads",
+    "production_instance_started": false,
+    "domain_and_smtp": "pending; never deploy placeholder environment",
+    "infrastructure_images": [
+      {
+        "service": "backend",
+        "image": "nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10"
+      },
+      {
+        "service": "maple-proxy",
+        "image": "ghcr.io/opensecretcloud/maple-proxy@sha256:cdde1f73418cd92794963cda32c2b50c5b2548eb78aab6060026d76a391af73a"
+      },
+      {
+        "service": "postgres",
+        "image": "pgvector/pgvector@sha256:be400b50812ab2cc908ed78593fda2e51e3b45fe774fa637f1c7b16e68531d95"
+      },
+      {
+        "service": "qdrant",
+        "image": "qdrant/qdrant@sha256:89d9d35757eb57c62973c193c96b5b50ca73bbaff7fa282ef81f7fd155a3747d"
+      },
+      {
+        "service": "searxng",
+        "image": "searxng/searxng@sha256:a694c91f5e4f131058564c7b05e689e961aa662b8592197b8bb6f3c6dd69cd7c"
+      },
+      {
+        "service": "tinfoil-proxy",
+        "image": "ghcr.io/tinfoilsh/tinfoil-proxy@sha256:bd9d6f4dbf82e8d734b2d9dbc60ec79d3c8698b51ab7773ccc937b6d372e1a91"
+      },
+      {
+        "service": "valkey",
+        "image": "valkey/valkey@sha256:77643d152547b446fc15cbafaff22004545663fcd40c6b28038ad283837baa75"
+      }
+    ]
+  },
+  "server": {
+    "checked_at": "2026-10-12T22:05:31Z",
+    "release": "release-cd26fb4",
+    "application_revision": "cd26fb4dd950aaa23ca01f4752516ded67cea02f",
+    "deployment_revision": "7413ff1bdbc601faedb56791965d5219889e4bed",
+    "sha256_and_size_checks": true,
+    "all_application_filesystem_layers_and_configuration_match": true,
+    "source_labels_match": true,
+    "identifier_difference": "Builder and target IDs differ; complete image configuration and filesystem-layer digests are identical",
+    "infrastructure_images_present": 7,
+    "source_extracted": "/opt/liberator/releases/release-cd26fb4",
+    "installed_backup_tool_matches_source": true,
+    "loaded_application_images": 3,
+    "running_application_containers": 0,
+    "production_started": false
+  },
+  "off_host_recovery": {
+    "release": "release-cd26fb4",
+    "snapshot_id": "cab581e26fc856d00aab60957fc07d450fed04aa5dbcc0f150ebbf4912076c1f",
+    "repository_prefix": "production",
+    "encrypted_off_host": true,
+    "total_files": 7,
+    "total_bytes": 1310082529,
+    "checked_at": "2026-10-12T22:09:07.940550+00:00",
+    "full_repository_read_check": true,
+    "isolated_restore_verified": true,
+    "all_final_release_files_byte_equal": {
+      "application-images.tar.gz": true,
+      "enclave-source.tar": true,
+      "image-load.log": true,
+      "portable-image-validation.json": true,
+      "release-manifest.json": true,
+      "sage-source.tar": true,
+      "server-release-verification.json": true
+    },
+    "restore_seconds": 43.6,
+    "production_started": false,
+    "recovery_directory_removed": true
+  },
+  "remaining": [
+    "Organization domain and DNS/HTTPS setup",
+    "Mailgun sending-domain verification, SMTP authentication and delivery",
+    "Admin-conversation review and final consistent freeze/export",
+    "Clean production replay with actual destination settings and keys",
+    "Protected product/Admin/login/inference/fallback acceptance and rollback",
+    "Complete production backup/restore and timer activation",
+    "Proton Pass and manual Signal credential handoff",
+    "Technical handoff and demo retirement"
+  ]
+}

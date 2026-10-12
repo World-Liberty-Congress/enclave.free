@@ -1,6 +1,6 @@
 {
   "checked_at": "2026-10-11T17:42:04.259216+00:00",
-  "scope": "Preparation and invented-data tests; live infrastructure and demo-backup checks recorded in production-infrastructure-verification.json",
+  "scope": "Preparation and invented-data tests; live recovery/replay and staged release have separate linked evidence",
   "source_baseline": {
     "enclave": "43703a9db18f2bbc07aefa94bb24b257d4c896ab",
     "demo_backend": "285d2e1ab474cf954737fea8d5db58de95c2af5a",
@@ -14,7 +14,7 @@
     "operations_unit_tests": {
       "passed": 17,
       "fresh_environment": true,
-      "latest_checked_at": "2026-10-12T21:21:48.868284+00:00"
+      "latest_checked_at": "2026-10-12T22:10:08.289702+00:00"
     },
     "isolated_storage_rehearsal": {
       "passed": 2,
@@ -80,12 +80,10 @@
     }
   },
   "outstanding": [
-    "Publish accepted application images and record registry manifest digests",
-    "Restore and verify the complete application stack",
     "Production acceptance, credential handoff, and demo retirement",
-    "Organization domain and Mailgun production sending configuration",
-    "Daily backup scheduling/retention and private recovery-key handoff",
-    "Final reviewed freeze and production replay with actual destination values"
+    "Organization domain and Mailgun sending-domain/SMTP/delivery configuration",
+    "Final Admin-conversation review, freeze and production replay with actual destination values",
+    "Full production backup/restore and daily timer activation; operator alert and responsibility decisions"
   ],
   "application_images": {
     "build_passed": true,
@@ -119,8 +117,12 @@
         "source_revision": "661b118343dc3d7567f0fb05431ade9175adc93f",
         "source_repository": "https://github.com/World-Liberty-Congress/sage"
       }
-    ]
+    ],
+    "delivery": "Verified versioned Docker archive, loaded on organization server and restored from encrypted organization Spaces; package publication optional",
+    "release_evidence": "production-release-verification.json"
   },
   "live_recovery_and_real_replay_evidence": "production-infrastructure-verification.json",
-  "backup_operations_evidence": "production-backup-operations-verification.json"
+  "backup_operations_evidence": "production-backup-operations-verification.json",
+  "release_delivery_evidence": "production-release-verification.json",
+  "mailgun_transport_evidence": "production-mailgun-transport-verification.json"
 }
