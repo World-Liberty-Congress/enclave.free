@@ -1,0 +1,8 @@
+# Keep the application closed during production preparation.
+liberator.global, www.liberator.global {
+	header {
+		X-Robots-Tag "noindex, nofollow"
+		Cache-Control "no-store"
+	}
+	respond "Liberator is being prepared. Please check back later." 503
+}
