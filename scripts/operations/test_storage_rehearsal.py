@@ -83,6 +83,7 @@ class StorageRehearsal(unittest.TestCase):
                 for name in ("core-backend", "sage", "postgres", "qdrant", "frontend", "backend"):
                     containers.append({"Id": name, "Image": name + "-image", "State": {"Running": True}, "Config": {"Env": ["FAKE_SECRET=private-data-canary"], "Labels": {"com.docker.compose.service": name}}, "Mounts": [{"Type": "bind", "Source": str(source)}]})
                 real_run = backup.run
+                running = {c["Id"] for c in containers}
                 def runner(args, **kwargs):
                     calls.append(args)
                     if args[:3] == ["docker", "image", "inspect"]:
@@ -91,7 +92,11 @@ class StorageRehearsal(unittest.TestCase):
                         Path(args[args.index("--output") + 1]).write_bytes(b"fixture custom image archive")
                         return ""
                     if args[:2] == ["docker", "inspect"]:
-                        return json.dumps([{"State": {"Running": False}} for c in containers])
+                        return json.dumps([{"State": {"Running": name in running}} for name in args[2:]])
+                    if args[:2] == ["docker", "stop"]:
+                        running.difference_update(args[4:])
+                    if args[:2] == ["docker", "start"]:
+                        running.update(args[2:])
                     if args[0] == "docker":
                         return ""
                     return real_run(args, **kwargs)
@@ -109,7 +114,9 @@ class StorageRehearsal(unittest.TestCase):
                     self.assertEqual(c.execute("PRAGMA integrity_check").fetchone()[0], "ok")
                     self.assertEqual(c.execute("SELECT value FROM fixture").fetchone()[0], "retained state")
                 real_run(["restic", "check", "--read-data"])
-                self.assertIn(["docker", "start", *[c["Id"] for c in containers]], calls)
+                self.assertEqual(running, {c["Id"] for c in containers})
+                manifest = json.loads((target / str(root / "state" / "recovery" / "runtime.json").lstrip("/")).read_text())
+                self.assertEqual(set(manifest["images"]), {c["Image"] for c in containers})
                 # Repository blobs must not contain the plaintext private-data canary.
                 for p in (root / "encrypted-repository" / "data").rglob("*"):
                     if p.is_file():

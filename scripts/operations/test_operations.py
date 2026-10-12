@@ -201,19 +201,72 @@ class BackupTests(unittest.TestCase):
             mount.mkdir()
             state = root / "backup-state"
             calls = []
+            running = True
             container = {"Id": "original-running", "Image": "image-id", "State": {"Running": True}, "Config": {"Labels": {"com.docker.compose.service": "sage"}}, "Mounts": [{"Type": "bind", "Source": str(mount)}]}
             def runner(args, **kwargs):
+                nonlocal running
                 calls.append(args)
+                if args[:3] == ["docker", "image", "inspect"]:
+                    return json.dumps([{"RepoDigests": []}])
+                if args[:2] == ["docker", "stop"]:
+                    running = False
+                if args[:2] == ["docker", "start"]:
+                    running = True
                 if args[:2] == ["docker", "inspect"]:
-                    return json.dumps([{"State": {"Running": False}}])
+                    return json.dumps([{"State": {"Running": running}}])
                 if args[:2] == ["restic", "backup"]:
                     raise backup.BackupError("fixture upload failure")
                 return ""
-            with patch.object(backup, "inspect_project", return_value=[container]), patch.object(backup, "run", side_effect=runner), self.assertRaises(backup.BackupError):
+            with patch.object(backup, "inspect_project", return_value=[container]), patch.object(backup, "run", side_effect=runner), self.assertRaisesRegex(backup.BackupError, "fixture upload failure"):
                 backup.backup("fixture", [config], state)
             self.assertIn(["docker", "start", "original-running"], calls)
             self.assertLess(next(i for i,a in enumerate(calls) if a[:2] == ["docker", "stop"]), next(i for i,a in enumerate(calls) if a[:2] == ["restic", "backup"]))
             self.assertFalse((state / "recovery").exists())
+
+    def test_recovery_waits_for_dependencies_and_keeps_stopped_services_stopped(self):
+        containers = [{"Id": service, "State": {"Running": service != "stopped"},
+                       "Config": {"Labels": {"com.docker.compose.service": service}}}
+                      for service in ("backend", "sage", "postgres", "stopped")]
+        ready = set()
+        starting = set()
+        calls = []
+        def runner(args, **kwargs):
+            calls.append(args)
+            if args[:2] == ["docker", "start"]:
+                for service in args[2:]:
+                    dependency = {"sage": "postgres", "backend": "sage"}.get(service)
+                    if dependency and dependency not in ready:
+                        raise backup.BackupError("dependency not ready")
+                    starting.add(service)
+                return ""
+            result = []
+            for service in args[2:]:
+                status = "healthy" if service in ready else "starting"
+                result.append({"State": {"Running": service in starting, "Health": {"Status": status}}})
+                ready.add(service)
+            return json.dumps(result)
+        with patch.object(backup, "run", side_effect=runner), patch.object(backup.time, "sleep"):
+            backup.restart_original(containers)
+        self.assertEqual(ready, {"postgres", "sage", "backend"})
+        self.assertNotIn("stopped", starting)
+
+    def test_failed_recovery_attempts_remaining_services_and_reports_failure(self):
+        containers = [{"Id": service, "State": {"Running": True},
+                       "Config": {"Labels": {"com.docker.compose.service": service}}}
+                      for service in ("postgres", "sage", "backend")]
+        started = []
+        def runner(args, **kwargs):
+            if args[:2] == ["docker", "start"]:
+                started.extend(args[2:])
+                return ""
+            return json.dumps([{"State": {"Running": args[2] != "sage"}}])
+        with patch.object(backup, "run", side_effect=runner), self.assertRaisesRegex(backup.BackupError, "Service recovery incomplete"):
+            backup.restart_original(containers)
+        self.assertEqual(started, ["postgres", "sage", "backend"])
+
+    def test_recovery_timeout_is_reported(self):
+        with patch.object(backup, "run", return_value=json.dumps([{"State": {"Running": True, "Health": {"Status": "starting"}}}])), self.assertRaisesRegex(backup.BackupError, "did not become healthy"):
+            backup.wait_ready(["slow-service"], timeout=0)
 
     def test_restore_never_overwrites_existing_target(self):
         with tempfile.TemporaryDirectory() as temp:

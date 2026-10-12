@@ -1,0 +1,76 @@
+{
+  "checked_at": "2026-10-12T21:23:02Z",
+  "restart_seconds": 86.9,
+  "dependency_aware_restart_on_real_docker": true,
+  "checks": {
+    "gateway_health": 200,
+    "frontend": 200,
+    "sqlite_integrity": "ok",
+    "foreign_key_errors": 0,
+    "sqlite_counts": {
+      "users": 24,
+      "admins": 1,
+      "instance_settings": 34,
+      "retrieval_chunks": 964,
+      "ingest_jobs": 33,
+      "user_types": 3,
+      "resources": 23
+    }
+  },
+  "network_internal": true,
+  "containers": [
+    {
+      "service": "/liberator-restore-frontend",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "/liberator-restore-sage",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "/liberator-restore-core-backend",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "/liberator-restore-tinfoil-proxy",
+      "running": false,
+      "health": "no healthcheck"
+    },
+    {
+      "service": "/liberator-restore-maple-proxy",
+      "running": true,
+      "health": "no healthcheck"
+    },
+    {
+      "service": "/liberator-restore-backend",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "/liberator-restore-postgres",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "/liberator-restore-qdrant",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "/liberator-restore-valkey",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "/liberator-restore-searxng",
+      "running": true,
+      "health": "healthy"
+    }
+  ],
+  "tinfoil": "Expected exit: external attestation blocked by internal network",
+  "ports": "loopback-only bindings; Docker internal network does not publish them, checks use private bridge addresses",
+  "acceptance": "isolated storage/application-core recovery passed; live providers, mail, Admin and protected flows pending"
+}

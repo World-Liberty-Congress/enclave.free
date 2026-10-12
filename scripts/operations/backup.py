@@ -11,6 +11,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 
@@ -68,6 +69,43 @@ def check_repository(allow_local: bool) -> None:
     run(["restic", "snapshots", "--json"])
 
 
+def wait_ready(ids: list[str], timeout: float = 120) -> None:
+    deadline = time.monotonic() + timeout
+    while True:
+        containers = json.loads(run(["docker", "inspect", *ids]))
+        if any(not c["State"]["Running"] for c in containers):
+            raise BackupError("A restarted service exited; inspect the host before reporting recovery")
+        if all(c["State"].get("Health", {}).get("Status", "healthy") == "healthy" for c in containers):
+            return
+        if time.monotonic() >= deadline:
+            raise BackupError(f"Restarted services did not become healthy within {timeout:g} seconds")
+        time.sleep(1)
+
+
+def restart_original(containers: list[dict]) -> None:
+    # Sage requires a ready Postgres server; nginx resolves upstreams at startup.
+    # Docker start does not apply Compose dependency ordering or wait for health.
+    groups: list[list[str]] = [[], [], []]
+    for c in containers:
+        if not c["State"]["Running"]:
+            continue
+        service = c["Config"]["Labels"].get("com.docker.compose.service")
+        tier = 2 if service == "backend" else 1 if service in {"core-backend", "sage", "frontend"} else 0
+        groups[tier].append(c["Id"])
+    errors = []
+    for ids in groups:
+        if not ids:
+            continue
+        try:
+            run(["docker", "start", *ids])
+            wait_ready(ids)
+        except BackupError as exc:
+            # Still attempt the remaining originally running services on error.
+            errors.append(str(exc))
+    if errors:
+        raise BackupError("Service recovery incomplete: " + "; ".join(errors))
+
+
 def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
     containers = inspect_project(project)
     paths = source_paths(containers, config_paths)
@@ -75,11 +113,11 @@ def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
     if not original_running:
         raise BackupError("No running services; inspect the deployment before backing it up")
     # Custom images must survive account/host loss independently of local tags.
+    images = {image: json.loads(run(["docker", "image", "inspect", image]))[0]
+              for image in sorted({c["Image"] for c in containers})}
     custom_images = sorted({c["Image"] for c in containers if c["Config"]["Labels"].get(
         "com.docker.compose.service"
-    ) in {"core-backend", "sage", "frontend"} or not json.loads(
-        run(["docker", "image", "inspect", c["Image"]])
-    )[0].get("RepoDigests")})
+    ) in {"core-backend", "sage", "frontend"} or not images[c["Image"]].get("RepoDigests")})
     manifest = {
         "format_version": 1,
         "project": project,
@@ -87,6 +125,7 @@ def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
         "consistency": "all originally running project containers stopped for entire snapshot",
         "sources": [str(p) for p in paths],
         "containers": containers,  # Contains secrets: encrypted repository only.
+        "images": images,  # Registry digests permit exact infrastructure recovery.
     }
     state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     if state_dir.stat().st_mode & 0o077:
@@ -138,7 +177,7 @@ def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
             try:
                 # Includes containers stopped before docker stop was interrupted.
                 if stopping_started:
-                    run(["docker", "start", *original_running])
+                    restart_original(containers)
             finally:
                 for s, handler in previous.items():
                     signal.signal(s, handler)

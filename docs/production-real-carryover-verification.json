@@ -1,0 +1,70 @@
+{
+  "checked_at": "2026-10-12T21:24:32Z",
+  "scope": "Real retained data from encrypted demo backup; fixture destination values and fresh fixture keys; output is not deployable production",
+  "export": {
+    "status": "encrypted carryover exported",
+    "retained_counts": {
+      "instance_settings": 34,
+      "user_types": 3,
+      "user_field_definitions": 23,
+      "ai_config": 13,
+      "ai_config_user_type_overrides": 0,
+      "country_regions": 197,
+      "resources": 23,
+      "ingest_jobs": 33,
+      "document_defaults": 33,
+      "document_defaults_user_type_overrides": 0,
+      "retrieval_chunks": 964,
+      "deployment_config": 52
+    },
+    "active_artifact_count": 30,
+    "absent_inactive_artifact_count": 3,
+    "knowledge_vector_count": 910
+  },
+  "replay": {
+    "status": "offline replay verified",
+    "retained_counts": {
+      "ai_config": 13,
+      "ai_config_user_type_overrides": 0,
+      "country_regions": 197,
+      "deployment_config": 52,
+      "document_defaults": 33,
+      "document_defaults_user_type_overrides": 0,
+      "ingest_jobs": 33,
+      "instance_settings": 34,
+      "resources": 23,
+      "retrieval_chunks": 964,
+      "user_field_definitions": 23,
+      "user_types": 3
+    },
+    "encrypted_artifact_count": 30,
+    "knowledge_vector_count": 910,
+    "absent_inactive_artifact_count": 3,
+    "excluded_identity_and_history_rows": 0,
+    "remaining": "Apply Sage settings and vectors to an isolated clean stack, then verify full product behavior"
+  },
+  "verification": {
+    "status": "offline replay verified",
+    "retained_counts": {
+      "ai_config": 13,
+      "ai_config_user_type_overrides": 0,
+      "country_regions": 197,
+      "deployment_config": 52,
+      "document_defaults": 33,
+      "document_defaults_user_type_overrides": 0,
+      "ingest_jobs": 33,
+      "instance_settings": 34,
+      "resources": 23,
+      "retrieval_chunks": 964,
+      "user_field_definitions": 23,
+      "user_types": 3
+    },
+    "encrypted_artifact_count": 30,
+    "knowledge_vector_count": 910,
+    "absent_inactive_artifact_count": 3,
+    "excluded_identity_and_history_rows": 0,
+    "remaining": "Apply Sage settings and vectors to an isolated clean stack, then verify full product behavior"
+  },
+  "source_snapshot": "83ab869b115cd9842e90a4f584a0d861408a7eb4f6cc57a0f1a3e7a8098afcfb",
+  "remaining": "Apply Sage and vectors to clean stores; protected product checks; final freeze/export with real domain/SMTP values"
+}

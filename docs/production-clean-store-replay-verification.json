@@ -1,0 +1,29 @@
+{
+  "checked_at": "2026-10-12T21:25:23Z",
+  "scope": "Real retained configuration/knowledge in clean isolated stores; fixture destination and keys",
+  "sage": {
+    "status": "Sage Agent Settings applied and compared",
+    "config_count": 9,
+    "override_count": 1
+  },
+  "sage_counts": {
+    "agents": 0,
+    "web_sessions": 0,
+    "messages": 0,
+    "ai_config": 9,
+    "ai_config_user_type_overrides": 1
+  },
+  "index": {
+    "status": "knowledge index applied and compared",
+    "point_count": 910,
+    "maximum_vector_difference": 0.0
+  },
+  "persistence_after_restart": true,
+  "stored_vector_retrieval": true,
+  "application_reader": {
+    "application_reader_decrypted_chunks": 964,
+    "application_reader_decrypted_artifacts": 30
+  },
+  "public_access": false,
+  "remaining": "Final reviewed freeze/export, organization Admin bootstrap, actual domain/SMTP/provider values and protected product acceptance"
+}
