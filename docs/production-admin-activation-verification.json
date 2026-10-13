@@ -1,0 +1,173 @@
+{
+  "checked_at": "2026-10-13T00:13:33Z",
+  "signal_handoff_completed": true,
+  "activation_method": "locally signed dedicated Nostr event submitted through actual HTTPS browser authentication endpoint",
+  "authentication_status": 200,
+  "is_new": true,
+  "admin_count": 1,
+  "dedicated_identity_matches": true,
+  "authenticated_session_status": 200,
+  "authenticated_admin_list_status": 200,
+  "real_nip07_extension_login_verified": false,
+  "public_access": false,
+  "dashboard_render_verified": true,
+  "logout_status": 200,
+  "logged_out_session_status": 401,
+  "recovery_status": 200,
+  "recovery_is_new": false,
+  "recovered_session_status": 200,
+  "unrelated_identity_status": 403,
+  "protected_application_inference": true,
+  "protected_knowledge_search": true,
+  "knowledge_retrieval_result_count": 8,
+  "verification_sessions_deleted": true,
+  "sage_after_cleanup": {
+    "agents": 0,
+    "web_sessions": 0,
+    "messages": 0
+  },
+  "note": "Locally signed event uses the actual HTTPS authentication endpoint. A real NIP-07 browser-extension sign-in is still required during handoff. Verification conversation was deleted through the product endpoint.",
+  "source_history_imported": false,
+  "users_after_cleanup": 0,
+  "daily_backup_timer_enabled": false,
+  "mailgun_application_signin_verified": true,
+  "maple_application_fallback_verified": false,
+  "initialized_admin_backup": {
+    "project": "liberator",
+    "snapshot_id": "c6dcf94dad56e7f3fabea045f6ed809700a6f59227ae0a1841b6cecf3c0b4fa0",
+    "source_count": 17,
+    "custom_image_count": 3
+  },
+  "isolated_restore": {
+    "application_start_seconds": 172.5,
+    "restored_data": {
+      "application_reader": {
+        "sqlite_integrity": true,
+        "foreign_keys_valid": true,
+        "retained_counts_match": true,
+        "retained_settings_and_metadata_hash_match": true,
+        "deployment_values_match": true,
+        "application_decrypted_chunks": 964,
+        "application_decrypted_artifacts": 30,
+        "users": 0,
+        "admins": 1,
+        "source_history": 0
+      },
+      "sage_counts": {
+        "agents": 0,
+        "web_sessions": 0,
+        "messages": 0,
+        "ai_config": 9,
+        "ai_config_user_type_overrides": 1
+      },
+      "sage_settings_match": true,
+      "restored_vectors_match": true,
+      "stored_vector_retrieval": true,
+      "checked_at": "2026-10-13T00:03:17Z",
+      "mail_and_inference_blocked_by_internal_network": true,
+      "public_access": false
+    },
+    "restored_admin_authentication": {
+      "dedicated_admin_recovery_status": 200,
+      "identity_matches": true,
+      "existing_admin_recovered": true,
+      "secure_httponly_samesite_cookie": true,
+      "restored_authenticated_session_status": 200,
+      "method": "locally signed event against isolated restored backend; bearer accepted inside isolated HTTP network",
+      "real_browser_extension_login": false
+    },
+    "cleanup": {
+      "checked_at": "2026-10-13T00:13:47.346534+00:00",
+      "temporary_recovery_containers_removed": 10,
+      "temporary_recovery_network_removed": true,
+      "restored_directories_removed": 2,
+      "closed_edge_matches_template": true,
+      "public_http_status": 503,
+      "daily_backup_timer_enabled": false,
+      "daily_backup_timer_active": false
+    }
+  },
+  "live_after_user_cleanup": {
+    "application_reader": {
+      "sqlite_integrity": true,
+      "foreign_keys_valid": true,
+      "retained_counts_match": true,
+      "retained_settings_and_metadata_hash_match": true,
+      "deployment_values_match": true,
+      "application_decrypted_chunks": 964,
+      "application_decrypted_artifacts": 30,
+      "users": 0,
+      "admins": 1,
+      "source_history": 0
+    },
+    "sage_counts": {
+      "agents": 0,
+      "web_sessions": 0,
+      "messages": 0,
+      "ai_config": 9,
+      "ai_config_user_type_overrides": 1
+    },
+    "services": {
+      "frontend": "healthy",
+      "backend": "healthy",
+      "sage": "healthy",
+      "core-backend": "healthy",
+      "maple-proxy": "healthy",
+      "tinfoil-proxy": "healthy",
+      "valkey": "healthy",
+      "searxng": "healthy",
+      "postgres": "healthy",
+      "qdrant": "healthy"
+    },
+    "gateway_health": {
+      "status": "healthy",
+      "services": {
+        "qdrant": "healthy",
+        "shared_rate_limit_store": "healthy"
+      }
+    },
+    "checked_at": "2026-10-13T00:13:33Z",
+    "public_access": false,
+    "admin_bootstrapped": true,
+    "protected_browser_https_setup_page": true
+  },
+  "recipient_secure_storage_confirmation_pending": true,
+  "application_signin": {
+    "authorized_email_count": 1,
+    "send_attempt_count": 1,
+    "send_succeeded": true,
+    "inbox_delivery_verified_in_safari": true,
+    "production_domain_login_link_verified": true,
+    "magic_link_login_verified": true,
+    "user_type_selection_verified": true,
+    "onboarding_required_fields": 13,
+    "onboarding_completed_required_fields": 13,
+    "onboarding_complete": true,
+    "automatic_approval_verified": true,
+    "user_has_admin_access": false,
+    "protected_user_inference_verified": true,
+    "user_conversation_owner_verified": true,
+    "temporary_user_conversation_deleted": true,
+    "temporary_session_log_deleted": true,
+    "transcript_file_removed": true,
+    "temporary_user_deleted": true,
+    "user_deletion_status": 200,
+    "admin_logout_status": 200,
+    "counts": {
+      "users": 0,
+      "admins": 1,
+      "user_field_values": 0,
+      "user_memories": 0,
+      "session_logs": 0,
+      "session_log_feedback": 0
+    },
+    "foreign_keys_valid": true,
+    "profile_encryption": {
+      "dedicated_admin_locally_decrypts_user_email_and_name": true,
+      "encrypted_onboarding_fields_decrypted": 14,
+      "all_decrypted_fields_contain_only_invented_test_data": true,
+      "real_nip07_extension_decryption_verified": false
+    },
+    "cleanup_requirement": "Delete the temporary user session log through the Admin endpoint before deleting the user; retained session_logs foreign key otherwise makes user deletion return HTTP 500."
+  }
+}
