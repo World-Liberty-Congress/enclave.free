@@ -153,6 +153,38 @@ class UserDeletionLifecycleTest(unittest.TestCase):
         self.assertEqual(verify.status_code, 200)
         self.assertTrue(verify.json()["valid"])
 
+    def test_user_deletion_detaches_retained_session_logs(self) -> None:
+        other_user_id = self.database.create_user(pubkey="b" * 64)
+        with self.database.get_cursor() as cursor:
+            for log_id, user_id in (("deleted-user-log", self.user_id), ("other-user-log", other_user_id)):
+                cursor.execute(
+                    "INSERT INTO session_logs (log_id, source, subject_user_id, transcript_ciphertext) "
+                    "VALUES (?, 'user', ?, 'encrypted-transcript')",
+                    (log_id, user_id),
+                )
+            cursor.execute(
+                "INSERT INTO session_log_feedback (log_id, turn_index, rating) "
+                "VALUES ('deleted-user-log', 0, 'up')"
+            )
+
+        for _ in range(2):
+            response = self.client.delete(f"/users/{self.user_id}")
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.json()["success"])
+        self.assertIsNone(self.database.get_user(self.user_id))
+        self.assertIsNone(self.database.get_user_memory(self.memory_id))
+        self.assertIsNotNone(self.database.get_user(other_user_id))
+        with self.database.get_cursor() as cursor:
+            rows = cursor.execute(
+                "SELECT log_id, subject_user_id, transcript_ciphertext FROM session_logs ORDER BY log_id"
+            ).fetchall()
+            self.assertEqual([tuple(row) for row in rows], [
+                ("deleted-user-log", None, "encrypted-transcript"),
+                ("other-user-log", other_user_id, "encrypted-transcript"),
+            ])
+            self.assertEqual(cursor.execute("SELECT COUNT(*) FROM session_log_feedback").fetchone()[0], 1)
+            self.assertEqual(cursor.execute("PRAGMA foreign_key_check").fetchall(), [])
+
     def test_user_deletion_is_safe_to_repeat(self) -> None:
         first = self.client.delete(f"/users/{self.user_id}")
         self.assertEqual(first.status_code, 200)

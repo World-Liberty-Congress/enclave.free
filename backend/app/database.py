@@ -3690,6 +3690,8 @@ def purge_user_memories_for_subject_user(subject_user_id: int) -> int:
 def delete_user_lifecycle(user_id: int) -> dict:
     """Delete a User Profile and associated User Memory with lifecycle counts."""
     with get_cursor() as cursor:
+        # Historical logs retain their own lifecycle after the User Profile is deleted.
+        cursor.execute("UPDATE session_logs SET subject_user_id = NULL WHERE subject_user_id = ?", (user_id,))
         purged_memories = _purge_user_memories_for_subject_user_tx(cursor, user_id)
         cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
         user_deleted = cursor.rowcount > 0
