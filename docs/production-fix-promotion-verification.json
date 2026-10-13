@@ -1,0 +1,514 @@
+{
+  "checked_date": "2026-10-13",
+  "production_release": "release-65448c1",
+  "enclave_revision": "65448c14c3bd5fe61e7e1646c89aaed04c98fa29",
+  "sage_revision": "ad12cc9fa51c6b0db03753055a7673dadf4b0153",
+  "previous_release": "release-cd26fb4",
+  "organization_forks": {
+    "enclave": "World-Liberty-Congress/enclave.free",
+    "sage": "World-Liberty-Congress/sage",
+    "sage_baseline_fast_forwarded": true
+  },
+  "fixes": [
+    "Sage #58: reject legacy dev-token and signed dev_mode sessions",
+    "Enclave #677: detach Session Log User reference before User deletion"
+  ],
+  "source_checks": {
+    "required_frontend_hook_tests": 493,
+    "new_backend_image_user_deletion_lifecycle_tests": 6,
+    "sage_fmt_check": true,
+    "ci_status_for_new_commits_inspected": false
+  },
+  "prepromotion_recovery": {
+    "backup": {
+      "project": "liberator",
+      "snapshot_id": "5c5a6393994a4e03e6464c0f7bd8d9c08ff4874c7fe7e841e14a7efeaee0c602",
+      "source_count": 17,
+      "custom_image_count": 3
+    },
+    "file_restore": {
+      "snapshot_id": "5c5a6393994a4e03e6464c0f7bd8d9c08ff4874c7fe7e841e14a7efeaee0c602",
+      "isolated_restore": "/srv/enclave-migration/production-promotion-recovery-20261013",
+      "status": "restored and verified; application startup drill still required"
+    },
+    "application_restore_seconds": 119.4,
+    "isolated_network": true,
+    "published_ports": false,
+    "outbound_provider_and_mail_blocked": true,
+    "restored_data": {
+      "application_reader": {
+        "sqlite_integrity": true,
+        "foreign_keys_valid": true,
+        "retained_counts_match": true,
+        "retained_settings_and_metadata_hash_match": true,
+        "deployment_values_match": true,
+        "application_decrypted_chunks": 964,
+        "application_decrypted_artifacts": 30,
+        "users": 0,
+        "admins": 1,
+        "source_history": 0
+      },
+      "sage_counts": {
+        "agents": 0,
+        "web_sessions": 0,
+        "messages": 0,
+        "ai_config": 9,
+        "ai_config_user_type_overrides": 1
+      },
+      "sage_settings_match": true,
+      "restored_vectors_match": true,
+      "stored_vector_retrieval": true,
+      "checked_at": "2026-10-13T22:10:58Z",
+      "mail_and_inference_blocked_by_internal_network": true,
+      "public_access": false,
+      "admin_and_email_login_acceptance": false
+    },
+    "admin_recovery": {
+      "dedicated_admin_recovery_status": 200,
+      "identity_matches": true,
+      "existing_admin_recovered": true,
+      "secure_httponly_samesite_cookie": true,
+      "restored_authenticated_session_status": 200,
+      "method": "locally signed event against isolated restored backend; bearer accepted inside isolated HTTP network",
+      "real_browser_extension_login": false
+    },
+    "cleanup": {
+      "temporary_containers_removed": 10,
+      "temporary_network_removed": true,
+      "restored_directories_removed": 2
+    }
+  },
+  "release_delivery": {
+    "release": "release-65448c1",
+    "sha256_manifest_matches": true,
+    "images": [
+      {
+        "service": "backend",
+        "tag": "liberator/backend:release-65448c1",
+        "target_image_id": "sha256:1286b1d0f00745d2ce25fa47b9f0b20a99c3526686ac310f71d77bbeaf7794ca",
+        "portable_config_and_layers_match": true,
+        "architecture": "amd64"
+      },
+      {
+        "service": "sage",
+        "tag": "liberator/sage:release-65448c1",
+        "target_image_id": "sha256:2f6a797fcde38866eb2eaaefa45df55b476411d206c834e7831dd24765587551",
+        "portable_config_and_layers_match": true,
+        "architecture": "amd64"
+      },
+      {
+        "service": "frontend",
+        "tag": "liberator/frontend:release-65448c1",
+        "target_image_id": "sha256:9a1209836dfd33c77612c89ec45b14feac7e9c36751354cf2e95218317f4f60e",
+        "portable_config_and_layers_match": true,
+        "architecture": "amd64"
+      }
+    ],
+    "encrypted_release_snapshot": "89b765eea6f18e4943f82f8bdd296692fb984a0cad0cd30b245999a5584b067c",
+    "full_repository_read_check": true,
+    "encrypted_release_restore_verified": true,
+    "restored_release_copy_removed": true,
+    "success": true,
+    "checked_at": "2026-10-13T22:17:12Z"
+  },
+  "rollout": {
+    "release": "release-65448c1",
+    "previous_release": "release-cd26fb4",
+    "auth_rejection": {
+      "legacy_dev_token": {
+        "session_list": 401,
+        "chat": 401
+      },
+      "signed_dev_mode": {
+        "session_list": 401,
+        "chat": 401
+      },
+      "no_token": {
+        "session_list": 401,
+        "chat": 401
+      }
+    },
+    "services": {
+      "frontend": "healthy",
+      "backend": "healthy",
+      "sage": "healthy",
+      "core-backend": "healthy",
+      "searxng": "healthy",
+      "maple-proxy": "healthy",
+      "tinfoil-proxy": "healthy",
+      "valkey": "healthy",
+      "postgres": "healthy",
+      "qdrant": "healthy"
+    },
+    "public_http_status": 503,
+    "rollout_seconds": 60.9,
+    "success": true,
+    "automatic_rollback_triggered": false,
+    "rollback_script": "/srv/enclave-migration/promotion-rollback-20261013/rollback.sh",
+    "checked_at": "2026-10-13T22:25:48Z"
+  },
+  "first_rollout_attempt": {
+    "verification_harness_indentation_error": true,
+    "missing_result_triggered_automatic_rollback": true,
+    "previous_release_healthy_after_rollback": true,
+    "retained_data_reader_passed_after_rollback": true,
+    "corrected_harness_passed_second_attempt": true
+  },
+  "admin_knowledge_retest": {
+    "release": "release-65448c1",
+    "verification_method": "actual HTTPS APIs through secret-cookie operator gate; locally signed Admin event; supported Admin test-persona token endpoints",
+    "new_email_sent": false,
+    "prior_failed_admin_conversations": 0,
+    "status": 200,
+    "nonempty_response": true,
+    "response_fields": [
+      "message",
+      "session_id",
+      "model",
+      "provider",
+      "tools_used",
+      "trace"
+    ],
+    "success": true,
+    "logout_status": 200,
+    "conversation_cleanup_statuses": [
+      200
+    ],
+    "checked_at": "2026-10-13T22:36:42.670146+00:00",
+    "tool_selector": "knowledge-search",
+    "tools_used": [
+      {
+        "tool_id": "knowledge-search",
+        "tool_name": "Knowledge Search",
+        "query": "uploaded-document search",
+        "output_summary": "Retrieved uploaded-document passages for the answer.",
+        "metadata": {}
+      }
+    ],
+    "model": "deepseek-v4-1-flash",
+    "provider": "sage",
+    "knowledge_search_used": true,
+    "workbook_title_in_answer": true,
+    "initial_test_issue": "Verification harness selected internal tool name knowledge_search; corrected to application selector knowledge-search."
+  },
+  "final_live_data_reader": {
+    "application_reader": {
+      "sqlite_integrity": true,
+      "foreign_keys_valid": true,
+      "retained_counts_match": true,
+      "retained_settings_and_metadata_hash_match": true,
+      "deployment_values_match": true,
+      "application_decrypted_chunks": 964,
+      "application_decrypted_artifacts": 30,
+      "users": 0,
+      "admins": 1,
+      "source_history": 0
+    },
+    "sage_counts": {
+      "agents": 0,
+      "web_sessions": 0,
+      "messages": 0,
+      "ai_config": 9,
+      "ai_config_user_type_overrides": 1
+    },
+    "services": {
+      "frontend": "healthy",
+      "backend": "healthy",
+      "sage": "healthy",
+      "core-backend": "healthy",
+      "searxng": "healthy",
+      "maple-proxy": "healthy",
+      "tinfoil-proxy": "healthy",
+      "valkey": "healthy",
+      "postgres": "healthy",
+      "qdrant": "healthy"
+    },
+    "gateway_health": {
+      "status": "healthy",
+      "services": {
+        "qdrant": "healthy",
+        "shared_rate_limit_store": "healthy"
+      }
+    },
+    "checked_at": "2026-10-13T22:45:14Z",
+    "public_access": false,
+    "admin_bootstrapped": true,
+    "protected_browser_https_setup_page": true
+  },
+  "public_access": false,
+  "public_http_status": 503,
+  "private_gate_revoked": true,
+  "new_email_sent": false,
+  "daily_backup_timer": {
+    "enabled": false,
+    "active": false
+  },
+  "technical_acceptance": false,
+  "remaining": [
+    "Maple fallback through the application",
+    "Organization recipient secure-storage acknowledgement for Admin recovery key",
+    "Organization backup-password and operational handoff",
+    "Backup-failure notification ownership and daily scheduling",
+    "Demo retirement after acceptance and verified organization access",
+    "Organization decision on Public Opening"
+  ],
+  "separate_product_followup": "User deletion does not purge Sage-owned Conversation/memory; verify and clean conversations through their normal endpoint until the lifecycle endpoint/control-plane integration is implemented.",
+  "postpromotion_recovery": {
+    "release": "release-65448c1",
+    "started_at": "2026-10-13T22:37:08Z",
+    "backup": {
+      "project": "liberator",
+      "snapshot_id": "e3d2f3cee334c1dfb53432090c72ab8d1ae234ceaae54dd0fd8f12fe87bc9e50",
+      "source_count": 20,
+      "custom_image_count": 3
+    },
+    "file_restore": {
+      "snapshot_id": "e3d2f3cee334c1dfb53432090c72ab8d1ae234ceaae54dd0fd8f12fe87bc9e50",
+      "isolated_restore": "/srv/enclave-migration/production-postpromotion-recovery-20261013",
+      "status": "restored and verified; application startup drill still required"
+    },
+    "application_restore": {
+      "started_at_epoch": 1791931342.174933,
+      "elapsed_seconds": 114.1,
+      "network_internal": true,
+      "containers": [
+        {
+          "name": "/liberator-production-restore-frontend",
+          "running": true,
+          "health": "healthy",
+          "ports": {}
+        },
+        {
+          "name": "/liberator-production-restore-backend",
+          "running": true,
+          "health": "healthy",
+          "ports": {}
+        },
+        {
+          "name": "/liberator-production-restore-sage",
+          "running": true,
+          "health": "healthy",
+          "ports": {}
+        },
+        {
+          "name": "/liberator-production-restore-core-backend",
+          "running": true,
+          "health": "healthy",
+          "ports": {}
+        },
+        {
+          "name": "/liberator-production-restore-searxng",
+          "running": true,
+          "health": "healthy",
+          "ports": {}
+        },
+        {
+          "name": "/liberator-production-restore-maple-proxy",
+          "running": true,
+          "health": "disabled for isolated provider proxy",
+          "ports": {}
+        },
+        {
+          "name": "/liberator-production-restore-tinfoil-proxy",
+          "running": false,
+          "health": "disabled for isolated provider proxy",
+          "ports": {}
+        },
+        {
+          "name": "/liberator-production-restore-valkey",
+          "running": true,
+          "health": "healthy",
+          "ports": {}
+        },
+        {
+          "name": "/liberator-production-restore-postgres",
+          "running": true,
+          "health": "healthy",
+          "ports": {}
+        },
+        {
+          "name": "/liberator-production-restore-qdrant",
+          "running": true,
+          "health": "healthy",
+          "ports": {}
+        }
+      ],
+      "provider_and_mail_connectivity": "blocked by internal Docker network",
+      "changes_from_source": [
+        "isolated names/network/mounts",
+        "no published test ports",
+        "backend seed/reload omitted",
+        "provider healthchecks disabled"
+      ],
+      "gateway_health": {
+        "status": "healthy",
+        "services": {
+          "qdrant": "healthy",
+          "shared_rate_limit_store": "healthy"
+        }
+      },
+      "frontend_html": true
+    },
+    "restored_data": {
+      "application_reader": {
+        "sqlite_integrity": true,
+        "foreign_keys_valid": true,
+        "retained_counts_match": true,
+        "retained_settings_and_metadata_hash_match": true,
+        "deployment_values_match": true,
+        "application_decrypted_chunks": 964,
+        "application_decrypted_artifacts": 30,
+        "users": 0,
+        "admins": 1,
+        "source_history": 0
+      },
+      "sage_counts": {
+        "agents": 0,
+        "web_sessions": 0,
+        "messages": 0,
+        "ai_config": 9,
+        "ai_config_user_type_overrides": 1
+      },
+      "sage_settings_match": true,
+      "restored_vectors_match": true,
+      "stored_vector_retrieval": true,
+      "checked_at": "2026-10-13T22:44:23Z",
+      "mail_and_inference_blocked_by_internal_network": true,
+      "public_access": false,
+      "admin_and_email_login_acceptance": false
+    },
+    "success": true,
+    "finished_at": "2026-10-13T22:44:23Z",
+    "cleanup": {
+      "temporary_containers_removed": 10,
+      "temporary_network_removed": true,
+      "restored_directories_removed": true
+    },
+    "admin_auth_and_rejection": {
+      "dedicated_admin_recovered": true,
+      "identity_matches": true,
+      "admin_auth_status": 200,
+      "admin_session_status": 200,
+      "secure_httponly_cookie": true,
+      "auth_rejection": {
+        "legacy_dev_token": {
+          "session_list": 401,
+          "chat": 401
+        },
+        "signed_dev_mode": {
+          "session_list": 401,
+          "chat": 401
+        },
+        "no_token": {
+          "session_list": 401,
+          "chat": 401
+        }
+      },
+      "private_key_on_server": false,
+      "outbound_blocked": true,
+      "published_ports": false,
+      "success": true
+    },
+    "source_count_note": "Unchanged infrastructure still records previous Compose paths; snapshot includes all three Compose files from each release, so discovered sources increase from 17 to 20."
+  },
+  "application_checks_initial_attempt": {
+    "release": "release-65448c1",
+    "verification_method": "actual HTTPS APIs through secret-cookie operator gate; locally signed Admin event; supported Admin test-persona token endpoints",
+    "new_email_sent": false,
+    "existing_admin_authentication_status": 200,
+    "secure_httponly_cookie": true,
+    "authenticated_admin_session_and_conversation_list": true,
+    "test_personas": [
+      {
+        "user_type_id": 1,
+        "user_id": 2,
+        "user_session_status": 200,
+        "admin_access_status": 401
+      },
+      {
+        "user_type_id": 2,
+        "user_id": 3,
+        "user_session_status": 200,
+        "admin_access_status": 401
+      },
+      {
+        "user_type_id": 3,
+        "user_id": 4,
+        "user_session_status": 200,
+        "admin_access_status": 401
+      }
+    ],
+    "authenticated_user_inference": [
+      {
+        "user_type_id": 1,
+        "status": 200,
+        "nonempty_response": true,
+        "conversation_owner_matches": true
+      },
+      {
+        "user_type_id": 2,
+        "status": 200,
+        "nonempty_response": true,
+        "conversation_owner_matches": true
+      },
+      {
+        "user_type_id": 3,
+        "status": 200,
+        "nonempty_response": true,
+        "conversation_owner_matches": true
+      }
+    ],
+    "authenticated_admin_inference": {
+      "status": 502,
+      "nonempty_response": false
+    },
+    "nip07_extension": {
+      "browser": "Zen",
+      "extension": "nos2x-fox",
+      "profile": "liberator-prod",
+      "admin_login": true,
+      "session_log_decryption": true,
+      "feedback_decryption": true,
+      "profile_decryption": true,
+      "temporary_authorization_minutes": 5,
+      "private_key_left_in_extension": true,
+      "checked_at": "2026-10-13T22:34:28.014928+00:00",
+      "three_encrypted_names_and_emails_match": true
+    },
+    "deletion_with_retained_log": {
+      "status": 200,
+      "user_reference_detached": true,
+      "encrypted_transcript_preserved": true,
+      "feedback_preserved": true,
+      "deleted_user_session_rejected": true
+    },
+    "success": false,
+    "logout_status": 200,
+    "cleanup": [
+      {
+        "kind": "conversation",
+        "status": 200
+      },
+      {
+        "kind": "conversation",
+        "status": 200
+      },
+      {
+        "kind": "session_log",
+        "status": 200
+      },
+      {
+        "kind": "user",
+        "status": 200
+      },
+      {
+        "kind": "user",
+        "status": 200
+      }
+    ],
+    "checked_at": "2026-10-13T22:35:02.389904+00:00"
+  },
+  "application_acceptance_passed": true,
+  "application_initial_admin_error": "Harness used internal knowledge_search tool name; corrected application selector knowledge-search passes retrieval and grounded response.",
+  "success": true
+}
