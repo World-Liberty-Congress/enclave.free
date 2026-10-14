@@ -1,0 +1,51 @@
+{
+  "verified_at": "2026-10-14T19:19:00.951781+00:00",
+  "recovery_custody": {
+    "vault": "Liberator Recovery",
+    "item_count": 7,
+    "personal_account_browser": "Zen",
+    "organization_account_browser": "Safari",
+    "invitation_accepted": true,
+    "organization_role": "Admin",
+    "all_seven_notes_readable": true,
+    "persisted_after_reload": true,
+    "owner": "personal_account",
+    "ownership_transfer_complete": false,
+    "nostr_admin_key": "Previously handed off separately; recipient secure-storage acknowledgement remains separate",
+    "temporary_plaintext_import_removed": true
+  },
+  "backup": {
+    "service": "enclave-backup.service",
+    "result": "success",
+    "exec_main_status": 0,
+    "snapshot_id": "8968959cf98aeda3934c71f206a1f9900e33f7b0968bcc0974225a177918289a",
+    "source_count": 26,
+    "custom_image_count": 3,
+    "retention_result": "success",
+    "keep_daily": 14,
+    "keep_weekly": 4,
+    "file_restore_verified": true,
+    "configuration_files_byte_equal": 11,
+    "temporary_restore_removed": true,
+    "isolated_application_startup_repeated": false
+  },
+  "timer": {
+    "service": "enclave-backup.timer",
+    "unit_file_state": "enabled",
+    "active_state": "active",
+    "sub_state": "waiting",
+    "calendar": "daily 04:00 UTC",
+    "randomized_delay_seconds": 900,
+    "persistent": true,
+    "next_run_utc": "2026-10-15T04:10:35Z"
+  },
+  "final_state": {
+    "healthy_services": 10,
+    "public_https_status": 503,
+    "failure_hook_installed": true,
+    "notification_mailbox_previously_verified": true,
+    "personal_demo_retired": false,
+    "technical_acceptance_declared": false,
+    "public_opening": "organization decision"
+  }
+}
