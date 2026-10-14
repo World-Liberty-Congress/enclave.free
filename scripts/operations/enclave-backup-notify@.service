@@ -1,0 +1,12 @@
+[Unit]
+Description=Send a content-free Enclave backup failure notification for %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+EnvironmentFile=/etc/enclave-backup/notifications.env
+ExecStart=/usr/bin/python3 /usr/local/lib/enclave-operations/backup_failure_notification.py %i
+TimeoutStartSec=90
