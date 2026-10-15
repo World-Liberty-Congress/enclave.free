@@ -1,18 +1,26 @@
 {
-  "verified_at": "2026-10-14T19:19:00.951781+00:00",
+  "verified_at": "2026-10-15T20:04:51.573275+00:00",
   "recovery_custody": {
     "vault": "Liberator Recovery",
-    "item_count": 7,
+    "item_count": 8,
     "personal_account_browser": "Zen",
     "organization_account_browser": "Safari",
     "invitation_accepted": true,
-    "organization_role": "Admin",
-    "all_seven_notes_readable": true,
+    "organization_role": "Owner",
     "persisted_after_reload": true,
-    "owner": "personal_account",
-    "ownership_transfer_complete": false,
-    "nostr_admin_key": "Previously handed off separately; recipient secure-storage acknowledgement remains separate",
-    "temporary_plaintext_import_removed": true
+    "owner": "organization_account",
+    "ownership_transfer_complete": true,
+    "nostr_admin_key": "Copied into organization-owned vault at explicit operator request; exact key match and organization readability verified",
+    "temporary_plaintext_import_removed": true,
+    "all_eight_notes_readable": true,
+    "personal_account_role": "Admin",
+    "ownership_verified_in_both_accounts": true,
+    "ownership_transfer_verified_at": "2026-10-14T19:50:52.055405+00:00",
+    "admin_key_added_at": "2026-10-14T20:02:03.586222+00:00",
+    "admin_key_matches_original": true,
+    "admin_key_original_personal_note_retained": true,
+    "operator_confirmed_complete_handoff": true,
+    "handoff_confirmation_date": "2026-10-15"
   },
   "backup": {
     "service": "enclave-backup.service",
@@ -27,7 +35,9 @@
     "file_restore_verified": true,
     "configuration_files_byte_equal": 11,
     "temporary_restore_removed": true,
-    "isolated_application_startup_repeated": false
+    "isolated_application_startup_repeated": false,
+    "verification_date": "2026-10-14",
+    "scope": "Historical manual backup and verified file restore; isolated startup not repeated for this snapshot"
   },
   "timer": {
     "service": "enclave-backup.timer",
@@ -37,7 +47,8 @@
     "calendar": "daily 04:00 UTC",
     "randomized_delay_seconds": 900,
     "persistent": true,
-    "next_run_utc": "2026-10-15T04:10:35Z"
+    "next_run_utc": "2026-10-16T04:14:16Z",
+    "last_trigger_utc": "2026-10-15T04:10:37Z"
   },
   "final_state": {
     "healthy_services": 10,
@@ -46,6 +57,27 @@
     "notification_mailbox_previously_verified": true,
     "personal_demo_retired": false,
     "technical_acceptance_declared": false,
-    "public_opening": "organization decision"
+    "public_opening": "organization decision",
+    "closed_edge_matches_template": true,
+    "failed_systemd_units": 0,
+    "technical_verification_complete": true,
+    "organization_signoff_recorded": false
+  },
+  "previous_checkpoint_verified_at": "2026-10-14T19:19:00.951781+00:00",
+  "scheduled_backup": {
+    "project": "liberator",
+    "snapshot_id": "09d12fe9780f1585d7db122efcbd0d0a3a70732fd84872f772ff636381f14cab",
+    "source_count": 26,
+    "custom_image_count": 3,
+    "timer_triggered": true,
+    "start_utc": "2026-10-15T04:10:37Z",
+    "end_utc": "2026-10-15T04:15:29Z",
+    "result": "success",
+    "exec_main_status": 0,
+    "retention_result": "success",
+    "keep_daily": 14,
+    "keep_weekly": 4,
+    "confirmed_latest_complete_in_repository": true,
+    "restore_repeated": false
   }
 }
