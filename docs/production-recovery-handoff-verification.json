@@ -1,5 +1,5 @@
 {
-  "verified_at": "2026-10-15T20:04:51.573275+00:00",
+  "verified_at": "2026-10-15T20:24:52.308439+00:00",
   "recovery_custody": {
     "vault": "Liberator Recovery",
     "item_count": 8,
@@ -52,16 +52,17 @@
   },
   "final_state": {
     "healthy_services": 10,
-    "public_https_status": 503,
+    "public_https_status": 200,
     "failure_hook_installed": true,
     "notification_mailbox_previously_verified": true,
     "personal_demo_retired": false,
-    "technical_acceptance_declared": false,
-    "public_opening": "organization decision",
-    "closed_edge_matches_template": true,
+    "technical_acceptance_declared": true,
+    "public_opening": "Explicitly approved and completed 2026-10-15T20:23:22Z",
+    "closed_edge_matches_template": false,
     "failed_systemd_units": 0,
     "technical_verification_complete": true,
-    "organization_signoff_recorded": false
+    "organization_signoff_recorded": true,
+    "production_edge_matches_template": true
   },
   "previous_checkpoint_verified_at": "2026-10-14T19:19:00.951781+00:00",
   "scheduled_backup": {
@@ -79,5 +80,6 @@
     "keep_weekly": 4,
     "confirmed_latest_complete_in_repository": true,
     "restore_repeated": false
-  }
+  },
+  "public_opening_receipt": "production-public-opening-verification.json"
 }

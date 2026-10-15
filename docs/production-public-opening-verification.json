@@ -1,0 +1,165 @@
+{
+  "verified_at": "2026-10-15T20:24:52.308439+00:00",
+  "approval": {
+    "explicit": true,
+    "date": "2026-10-15",
+    "operator_message": "ok approved, continue!",
+    "scope": [
+      "Technical Acceptance",
+      "Public Opening"
+    ],
+    "demo_retirement_authorized": false
+  },
+  "public_url": "https://liberator.global",
+  "edge": {
+    "approved_by_operator": true,
+    "approval_date": "2026-10-15",
+    "started_at": "2026-10-15T20:23:21.593472+00:00",
+    "release": "release-65448c1",
+    "rollback_performed": false,
+    "public_home_status": 200,
+    "public_api_health_status": 200,
+    "public_api_health": "healthy",
+    "production_template_matches": true,
+    "caddy_active": true,
+    "opened_at": "2026-10-15T20:23:22.314782+00:00",
+    "success": true
+  },
+  "browser": {
+    "signup_rendered": true,
+    "email_login_rendered": true,
+    "nostr_admin_entry_rendered": true,
+    "public_settings_status": 200,
+    "static_assets_loaded": true
+  },
+  "redirects": {
+    "http_to_https": {
+      "status": 308,
+      "target": "https://liberator.global/auth"
+    },
+    "www_to_apex": {
+      "status": 308,
+      "target": "https://liberator.global/auth"
+    }
+  },
+  "application": {
+    "verification_method": "public HTTPS API without preview cookie; locally signed existing Admin; built-in Admin test-User session",
+    "new_email_sent": false,
+    "nip07_extension_repeated": false,
+    "unauthenticated_rejections": {
+      "/admin/session": 401,
+      "/admin/users": 401,
+      "/admin/settings": 401,
+      "/query/sessions": 401
+    },
+    "existing_admin_authentication_status": 200,
+    "secure_httponly_cookie": true,
+    "admin_knowledge_chat": {
+      "status": 200,
+      "nonempty_response": true
+    },
+    "user_chat": {
+      "status": 200,
+      "nonempty_response": true,
+      "admin_access_status": 401,
+      "session_authenticated": true
+    },
+    "success": true,
+    "logout_status": 200,
+    "logged_out_admin_rejected": true,
+    "cleanup": [
+      {
+        "kind": "conversation",
+        "status": 200
+      },
+      {
+        "kind": "conversation",
+        "status": 200
+      },
+      {
+        "kind": "test_user",
+        "status": 200
+      }
+    ],
+    "cleanup_success": true,
+    "checked_at": "2026-10-15T20:24:14.207397+00:00"
+  },
+  "final_health": {
+    "verified_at": "2026-10-15T20:24:52.308439+00:00",
+    "healthy_services": 10,
+    "services": [
+      {
+        "service": "frontend",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "service": "backend",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "service": "sage",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "service": "core-backend",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "service": "searxng",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "service": "maple-proxy",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "service": "tinfoil-proxy",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "service": "valkey",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "service": "postgres",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "service": "qdrant",
+        "running": true,
+        "health": "healthy"
+      }
+    ],
+    "identity_counts": {
+      "users": 0,
+      "admins": 1
+    },
+    "sage_counts": {
+      "agents": 0,
+      "web_sessions": 0,
+      "messages": 0
+    },
+    "production_template_matches": true,
+    "backup_timer": {
+      "NextElapseUSecRealtime": "Fri 2026-10-16 04:14:16 UTC",
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "failed_systemd_units": 0
+  },
+  "technical_acceptance_approved": true,
+  "public_opening_complete": true,
+  "personal_demo_retired": false,
+  "application_containers_restarted": false,
+  "previous_email_and_extension_acceptance": "Earlier Inbox/magic-link and real NIP-07 checks remain evidence; no new email or extension test during opening",
+  "migration_pr_state": "draft; not merged by this operation"
+}
