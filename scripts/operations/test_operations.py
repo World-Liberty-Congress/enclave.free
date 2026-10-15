@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -183,6 +184,65 @@ class CarryoverTests(unittest.TestCase):
 
 
 class BackupTests(unittest.TestCase):
+    def test_interruption_finishes_all_recovery_tiers_and_reports_failure(self):
+        for phase in ("snapshot", "recovery-start", "recovery-health"):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                config = root / "config.env"
+                config.write_text("fixture config")
+                state = root / "backup-state"
+                containers = [{"Id": service, "Image": "fixture-image", "State": {"Running": True},
+                               "Config": {"Labels": {"com.docker.compose.service": service}}, "Mounts": []}
+                              for service in ("postgres", "sage", "backend")]
+                started = []
+                ready = set()
+                stopped = False
+                signalled = False
+                previous = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGINT)}
+
+                def interrupt():
+                    nonlocal signalled
+                    signalled = True
+                    signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+                    signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
+
+                def runner(args, **kwargs):
+                    nonlocal stopped
+                    if args[:3] == ["docker", "image", "inspect"]:
+                        return json.dumps([{"RepoDigests": []}])
+                    if args[:2] == ["docker", "stop"]:
+                        stopped = True
+                    if args[:2] == ["docker", "start"]:
+                        for service in args[2:]:
+                            dependency = {"sage": "postgres", "backend": "sage"}.get(service)
+                            if dependency and dependency not in ready:
+                                raise backup.BackupError("fixture dependency not ready")
+                        started.extend(args[2:])
+                        if phase == "recovery-start" and not signalled:
+                            interrupt()
+                    if args[:2] == ["docker", "inspect"]:
+                        if phase == "recovery-health" and started and not signalled:
+                            interrupt()
+                        ready.update(service for service in args[2:] if service in started)
+                        return json.dumps([{"State": {"Running": not stopped or service in started}}
+                                           for service in args[2:]])
+                    if args[:2] == ["restic", "backup"]:
+                        if phase == "snapshot":
+                            interrupt()
+                        return json.dumps({"message_type": "summary", "snapshot_id": "candidate"})
+                    if args[:2] == ["restic", "tag"]:
+                        return json.dumps({"old_snapshot_id": "candidate", "new_snapshot_id": "complete"})
+                    return ""
+
+                with patch.object(backup, "inspect_project", return_value=containers), patch.object(backup, "run", side_effect=runner):
+                    with self.assertRaisesRegex(backup.BackupError, "Backup interrupted"):
+                        backup.backup("fixture", [config], state)
+                self.assertTrue(signalled)
+                self.assertEqual(started, ["postgres", "sage", "backend"])
+                self.assertEqual(ready, {"postgres", "sage", "backend"})
+                self.assertFalse((state / "recovery").exists())
+                self.assertEqual({s: signal.getsignal(s) for s in previous}, previous)
+
     def test_retention_rejects_a_project_that_could_select_multiple_tag_sets(self):
         with patch.object(backup, "run") as runner, self.assertRaises(backup.BackupError):
             backup.retention("liberator,other", apply=True)

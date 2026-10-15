@@ -14,3 +14,6 @@ ExecStart=/usr/bin/python3 /usr/local/lib/enclave-operations/backup.py backup --
 # Runs only after backup and application recovery have both returned success.
 ExecStartPost=/usr/bin/python3 /usr/local/lib/enclave-operations/backup.py retention-apply --project liberator
 TimeoutStartSec=infinity
+# Signal the Python coordinator only; let it finish recovering the Docker stack.
+KillMode=mixed
+TimeoutStopSec=infinity
