@@ -142,11 +142,13 @@ def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
         stage = state_dir / "recovery"
         stage.mkdir(mode=0o700, exist_ok=False)
         interrupted = False
+        recovering = False
 
         def on_signal(signum, frame):
             nonlocal interrupted
-            if not interrupted:
-                interrupted = True
+            first_signal = not interrupted
+            interrupted = True
+            if first_signal and not recovering:
                 raise BackupError("Backup interrupted; restarting original services")
 
         previous = {s: signal.signal(s, on_signal) for s in (signal.SIGTERM, signal.SIGINT)}
@@ -174,6 +176,8 @@ def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
                 raise BackupError("Complete snapshot tag change did not report a new snapshot ID")
             return {"project": project, "snapshot_id": changed["new_snapshot_id"], "source_count": len(paths), "custom_image_count": len(custom_images)}
         finally:
+            # Cancellation must not interrupt dependency-ordered recovery itself.
+            recovering = True
             try:
                 # Includes containers stopped before docker stop was interrupted.
                 if stopping_started:
@@ -182,6 +186,8 @@ def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
                 for s, handler in previous.items():
                     signal.signal(s, handler)
                 shutil.rmtree(stage)
+            if interrupted:
+                raise BackupError("Backup interrupted; original service recovery completed")
 
 
 def restore(snapshot: str, target: Path) -> dict:
