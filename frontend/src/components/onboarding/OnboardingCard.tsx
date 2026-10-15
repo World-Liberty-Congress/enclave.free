@@ -40,7 +40,7 @@ export function OnboardingCard({
         </div>
       )}
 
-      <div className={`max-w-full min-w-0 ${maxWidthClass}`}>
+      <div className={`w-full min-w-0 ${maxWidthClass}`}>
         {!isEntry &&
           (isPxDemo ? (
             <div className="mb-6">
