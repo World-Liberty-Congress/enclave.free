@@ -1,5 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap");
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'tailwindcss';
 
 /* =============================================================================
    ENCLAVE THEME - Warm Neutral with Blue Accent
@@ -17,8 +17,12 @@
 
 @theme {
   /* Typography */
-  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans:
+    'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    sans-serif;
+  --font-mono:
+    'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, 'SF Mono',
+    Menlo, Consolas, monospace;
 
   /* Semantic Colors - Light Mode Defaults */
   --color-surface: #ffffff;
@@ -49,20 +53,16 @@
   /* Shadows - Light Mode (Multi-layer for depth) */
   --shadow-xs: 0 1px 2px -1px rgb(28 25 23 / 0.08);
   --shadow-sm:
-    0 1px 3px 0 rgb(28 25 23 / 0.06),
-    0 1px 2px -1px rgb(28 25 23 / 0.06);
+    0 1px 3px 0 rgb(28 25 23 / 0.06), 0 1px 2px -1px rgb(28 25 23 / 0.06);
   --shadow-md:
-    0 4px 6px -2px rgb(28 25 23 / 0.05),
-    0 2px 4px -2px rgb(28 25 23 / 0.05),
+    0 4px 6px -2px rgb(28 25 23 / 0.05), 0 2px 4px -2px rgb(28 25 23 / 0.05),
     0 0 0 1px rgb(28 25 23 / 0.03);
   --shadow-lg:
-    0 10px 20px -5px rgb(28 25 23 / 0.08),
-    0 4px 6px -2px rgb(28 25 23 / 0.04),
+    0 10px 20px -5px rgb(28 25 23 / 0.08), 0 4px 6px -2px rgb(28 25 23 / 0.04),
     0 0 0 1px rgb(28 25 23 / 0.03);
   --shadow-xl:
     0 20px 40px -10px rgb(28 25 23 / 0.12),
-    0 8px 16px -4px rgb(28 25 23 / 0.06),
-    0 0 0 1px rgb(28 25 23 / 0.03);
+    0 8px 16px -4px rgb(28 25 23 / 0.06), 0 0 0 1px rgb(28 25 23 / 0.03);
 
   /* Inner shadow for inputs */
   --shadow-inner-sm: inset 0 1px 2px rgb(28 25 23 / 0.04);
@@ -98,18 +98,30 @@
 
 /* Typography presets */
 .type-modern {
-  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans:
+    'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    sans-serif;
+  --font-mono:
+    'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, 'SF Mono',
+    Menlo, Consolas, monospace;
 }
 
 .type-grotesk {
-  --font-sans: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans:
+    'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, sans-serif;
+  --font-mono:
+    'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, 'SF Mono',
+    Menlo, Consolas, monospace;
 }
 
 .type-humanist {
-  --font-sans: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans:
+    'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, sans-serif;
+  --font-mono:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    monospace;
 }
 
 /* =============================================================================
@@ -144,20 +156,15 @@
 
   /* Shadows - Dark Mode (with subtle light border for definition) */
   --shadow-xs: 0 1px 2px -1px rgb(0 0 0 / 0.2);
-  --shadow-sm:
-    0 1px 3px 0 rgb(0 0 0 / 0.25),
-    0 1px 2px -1px rgb(0 0 0 / 0.2);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.25), 0 1px 2px -1px rgb(0 0 0 / 0.2);
   --shadow-md:
-    0 4px 8px -2px rgb(0 0 0 / 0.3),
-    0 2px 4px -2px rgb(0 0 0 / 0.2),
+    0 4px 8px -2px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2),
     0 0 0 1px rgb(255 255 255 / 0.04);
   --shadow-lg:
-    0 10px 20px -5px rgb(0 0 0 / 0.4),
-    0 4px 6px -2px rgb(0 0 0 / 0.25),
+    0 10px 20px -5px rgb(0 0 0 / 0.4), 0 4px 6px -2px rgb(0 0 0 / 0.25),
     0 0 0 1px rgb(255 255 255 / 0.04);
   --shadow-xl:
-    0 20px 40px -10px rgb(0 0 0 / 0.5),
-    0 8px 16px -4px rgb(0 0 0 / 0.3),
+    0 20px 40px -10px rgb(0 0 0 / 0.5), 0 8px 16px -4px rgb(0 0 0 / 0.3),
     0 0 0 1px rgb(255 255 255 / 0.04);
 
   /* Inner shadow for inputs - dark mode */
@@ -174,7 +181,8 @@
   --color-accent-hover: #1d4ed8;
   --color-accent-subtle: #dbeafe;
 }
-.dark.accent-blue, .dark .accent-blue {
+.dark.accent-blue,
+.dark .accent-blue {
   --color-accent: #3b82f6;
   --color-accent-hover: #60a5fa;
   --color-accent-subtle: #1e3a8a;
@@ -186,7 +194,8 @@
   --color-accent-hover: #6d28d9;
   --color-accent-subtle: #ede9fe;
 }
-.dark.accent-purple, .dark .accent-purple {
+.dark.accent-purple,
+.dark .accent-purple {
   --color-accent: #8b5cf6;
   --color-accent-hover: #a78bfa;
   --color-accent-subtle: #4c1d95;
@@ -198,7 +207,8 @@
   --color-accent-hover: #047857;
   --color-accent-subtle: #d1fae5;
 }
-.dark.accent-green, .dark .accent-green {
+.dark.accent-green,
+.dark .accent-green {
   --color-accent: #10b981;
   --color-accent-hover: #34d399;
   --color-accent-subtle: #064e3b;
@@ -210,7 +220,8 @@
   --color-accent-hover: #c2410c;
   --color-accent-subtle: #ffedd5;
 }
-.dark.accent-orange, .dark .accent-orange {
+.dark.accent-orange,
+.dark .accent-orange {
   --color-accent: #f97316;
   --color-accent-hover: #fb923c;
   --color-accent-subtle: #7c2d12;
@@ -222,7 +233,8 @@
   --color-accent-hover: #be185d;
   --color-accent-subtle: #fce7f3;
 }
-.dark.accent-pink, .dark .accent-pink {
+.dark.accent-pink,
+.dark .accent-pink {
   --color-accent: #ec4899;
   --color-accent-hover: #f472b6;
   --color-accent-subtle: #831843;
@@ -234,7 +246,8 @@
   --color-accent-hover: #0f766e;
   --color-accent-subtle: #ccfbf1;
 }
-.dark.accent-teal, .dark .accent-teal {
+.dark.accent-teal,
+.dark .accent-teal {
   --color-accent: #14b8a6;
   --color-accent-hover: #2dd4bf;
   --color-accent-subtle: #134e4a;
@@ -251,13 +264,15 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   /* Enable Inter stylistic alternates for improved character shapes */
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
 body {
   min-height: 100vh;
   background-color: var(--color-surface);
-  transition: background-color var(--transition-base), color var(--transition-base);
+  transition:
+    background-color var(--transition-base),
+    color var(--transition-base);
 }
 
 /* Surface styles */
@@ -267,22 +282,44 @@ body {
 
 .surface-gradient body {
   background-image:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--color-accent) 12%, transparent) 0%, transparent 55%),
-    linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 90%, var(--color-accent) 10%) 0%, var(--color-surface) 100%);
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--color-accent) 12%, transparent) 0%,
+      transparent 55%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-surface) 90%, var(--color-accent) 10%) 0%,
+      var(--color-surface) 100%
+    );
   background-attachment: fixed;
 }
 
 .surface-noise body {
   background-image:
-    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-text) 6%, transparent) 1px, transparent 0),
+    radial-gradient(
+      circle at 1px 1px,
+      color-mix(in srgb, var(--color-text) 6%, transparent) 1px,
+      transparent 0
+    ),
     linear-gradient(180deg, var(--color-surface), var(--color-surface));
-  background-size: 18px 18px, auto;
+  background-size:
+    18px 18px,
+    auto;
 }
 
 .surface-grid body {
   background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--color-border) 35%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--color-border) 35%, transparent) 1px, transparent 1px);
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-border) 35%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-border) 35%, transparent) 1px,
+      transparent 1px
+    );
   background-size: 24px 24px;
 }
 
@@ -410,12 +447,15 @@ input:focus-visible {
 
 /* Accent shadow for primary buttons */
 .shadow-accent {
-  box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  box-shadow: 0 4px 14px -2px
+    color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 /* Interactive card pattern */
 .card-interactive {
-  transition: transform var(--duration-normal) var(--ease-spring), box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 .card-interactive:hover {
   transform: translateY(-2px);
@@ -430,8 +470,12 @@ input:focus-visible {
    ============================================================================= */
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes fadeInUp {
@@ -479,17 +523,28 @@ input:focus-visible {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes typingDot {
-  0%, 60%, 100% {
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
     opacity: 0.4;
   }
@@ -543,7 +598,8 @@ input:focus-visible {
 }
 
 @keyframes reasoning-text-glow {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 100% 50%;
     opacity: 0.68;
   }
@@ -577,8 +633,12 @@ input:focus-visible {
 .typing-dot {
   animation: typingDot 1.4s ease-in-out infinite;
 }
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 /* =============================================================================
    INTERACTIVE UTILITIES
@@ -586,7 +646,9 @@ input:focus-visible {
 
 /* Hover lift effect */
 .hover-lift {
-  transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease-smooth);
+  transition:
+    transform var(--duration-fast) var(--ease-spring),
+    box-shadow var(--duration-fast) var(--ease-smooth);
 }
 .hover-lift:hover {
   transform: translateY(-1px);
@@ -666,7 +728,8 @@ input:focus-visible {
 .btn-primary:hover:not(:disabled) {
   @apply bg-accent-hover;
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  box-shadow: 0 4px 14px -2px
+    color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 .btn-primary:disabled {
   @apply opacity-50 cursor-not-allowed;
@@ -695,7 +758,8 @@ input:focus-visible {
 }
 .btn-danger:hover:not(:disabled) {
   background-color: color-mix(in srgb, var(--color-error) 88%, black);
-  box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--color-error) 30%, transparent);
+  box-shadow: 0 4px 14px -2px
+    color-mix(in srgb, var(--color-error) 30%, transparent);
 }
 .btn-danger:disabled,
 .btn-secondary:disabled,
@@ -716,17 +780,25 @@ input:focus-visible {
 }
 .input-container:focus-within {
   @apply border-accent;
-  box-shadow: var(--shadow-inner-sm), 0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent);
+  box-shadow:
+    var(--shadow-inner-sm),
+    0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 .input-container.has-error {
   @apply border-error;
 }
 .input-container.has-error:focus-within {
-  box-shadow: var(--shadow-inner-sm), 0 0 0 3px color-mix(in srgb, var(--color-error) 12%, transparent);
+  box-shadow:
+    var(--shadow-inner-sm),
+    0 0 0 3px color-mix(in srgb, var(--color-error) 12%, transparent);
 }
 
 .input-field {
   @apply w-full bg-transparent outline-none text-text placeholder:text-text-muted;
+}
+/* Native pickers, select menus, and date icons follow the dark theme. */
+.dark .input-field {
+  color-scheme: dark;
 }
 
 /* =============================================================================
@@ -773,16 +845,36 @@ input:focus-visible {
 .stagger-children > * {
   animation: fadeInUp 200ms ease-out backwards;
 }
-.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
-.stagger-children > *:nth-child(9) { animation-delay: 400ms; }
-.stagger-children > *:nth-child(10) { animation-delay: 450ms; }
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 250ms;
+}
+.stagger-children > *:nth-child(7) {
+  animation-delay: 300ms;
+}
+.stagger-children > *:nth-child(8) {
+  animation-delay: 350ms;
+}
+.stagger-children > *:nth-child(9) {
+  animation-delay: 400ms;
+}
+.stagger-children > *:nth-child(10) {
+  animation-delay: 450ms;
+}
 
 /* =============================================================================
    ADDITIONAL INTERACTIVE UTILITIES
@@ -790,7 +882,8 @@ input:focus-visible {
 
 /* Accent glow for primary actions */
 .glow-accent {
-  box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  box-shadow: 0 4px 14px -2px
+    color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 /* Subtle ring for icons */

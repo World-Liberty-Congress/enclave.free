@@ -1,0 +1,73 @@
+{
+  "release": "frontend-ui-f8a8829",
+  "base_release": "release-65448c1",
+  "revision": "f8a8829f917ca1cd0c4720f324ab732bd8c2ec76",
+  "image": "liberator/frontend:frontend-ui-f8a8829",
+  "target_image_id": "sha256:7d30d58e0b7d2e6567dc2822df25fbb53d4a0665a93626d3916383573867b9d0",
+  "archive_and_image_verified": true,
+  "encrypted_release_snapshot": "6fbc6e303261a814c2f877c923ab5a96ec7b9729b167a3b72eac6480e131babc",
+  "encrypted_release_restore_verified": true,
+  "services": {
+    "frontend": "healthy",
+    "backend": "healthy",
+    "sage": "healthy",
+    "core-backend": "healthy",
+    "searxng": "healthy",
+    "maple-proxy": "healthy",
+    "tinfoil-proxy": "healthy",
+    "valkey": "healthy",
+    "postgres": "healthy",
+    "qdrant": "healthy"
+  },
+  "other_nine_containers_unchanged": true,
+  "caddy_and_environment_unchanged": true,
+  "field_definitions_and_encrypted_answers_unchanged": true,
+  "field_counts": {
+    "user_field_definitions": 23,
+    "user_field_values": 10
+  },
+  "public_home_http_status": 200,
+  "api_health": "healthy",
+  "rollout_seconds": 7.6,
+  "rollback_script": "/srv/liberator/releases/frontend-ui-f8a8829/rollback.sh",
+  "success": true,
+  "checked_at": "2026-10-15T21:22:38Z",
+  "public_asset_verification": {
+    "success": true,
+    "public_profile_html_and_hashed_assets_verified": true,
+    "card_asset": "/assets/OnboardingCard-RVkxfPjS.js",
+    "ui_asset": "/assets/ui-C0r2H7mQ.js",
+    "css_asset": "/assets/index-B-ygbSJx.css",
+    "all_three_forms": {
+      "1": {
+        "count": 14,
+        "phone_type": "text",
+        "email_type": "email"
+      },
+      "2": {
+        "count": 11,
+        "phone_type": "text",
+        "email_type": "email"
+      },
+      "3": {
+        "count": 10,
+        "phone_type": "text",
+        "email_type": "email"
+      }
+    }
+  },
+  "validation": {
+    "full_frontend_suite": {
+      "files": 83,
+      "tests": 493,
+      "passed": true
+    },
+    "required_pre_commit_hook_passed": true,
+    "branded_production_build_passed": true,
+    "local_visual_check_current_production_definitions": "read-only GET; no profile submission",
+    "phone_viewport_width": 390,
+    "phone_card_width": 358,
+    "desktop_card_width": 672,
+    "mobile_control_text_px": 16
+  }
+}
