@@ -1,0 +1,29 @@
+{
+  "checked_at": "2026-10-12T21:26:33Z",
+  "scope": "Production Droplet with separate pinned proxies and organization keys; invented prompts only; no restored data access",
+  "model": "deepseek-v4-1-flash",
+  "embedding_model": "nomic-embed-text",
+  "checks": {
+    "tinfoil": {
+      "catalog_http_status": 200,
+      "deepseek_available": true,
+      "glm_5_3_flash_in_catalog": false,
+      "chat_http_status": 200,
+      "nonempty_answer": true,
+      "embedding_http_status": 200,
+      "embedding_dimension": 768,
+      "embedding_all_finite": true
+    },
+    "maple": {
+      "catalog_http_status": 200,
+      "deepseek_available": true,
+      "glm_5_3_flash_in_catalog": true,
+      "chat_http_status": 200,
+      "nonempty_answer": true,
+      "embedding_http_status": 200,
+      "embedding_dimension": 768,
+      "embedding_all_finite": true
+    }
+  },
+  "remaining": "Protected application inference and Maple fallback; Mailgun/domain delivery"
+}

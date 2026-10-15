@@ -1,0 +1,19 @@
+[Unit]
+Description=Encrypted consistent Enclave application backup
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+EnvironmentFile=/etc/enclave-backup/production-backup.env
+# Install the reviewed operations tool here; enable only after acceptance.
+ExecStart=/usr/bin/python3 /usr/local/lib/enclave-operations/backup.py backup --project liberator --config-path /etc/enclave/production.env --config-path /etc/caddy/Caddyfile --config-path /var/lib/caddy --config-path /etc/enclave-backup/production-backup.env --config-path /etc/enclave-backup/restic-password.key
+# Runs only after backup and application recovery have both returned success.
+ExecStartPost=/usr/bin/python3 /usr/local/lib/enclave-operations/backup.py retention-apply --project liberator
+TimeoutStartSec=infinity
+# Signal the Python coordinator only; let it finish recovering the Docker stack.
+KillMode=mixed
+TimeoutStopSec=infinity

@@ -44,7 +44,8 @@ jobs:
             backend.tests.test_conversation_retention_docs \
             backend.tests.test_data_classification_and_input_validation \
             backend.tests.test_admin_db_query_endpoint \
-            backend.tests.test_lifecycle_status
+            backend.tests.test_lifecycle_status \
+            backend.tests.test_user_deletion_lifecycle
 
   frontend-security-regression:
     name: Frontend security regression tests

@@ -1,0 +1,17 @@
+# Promote only after final replay, protected verification and opening approval.
+www.liberator.global {
+	redir https://liberator.global{uri} 308
+}
+
+liberator.global {
+	encode zstd gzip
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:18000
+	}
+	handle /api {
+		reverse_proxy 127.0.0.1:18000
+	}
+	handle {
+		reverse_proxy 127.0.0.1:5173
+	}
+}

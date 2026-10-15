@@ -1,0 +1,104 @@
+{
+  "verified_at": "2026-10-15T20:04:51.573275+00:00",
+  "release": "release-65448c1",
+  "backend_source_revision": "65448c14c3bd5fe61e7e1646c89aaed04c98fa29",
+  "timer": {
+    "NextElapseUSecRealtime": "Fri 2026-10-16 04:14:16 UTC",
+    "LastTriggerUSec": "Thu 2026-10-15 04:10:37 UTC",
+    "ActiveState": "active",
+    "SubState": "waiting",
+    "UnitFileState": "enabled"
+  },
+  "service": {
+    "Result": "success",
+    "ExecMainStartTimestamp": "Thu 2026-10-15 04:10:37 UTC",
+    "ExecMainExitTimestamp": "Thu 2026-10-15 04:15:29 UTC",
+    "ExecMainStatus": "0",
+    "OnFailure": "enclave-backup-notify@enclave-backup.service.service"
+  },
+  "scheduled_job_receipts": [
+    {
+      "project": "liberator",
+      "snapshot_id": "09d12fe9780f1585d7db122efcbd0d0a3a70732fd84872f772ff636381f14cab",
+      "source_count": 26,
+      "custom_image_count": 3
+    },
+    {
+      "status": "retention applied",
+      "project": "liberator",
+      "keep_daily": 14,
+      "keep_weekly": 4
+    }
+  ],
+  "latest_complete_snapshot": {
+    "id": "09d12fe9780f1585d7db122efcbd0d0a3a70732fd84872f772ff636381f14cab",
+    "time": "2026-10-15T04:14:47.309917856Z",
+    "tags": [
+      "enclave:liberator"
+    ]
+  },
+  "scheduled_snapshot_is_latest": true,
+  "services": [
+    {
+      "service": "frontend",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "backend",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "sage",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "core-backend",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "searxng",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "maple-proxy",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "tinfoil-proxy",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "valkey",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "postgres",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "service": "qdrant",
+      "running": true,
+      "health": "healthy"
+    }
+  ],
+  "healthy_services": 10,
+  "closed_edge_matches_template": true,
+  "public_https_status": 503,
+  "failed_unit_count": 0,
+  "changes_to_production": false,
+  "technical_verification_complete": true,
+  "organization_signoff_recorded": false,
+  "operator_confirmed_complete_handoff": true,
+  "public_opening_authorized": false,
+  "personal_demo_retired": false,
+  "restore_scope": "Earlier verified file and isolated application restores remain evidence; scheduled snapshot restoration not repeated"
+}

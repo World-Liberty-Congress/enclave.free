@@ -1,0 +1,128 @@
+{
+  "checked_at": "2026-10-11T17:42:04.259216+00:00",
+  "scope": "Preparation and invented-data tests; live recovery/replay and staged release have separate linked evidence",
+  "source_baseline": {
+    "enclave": "43703a9db18f2bbc07aefa94bb24b257d4c896ab",
+    "demo_backend": "285d2e1ab474cf954737fea8d5db58de95c2af5a",
+    "demo_frontend": "b8f1625da5c1198af2dda52cf19aec083575e363",
+    "organization_sage": "661b118343dc3d7567f0fb05431ade9175adc93f",
+    "backend_source_matches_demo": true,
+    "frontend_application_source_matches_demo": true,
+    "frontend_dependencies": "supported security updates in lockfile"
+  },
+  "checks": {
+    "operations_unit_tests": {
+      "passed": 17,
+      "fresh_environment": true,
+      "latest_checked_at": "2026-10-12T22:10:08.289702+00:00"
+    },
+    "isolated_storage_rehearsal": {
+      "passed": 2,
+      "qdrant": "1.12.6",
+      "postgres": "pgvector/Postgres17, production image digest",
+      "restic": "0.19.1",
+      "docker_backup_lifecycle": "simulated; real encrypted repository backup, file restore and full data check",
+      "data": "invented fixtures",
+      "backup_fixture_rerun_after_dependency_fix": true
+    },
+    "production_compose": {
+      "passed": true,
+      "service_count": 10,
+      "public_ports": "loopback only",
+      "stable_uploads_host_path": "/srv/liberator/uploads"
+    },
+    "frontend_production_build": {
+      "passed": true,
+      "branding": "wlc"
+    },
+    "npm_audit": {
+      "findings": 0
+    },
+    "frontend_tests": {
+      "passed": 493,
+      "files": 83,
+      "actual_commit_hook": true
+    },
+    "backend_image_schema_and_crypto": {
+      "passed": true,
+      "network": "none",
+      "data": "invented"
+    },
+    "backend_cpu_runtime": {
+      "passed": true,
+      "torch": "2.8.0+cpu",
+      "torchvision": "0.23.0+cpu",
+      "cuda_available": false
+    },
+    "application_startup": {
+      "passed": true,
+      "health": {
+        "liberator-runtime-backend-fixture": "{\"status\":\"degraded\",\"services\":{\"qdrant\":\"unhealthy: [Errno 111] Connection refused\",\"shared_rate_limit_store\":\"unknown\"}}",
+        "liberator-runtime-sage-fixture": "{\"status\":\"healthy\",\"service\":\"enclave_web\"}"
+      },
+      "sage_counts": {
+        "agents": 0,
+        "web_sessions": 0,
+        "messages": 0,
+        "ai_config": 9
+      },
+      "network": "internal, no host ports",
+      "providers": "disabled fixture values; no live inference/email",
+      "scope": "Minimal backend + Sage + Postgres startup fixture; Qdrant/Valkey absent so backend health is degraded; not full-stack acceptance"
+    },
+    "retention_rehearsal": {
+      "passed": true,
+      "daily_fixture_snapshots": 35,
+      "paths_and_hosts": "varied; single complete-project policy",
+      "preview": "non-mutating",
+      "other_snapshot_types": "preserved",
+      "read_data_check_after_prune": true
+    }
+  },
+  "outstanding": [
+    "Production acceptance, credential handoff, and demo retirement",
+    "Organization domain and Mailgun sending-domain/SMTP/delivery configuration",
+    "Final Admin-conversation review, freeze and production replay with actual destination values",
+    "Full production backup/restore and daily timer activation; operator alert and responsibility decisions"
+  ],
+  "application_images": {
+    "build_passed": true,
+    "published": false,
+    "digest_kind": "local Docker image IDs; registry manifest digests not yet established",
+    "images": [
+      {
+        "service": "backend",
+        "local_tag": "liberator/backend:rehearsal-59a76bb",
+        "local_image_id": "sha256:7b4d2681e45bd259e4844206a70f84145bf46be39d6c2e17b1404ae8af760c18",
+        "os": "linux",
+        "architecture": "amd64",
+        "source_revision": "59a76bba925bfe7109093021cdf2bc4c36aebf51",
+        "source_repository": "https://github.com/World-Liberty-Congress/enclave.free"
+      },
+      {
+        "service": "frontend",
+        "local_tag": "liberator/frontend:rehearsal-59a76bb",
+        "local_image_id": "sha256:6141c6979bb89872273d83e41e578309e59bb576c96e216c4050bb9dacbbd9d8",
+        "os": "linux",
+        "architecture": "amd64",
+        "source_revision": "59a76bba925bfe7109093021cdf2bc4c36aebf51",
+        "source_repository": "https://github.com/World-Liberty-Congress/enclave.free"
+      },
+      {
+        "service": "sage",
+        "local_tag": "liberator/sage:rehearsal-59a76bb",
+        "local_image_id": "sha256:87dd44c962afd231be8cf4bd0f4c48ca01a3870b754e7f65ed55f238cc0e9ae2",
+        "os": "linux",
+        "architecture": "amd64",
+        "source_revision": "661b118343dc3d7567f0fb05431ade9175adc93f",
+        "source_repository": "https://github.com/World-Liberty-Congress/sage"
+      }
+    ],
+    "delivery": "Verified versioned Docker archive, loaded on organization server and restored from encrypted organization Spaces; package publication optional",
+    "release_evidence": "production-release-verification.json"
+  },
+  "live_recovery_and_real_replay_evidence": "production-infrastructure-verification.json",
+  "backup_operations_evidence": "production-backup-operations-verification.json",
+  "release_delivery_evidence": "production-release-verification.json",
+  "mailgun_transport_evidence": "production-mailgun-transport-verification.json"
+}

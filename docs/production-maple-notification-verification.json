@@ -1,0 +1,271 @@
+{
+  "checked_at": "2026-10-14T16:16:00.339072+00:00",
+  "active_application_release": "release-65448c1",
+  "application_revision": "65448c14c3bd5fe61e7e1646c89aaed04c98fa29",
+  "sage_revision": "ad12cc9fa51c6b0db03753055a7673dadf4b0153",
+  "maple_application": {
+    "release": "release-65448c1",
+    "started_at": "2026-10-14T16:11:12.818483+00:00",
+    "verification_method": "actual protected HTTPS Admin and User APIs; simulated primary HTTP 429; real production Maple proxy and organization key",
+    "simulated_failure": "primary HTTP 429 only, scoped to Sage",
+    "new_email_sent": false,
+    "routing_setup": {
+      "fixture_ready": true,
+      "intercept_scope": "Sage to primary proxy TCP 8089 only",
+      "simulated_status": 429,
+      "watchdog_minutes": 12
+    },
+    "admin_fallback": {
+      "status": 200,
+      "nonempty_response": true,
+      "model": "deepseek-v4-1-flash",
+      "elapsed_seconds": 3.75
+    },
+    "user_streaming_fallback": {
+      "status": 200,
+      "nonempty_answer_delta": true,
+      "done_count": 1,
+      "error_count": 0,
+      "model": "deepseek-v4-1-flash",
+      "elapsed_seconds": 2.75,
+      "admin_access_status": 401
+    },
+    "embedding_passthrough": [
+      {
+        "at": 1791994278.3270416,
+        "path": "/v1/embeddings",
+        "forwarded_to_real_primary": true,
+        "status": 200
+      },
+      {
+        "at": 1791994281.1514533,
+        "path": "/v1/embeddings",
+        "forwarded_to_real_primary": true,
+        "status": 200
+      },
+      {
+        "at": 1791994281.9680204,
+        "path": "/v1/embeddings",
+        "forwarded_to_real_primary": true,
+        "status": 200
+      },
+      {
+        "at": 1791994283.9029217,
+        "path": "/v1/embeddings",
+        "forwarded_to_real_primary": true,
+        "status": 200
+      }
+    ],
+    "primary_rejections": [
+      {
+        "at": 1791994278.0273957,
+        "path": "/v1/chat/completions",
+        "model": "deepseek-v4-1-flash",
+        "stream": true,
+        "status": 429
+      },
+      {
+        "at": 1791994281.770823,
+        "path": "/v1/chat/completions",
+        "model": "deepseek-v4-1-flash",
+        "stream": true,
+        "status": 429
+      }
+    ],
+    "sage_maple_fallback_log_count": 2,
+    "routing_cleanup": {
+      "routing_restored": true,
+      "fixture_removed": true,
+      "public_edge_closed": true
+    },
+    "restored_primary": {
+      "status": 200,
+      "nonempty_response": true,
+      "maple_fallback_log_count": 0,
+      "elapsed_seconds": 3.94
+    },
+    "success": true,
+    "logout_status": 200,
+    "cleanup": [
+      {
+        "kind": "user_conversation",
+        "status": 200
+      },
+      {
+        "kind": "admin_conversation",
+        "status": 200
+      },
+      {
+        "kind": "admin_conversation",
+        "status": 200
+      },
+      {
+        "kind": "user",
+        "user_id": 8,
+        "status": 200
+      }
+    ],
+    "finished_at": "2026-10-14T16:11:39.715044+00:00"
+  },
+  "clean_live_state": {
+    "application_reader": {
+      "sqlite_integrity": true,
+      "foreign_keys_valid": true,
+      "retained_counts_match": true,
+      "retained_settings_and_metadata_hash_match": true,
+      "deployment_values_match": true,
+      "application_decrypted_chunks": 964,
+      "application_decrypted_artifacts": 30,
+      "users": 0,
+      "admins": 1,
+      "source_history": 0
+    },
+    "sage_counts": {
+      "agents": 0,
+      "web_sessions": 0,
+      "messages": 0,
+      "ai_config": 9,
+      "ai_config_user_type_overrides": 1
+    },
+    "services": {
+      "frontend": "healthy",
+      "backend": "healthy",
+      "sage": "healthy",
+      "core-backend": "healthy",
+      "searxng": "healthy",
+      "maple-proxy": "healthy",
+      "tinfoil-proxy": "healthy",
+      "valkey": "healthy",
+      "postgres": "healthy",
+      "qdrant": "healthy"
+    },
+    "gateway_health": {
+      "status": "healthy",
+      "services": {
+        "qdrant": "healthy",
+        "shared_rate_limit_store": "healthy"
+      }
+    },
+    "checked_at": "2026-10-14T16:13:00Z",
+    "public_access": false,
+    "admin_bootstrapped": true,
+    "protected_browser_https_setup_page": true
+  },
+  "retained_data_and_vectors": {
+    "application_reader": {
+      "sqlite_integrity": true,
+      "foreign_keys_valid": true,
+      "retained_counts_match": true,
+      "retained_settings_and_metadata_hash_match": true,
+      "deployment_values_match": true,
+      "application_decrypted_chunks": 964,
+      "application_decrypted_artifacts": 30,
+      "users": 0,
+      "admins": 1,
+      "source_history": 0
+    },
+    "sage_counts": {
+      "agents": 0,
+      "web_sessions": 0,
+      "messages": 0,
+      "ai_config": 9,
+      "ai_config_user_type_overrides": 1
+    },
+    "sage_settings_match": true,
+    "restored_vectors_match": true,
+    "stored_vector_retrieval": true,
+    "checked_at": "2026-10-14T16:13:07Z",
+    "mail_and_inference_blocked_by_internal_network": false,
+    "public_access": false,
+    "admin_and_email_login_acceptance": "verified separately",
+    "verification_deletion_audits": [
+      {
+        "user_id": 5,
+        "changed_at": "2026-10-14T16:07:45.702392"
+      },
+      {
+        "user_id": 6,
+        "changed_at": "2026-10-14T16:08:57.544782"
+      },
+      {
+        "user_id": 7,
+        "changed_at": "2026-10-14T16:10:21.917880"
+      },
+      {
+        "user_id": 8,
+        "changed_at": "2026-10-14T16:11:36.868546"
+      }
+    ]
+  },
+  "backup_failure_notification": {
+    "checked_at": "2026-10-14T16:11:58.385667+00:00",
+    "unit": "enclave-backup-notification-test.service",
+    "test": true,
+    "failure_summary": {
+      "Result": "exit-code",
+      "ExecMainCode": "1",
+      "ExecMainStatus": "1",
+      "Id": "enclave-backup-notification-test.service",
+      "ActiveState": "failed"
+    },
+    "smtp_accepted": true,
+    "certificate_verified_tls": true,
+    "tracking_disabled": true,
+    "sensitive_content_included": false,
+    "inbox_delivery_verified": true,
+    "user_confirmed_delivery": true,
+    "computer_use_method": "native Safari Proton Mail Inbox and opened message accessibility inspection",
+    "sender_matches": "noreply@mg.liberator.global",
+    "subject_matches": "[Liberator TEST] Backup failure notification verified",
+    "body_contains_expected_failed_test_unit": true,
+    "proton_no_trackers_found": true,
+    "inbox_checked_at": "2026-10-14T16:16:00.339072+00:00",
+    "recipient": "organization Liberator Proton mailbox",
+    "test_unit_removed": true,
+    "live_failure_hook": "enclave-backup-notify@enclave-backup.service.service"
+  },
+  "notification_setup_recovery": {
+    "scope": "Notification scripts, SMTP recipient, failure hook, service/timer and encrypted backup credentials; no application storage",
+    "started_at": "2026-10-14T16:13:48Z",
+    "snapshot_id": "7a619ef6ff2964924422431470ae27e8df1dc2ffac36cb85552bfe3e2643d14f",
+    "file_restore_verified": true,
+    "byte_equal_files": 10,
+    "restore_removed": true,
+    "finished_at": "2026-10-14T16:13:51Z"
+  },
+  "recovery_handoff": {
+    "checked_at": "2026-10-14",
+    "host_credentials_match_private_saved_files": {
+      "content-encryption.key": true,
+      "authentication.key": true,
+      "internal-agent.key": true,
+      "postgres-password.key": true,
+      "restic-password.key": true,
+      "backup_repository_and_bucket_credentials": true
+    },
+    "private_kit_prepared": true,
+    "organization_custody_confirmed": false,
+    "admin_private_key_in_kit": false
+  },
+  "operator_confirmed_admin_key_handoff": true,
+  "daily_backup_timer": {
+    "enabled": false,
+    "active": false,
+    "reason": "Organization recovery credential custody remains unconfirmed"
+  },
+  "public_http_status": 503,
+  "demo_retirement_performed": false,
+  "validation": {
+    "operations_tests": 17,
+    "notification_tests": 4,
+    "systemd_unit_verification": true,
+    "real_systemd_failure_hook_and_smtp": true,
+    "safari_inbox_and_message_inspection": true
+  },
+  "remaining": [
+    "Confirm organization custody/access for recovery credentials and Admin key",
+    "Complete operational handoff, then enable and verify the daily backup timer",
+    "Technical Acceptance and organization access before retiring the personal paid demo",
+    "Organization decision on Public Opening"
+  ]
+}

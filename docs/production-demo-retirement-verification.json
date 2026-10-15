@@ -1,0 +1,84 @@
+{
+  "verified_at": "2026-10-15T21:00:26Z",
+  "approval": {
+    "explicit_operator_reply": "retire demo",
+    "scope": "Remove the demo DNS record and permanently destroy only personal Droplet 581119344"
+  },
+  "dns": {
+    "zone": "enclave.free",
+    "removed_type": "A",
+    "removed_host": "demo",
+    "removed_value": "137.184.21.75",
+    "provider": "Namecheap",
+    "control_panel_record_absent": true,
+    "authoritative_nameservers": [
+      "dns1.registrar-servers.com",
+      "dns2.registrar-servers.com"
+    ],
+    "both_authoritative_results": "NXDOMAIN",
+    "verified_before_ip_release": true,
+    "other_domain_and_mail_records_preserved": true
+  },
+  "archive": {
+    "storage_owner": "organization",
+    "repository_prefix": "demo-migration",
+    "snapshot_id": "e6cbb01559eab15d94de1c3c267a7cf3e853451ebd925966a285467a0372d47a",
+    "snapshot_time": "2026-10-15T20:57:42.632432754Z",
+    "backup_result": "success",
+    "source_count": 28,
+    "custom_image_count": 3,
+    "manifest_container_count": 10,
+    "custom_image_archive_bytes": 1166308864,
+    "public_ingress_stopped_before_backup": true,
+    "consistent_snapshot_with_all_project_containers_stopped": true,
+    "demo_containers_stopped_after_backup": true,
+    "isolated_file_restore_with_verify_passed": true,
+    "all_manifest_sources_present": true,
+    "restored_environment_and_caddy_hashes_match_source": true,
+    "full_application_startup_drill_repeated_for_this_snapshot": false,
+    "temporary_restore_removed": true,
+    "temporary_organization_credentials_removed_from_demo": true,
+    "archive_accessible_after_droplet_deletion": true
+  },
+  "droplet": {
+    "team": "personal My Team",
+    "name": "enclave-free-demo",
+    "id": 581119344,
+    "former_public_ipv4": "137.184.21.75",
+    "region": "NYC1",
+    "former_estimated_monthly_cost_usd": 48,
+    "attached_block_volumes": 0,
+    "reserved_ip_attached": false,
+    "automated_backups_enabled": false,
+    "snapshots_shown": 0,
+    "destruction_submitted": true,
+    "provider_confirmation": "Droplet deleted successfully",
+    "personal_team_droplet_list_empty": true
+  },
+  "production_after_retirement": {
+    "droplet_name": "liberator-production-01",
+    "droplet_id": 608507357,
+    "healthy_services": 10,
+    "failed_systemd_units": 0,
+    "public_homepage_http_status": 200,
+    "public_api_health": "healthy",
+    "backup_timer_enabled": true,
+    "backup_timer_active": true,
+    "next_backup_utc": "2026-10-16T04:14:16Z",
+    "production_repository_accessible": true,
+    "scheduled_snapshot_present": "09d12fe9780f1585d7db122efcbd0d0a3a70732fd84872f772ff636381f14cab"
+  },
+  "preserved": [
+    "Liberator production Droplet and public service",
+    "Organization production and demo-migration encrypted repositories",
+    "Organization-owned recovery vault and credentials",
+    "Personal plebdevs-bucket",
+    "Shared personal account and provider credentials",
+    "Other enclave.free domain and mail records"
+  ],
+  "limitations": [
+    "This final demo snapshot passed isolated file verification; no repeated full application startup drill is claimed",
+    "Recovering the retired demo requires restoring its archive onto a new host",
+    "The existing migration PR remains draft and unmerged"
+  ]
+}

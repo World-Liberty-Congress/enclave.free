@@ -1,0 +1,13 @@
+{
+  "checked_at": "2026-10-12T22:02:55.408380+00:00",
+  "host": "smtp.mailgun.org",
+  "port": 2525,
+  "tcp_connection": true,
+  "ehlo": true,
+  "starttls": true,
+  "certificate_and_hostname_verified": true,
+  "tls_version": "TLSv1.3",
+  "smtp_authentication": false,
+  "email_sent": false,
+  "remaining": "Actual domain-specific organization SMTP credentials and delivery test"
+}

@@ -1,0 +1,258 @@
+{
+  "checked_at": "2026-10-12T22:47:34.704807+00:00",
+  "website_domain": "liberator.global",
+  "website": {
+    "checked_at": "2026-10-12T22:26:49.033406+00:00",
+    "https": [
+      {
+        "host": "liberator.global",
+        "https_status": 503,
+        "certificate_verified": true,
+        "noindex": "noindex, nofollow",
+        "cache_control": "no-store",
+        "preparation_page": true
+      },
+      {
+        "host": "www.liberator.global",
+        "https_status": 503,
+        "certificate_verified": true,
+        "noindex": "noindex, nofollow",
+        "cache_control": "no-store",
+        "preparation_page": true
+      }
+    ],
+    "application_open": false,
+    "dns": {
+      "1.1.1.1": {
+        "apex_A": [
+          "167.99.112.149"
+        ],
+        "www_CNAME": [
+          "liberator.global."
+        ]
+      },
+      "8.8.8.8": {
+        "apex_A": [
+          "167.99.112.149"
+        ],
+        "www_CNAME": [
+          "liberator.global."
+        ]
+      },
+      "dns1.registrar-servers.com": {
+        "apex_A": [
+          "167.99.112.149"
+        ],
+        "www_CNAME": [
+          "liberator.global."
+        ]
+      },
+      "dns2.registrar-servers.com": {
+        "apex_A": [
+          "167.99.112.149"
+        ],
+        "www_CNAME": [
+          "liberator.global."
+        ]
+      }
+    },
+    "caddy_version": "2.11.7",
+    "firewall_public_tcp_ports": [
+      22,
+      80,
+      443
+    ],
+    "redirect_and_certificate_details": [
+      {
+        "host": "liberator.global",
+        "http_status": 308,
+        "location": "https://liberator.global/",
+        "tls_version": "TLSv1.3",
+        "issuer": "((('countryName', 'US'),), (('organizationName', \"Let's Encrypt\"),), (('commonName', 'YE1'),))",
+        "not_before": "Oct 12 21:27:14 2026 GMT",
+        "not_after": "Jan 10 21:27:13 2027 GMT",
+        "subject_alt_names": [
+          [
+            "DNS",
+            "liberator.global"
+          ]
+        ]
+      },
+      {
+        "host": "www.liberator.global",
+        "http_status": 308,
+        "location": "https://www.liberator.global/",
+        "tls_version": "TLSv1.3",
+        "issuer": "((('countryName', 'US'),), (('organizationName', \"Let's Encrypt\"),), (('commonName', 'YE2'),))",
+        "not_before": "Oct 12 21:27:13 2026 GMT",
+        "not_after": "Jan 10 21:27:12 2027 GMT",
+        "subject_alt_names": [
+          [
+            "DNS",
+            "www.liberator.global"
+          ]
+        ]
+      }
+    ]
+  },
+  "mailgun": {
+    "organization": "World Liberty Congress",
+    "region": "US",
+    "sending_domain": "mg.liberator.global",
+    "automatic_sender_security": true,
+    "provider_dns_status": {
+      "spf": "Verified",
+      "pdk1": "Active",
+      "pdk2": "Verified",
+      "tracking": "Verified"
+    },
+    "receiving_mx_installed": false,
+    "receiving_mx_reason": "Sending-only subdomain; existing apex Namecheap forwarding preserved",
+    "dmarc_third_party_service_enabled": false,
+    "dns": {
+      "checked_at": "2026-10-12T22:44:24.190259+00:00",
+      "records": [
+        {
+          "name": "mg.liberator.global",
+          "type": "TXT",
+          "expected": "v=spf1 include:mailgun.org ~all",
+          "results": {
+            "dns1.registrar-servers.com": "\"v=spf1 include:mailgun.org ~all\"",
+            "dns2.registrar-servers.com": "\"v=spf1 include:mailgun.org ~all\"",
+            "1.1.1.1": "\"v=spf1 include:mailgun.org ~all\"",
+            "8.8.8.8": "\"v=spf1 include:mailgun.org ~all\""
+          }
+        },
+        {
+          "name": "pdk1._domainkey.mg.liberator.global",
+          "type": "CNAME",
+          "expected": "pdk1._domainkey.deee52.dkim7.us.mgsend.org.",
+          "results": {
+            "dns1.registrar-servers.com": "pdk1._domainkey.deee52.dkim7.us.mgsend.org.",
+            "dns2.registrar-servers.com": "pdk1._domainkey.deee52.dkim7.us.mgsend.org.",
+            "1.1.1.1": "pdk1._domainkey.deee52.dkim7.us.mgsend.org.",
+            "8.8.8.8": "pdk1._domainkey.deee52.dkim7.us.mgsend.org."
+          }
+        },
+        {
+          "name": "pdk2._domainkey.mg.liberator.global",
+          "type": "CNAME",
+          "expected": "pdk2._domainkey.deee52.dkim7.us.mgsend.org.",
+          "results": {
+            "dns1.registrar-servers.com": "pdk2._domainkey.deee52.dkim7.us.mgsend.org.",
+            "dns2.registrar-servers.com": "pdk2._domainkey.deee52.dkim7.us.mgsend.org.",
+            "1.1.1.1": "pdk2._domainkey.deee52.dkim7.us.mgsend.org.",
+            "8.8.8.8": "pdk2._domainkey.deee52.dkim7.us.mgsend.org."
+          }
+        },
+        {
+          "name": "email.mg.liberator.global",
+          "type": "CNAME",
+          "expected": "mailgun.org.",
+          "results": {
+            "dns1.registrar-servers.com": "mailgun.org.",
+            "dns2.registrar-servers.com": "mailgun.org.",
+            "1.1.1.1": "mailgun.org.",
+            "8.8.8.8": "mailgun.org."
+          }
+        },
+        {
+          "name": "_dmarc.mg.liberator.global",
+          "type": "TXT",
+          "expected": "v=DMARC1; p=none;",
+          "results": {
+            "dns1.registrar-servers.com": "\"v=DMARC1; p=none;\"",
+            "dns2.registrar-servers.com": "\"v=DMARC1; p=none;\"",
+            "1.1.1.1": "\"v=DMARC1; p=none;\"",
+            "8.8.8.8": "\"v=DMARC1; p=none;\""
+          }
+        }
+      ],
+      "all_records_match": true
+    },
+    "smtp": {
+      "checked_at": "2026-10-12T22:44:10.600142+00:00",
+      "host": "smtp.mailgun.org",
+      "port": 2525,
+      "sending_domain": "mg.liberator.global",
+      "username": "liberator-production@mg.liberator.global",
+      "message_id": "<8ff95b5f-ed16-4514-a0df-d1b39aae7601@mg.liberator.global>",
+      "message_count": 1,
+      "authentication": true,
+      "smtp_accepted": true,
+      "tls_version": "TLSv1.3",
+      "tls_certificate_verified": true,
+      "smtp_response_code": 250,
+      "smtp_response": "Great success",
+      "provider_delivery": {
+        "event": "delivered",
+        "@timestamp": "2026-10-12T22:44:15.712Z",
+        "primary-dkim": "pdk1._domainkey.mg.liberator.global",
+        "delivery_status": {
+          "attempt-no": 1,
+          "certificate-verified": true,
+          "code": 250,
+          "enhanced-code": "2.0.0",
+          "first-delivery-attempt-seconds": 0.081,
+          "message": "2.0.0 Ok: queued as 4j3XZj35d7z46",
+          "mx-host": "mail.protonmail.ch",
+          "mx-host-ip": "176.119.200.128",
+          "session-seconds": 4.258,
+          "tls": true
+        }
+      },
+      "inbox_placement": "Inbox",
+      "recipient": "user-authorized Proton address; omitted from public evidence",
+      "recipient_confirmation": {
+        "checked_at": "2026-10-12T22:56:48.195768+00:00",
+        "recipient_confirmed": true,
+        "native_browser": "Safari",
+        "message_inspected": true,
+        "folder": "Inbox",
+        "subject": "Liberator production migration test",
+        "sender": "Liberator <noreply@mg.liberator.global>",
+        "message_body_matches_authorized_test": true,
+        "proton_tracking_indicator": "No trackers found, No links cleaned"
+      }
+    }
+  },
+  "setup_recovery": {
+    "checked_at": "2026-10-12T22:46:32.054245+00:00",
+    "snapshot_id": "c1ad0ccc1fe2d98b08456b977183e65020c69f14eb6cf632bfee2e41f77a7928",
+    "repository": "organization-owned production restic repository in Spaces",
+    "tag": "liberator:setup",
+    "source_count": 7,
+    "restored_file_count": 16,
+    "full_repository_data_check": true,
+    "isolated_restore_verified": true,
+    "all_files_byte_equal": true,
+    "elapsed_seconds": 9.7,
+    "scope": "Domain/Caddy certificate state and private prepared production environment/backup credentials; application stores are not deployed",
+    "production_env_installed": false,
+    "production_timer_enabled": false
+  },
+  "remaining": [
+    "Review unsaved Admin-conversation instructions and freeze retained source state",
+    "Final replay with actual organization values and fresh keys",
+    "Bootstrap new Admin after manual recovery-key handoff",
+    "Protected application sign-in, onboarding, inference/fallback, knowledge and persistence checks",
+    "Complete production backup/restore and rollback; activate daily timer",
+    "Verified technical handoff, demo retirement, organization-controlled public opening"
+  ],
+  "final_host_state": {
+    "checked_at": "2026-10-12T22:49:14.975263+00:00",
+    "active_caddy_matches_closed_config": true,
+    "completed_private_env_compose_validation": true,
+    "production_env_installed": false,
+    "running_container_count": 0,
+    "caddy_active": true,
+    "backup_timer_enabled": false,
+    "backup_timer_active": false
+  },
+  "demo_health": {
+    "checked_at": "2026-10-12T22:49:45.453929+00:00",
+    "healthy_containers": 10,
+    "gateway_health_http": 200,
+    "public_frontend_https": 200
+  }
+}

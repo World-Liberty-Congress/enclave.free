@@ -1,0 +1,10 @@
+{
+  "post_skipped_after_failure": true,
+  "post_runs_after_success": true,
+  "unit_verify": true,
+  "daily_schedule": "04:00 UTC plus up to 15-minute random delay",
+  "retention": "14 daily and 4 weekly; complete liberator-tagged snapshots only; metadata check after prune",
+  "timer_enabled": false,
+  "timer_active": false,
+  "reason_not_enabled": "Production instance, Caddy configuration and accepted full production backup are not ready"
+}

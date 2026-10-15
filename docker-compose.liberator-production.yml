@@ -1,0 +1,78 @@
+# Apply after docker-compose.infra.yml and docker-compose.app.yml.
+# This release deliberately retains the accepted Liberator presentation.
+services:
+  core-backend:
+    image: ${LIBERATOR_IMAGE_PREFIX:-liberator}/backend:${LIBERATOR_RELEASE:?Set a unique release tag}
+    build:
+      labels:
+        org.opencontainers.image.source: https://github.com/World-Liberty-Congress/enclave.free
+        org.opencontainers.image.revision: ${LIBERATOR_REVISION:?Set the full Enclave commit}
+    restart: unless-stopped
+    command: [sh, -c, 'python -c "from seed import seed_sqlite; seed_sqlite(seed_demo_resources=False)" && exec uvicorn main:app --host 0.0.0.0 --port 18000']
+    volumes: !override
+      - ${LIBERATOR_UPLOADS_DIR:-/srv/liberator/uploads}:/uploads
+      - embedding_cache:/home/enclave/.cache/huggingface
+      - sqlite_data:/data
+    environment:
+      ENCLAVE_ENV: production
+      LLM_MODEL: ${TINFOIL_MODEL:?Set the accepted production Tinfoil model}
+      INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:?Set a fresh internal token}
+      CONTENT_ENCRYPTION_KEY: ${CONTENT_ENCRYPTION_KEY:?Set a fresh content encryption key}
+      DOCUMENT_ARTIFACT_ENCRYPTION: required
+      FRONTEND_URL: ${FRONTEND_URL:?Set the production HTTPS origin}
+      CORS_ORIGINS: ${FRONTEND_URL:?Set the production HTTPS origin}
+      MOCK_EMAIL: 'false'
+      SIMULATE_USER_AUTH: 'false'
+      SIMULATE_ADMIN_AUTH: 'false'
+      SMTP_HOST: ${SMTP_HOST:?Set organization SMTP host}
+      SMTP_PORT: ${SMTP_PORT:-2525}
+      SMTP_USER: ${SMTP_USER:?Set organization SMTP username}
+      SMTP_PASS: ${SMTP_PASS:?Set organization SMTP password}
+      SMTP_FROM: ${SMTP_FROM:?Set a verified organization sender}
+  sage:
+    image: ${LIBERATOR_IMAGE_PREFIX:-liberator}/sage:${LIBERATOR_RELEASE:?Set a unique release tag}
+    build:
+      labels:
+        org.opencontainers.image.source: https://github.com/World-Liberty-Congress/sage
+        org.opencontainers.image.revision: 'ad12cc9fa51c6b0db03753055a7673dadf4b0153'
+    restart: unless-stopped
+    environment:
+      ENCLAVE_ENV: production
+      TINFOIL_MODEL: ${TINFOIL_MODEL:?Set the accepted production Tinfoil model}
+      MAPLE_API_KEY: ${MAPLE_API_KEY:?Set the organization Maple fallback key}
+      DATABASE_URL: postgres://sage:${POSTGRES_PASSWORD:?Set a fresh URL-safe database password}@postgres:5432/sage
+      INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:?Set a fresh internal token}
+      FRONTEND_URL: ${FRONTEND_URL:?Set the production HTTPS origin}
+      CORS_ORIGINS: ${FRONTEND_URL:?Set the production HTTPS origin}
+  frontend:
+    image: ${LIBERATOR_IMAGE_PREFIX:-liberator}/frontend:${LIBERATOR_RELEASE:?Set a unique release tag}
+    build:
+      args:
+        VITE_DEMO_BRAND: wlc
+      labels:
+        org.opencontainers.image.source: https://github.com/World-Liberty-Congress/enclave.free
+        org.opencontainers.image.revision: ${LIBERATOR_REVISION:?Set the full Enclave commit}
+    restart: unless-stopped
+  postgres:
+    image: pgvector/pgvector@sha256:be400b50812ab2cc908ed78593fda2e51e3b45fe774fa637f1c7b16e68531d95
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a fresh URL-safe database password}
+    restart: unless-stopped
+  qdrant:
+    image: qdrant/qdrant@sha256:89d9d35757eb57c62973c193c96b5b50ca73bbaff7fa282ef81f7fd155a3747d
+    restart: unless-stopped
+  tinfoil-proxy:
+    image: ghcr.io/tinfoilsh/tinfoil-proxy@sha256:bd9d6f4dbf82e8d734b2d9dbc60ec79d3c8698b51ab7773ccc937b6d372e1a91
+    restart: unless-stopped
+  maple-proxy:
+    image: ghcr.io/opensecretcloud/maple-proxy@sha256:cdde1f73418cd92794963cda32c2b50c5b2548eb78aab6060026d76a391af73a
+    profiles: !reset []
+  backend:
+    image: nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+    restart: unless-stopped
+  valkey:
+    image: valkey/valkey@sha256:77643d152547b446fc15cbafaff22004545663fcd40c6b28038ad283837baa75
+    restart: unless-stopped
+  searxng:
+    image: searxng/searxng@sha256:a694c91f5e4f131058564c7b05e689e961aa662b8592197b8bb6f3c6dd69cd7c
+    restart: unless-stopped

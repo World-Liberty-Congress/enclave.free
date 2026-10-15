@@ -1,0 +1,119 @@
+{
+  "checked_at": "2026-10-11T17:58:42.237402+00:00",
+  "scope": "Local pinned proxies with dedicated organization production keys; invented prompts only. Not production-host or complete application acceptance.",
+  "key_names": {
+    "tinfoil": "liberator-production",
+    "maple": "liberator-production"
+  },
+  "proxy_digests": {
+    "tinfoil": "sha256:bd9d6f4dbf82e8d734b2d9dbc60ec79d3c8698b51ab7773ccc937b6d372e1a91",
+    "maple": "sha256:cdde1f73418cd92794963cda32c2b50c5b2548eb78aab6060026d76a391af73a"
+  },
+  "model": "deepseek-v4-1-flash",
+  "embedding_model": "nomic-embed-text",
+  "checks": {
+    "tinfoil": {
+      "catalog_http_status": 200,
+      "model_ids": [
+        "deepseek-v4-1-flash",
+        "doc-upload",
+        "gemma4-31b",
+        "glm-5-3",
+        "gpt-oss-120b",
+        "gpt-oss-safeguard-120b",
+        "kimi-k3",
+        "llama3-3-70b",
+        "nomic-embed-text",
+        "pii-filter",
+        "qwen3-tts",
+        "voxtral-mini-4b-realtime",
+        "voxtral-small-24b",
+        "voxtral-tts",
+        "websearch",
+        "whisper-large-v3-turbo"
+      ],
+      "deepseek_v4_1_flash_available": true,
+      "live_inference_verified": true,
+      "chat": {
+        "http_status": 200,
+        "nonempty_answer": true,
+        "usage": {
+          "prompt_tokens": 35,
+          "total_tokens": 47,
+          "completion_tokens": 12,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "created_cache_tokens": 0,
+            "multimodal_tokens": null
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 9
+          }
+        }
+      },
+      "embeddings": {
+        "http_status": 200,
+        "dimension": 768,
+        "all_finite": true,
+        "matches_source_dimension": true
+      }
+    },
+    "maple": {
+      "catalog_http_status": 200,
+      "model_ids": [
+        "deepseek-v4-1-flash",
+        "gemma4-31b",
+        "glm-5-3",
+        "glm-5-3-flash",
+        "gpt-oss-120b",
+        "gpt-oss-safeguard-120b",
+        "kimi-k3",
+        "llama3-3-70b",
+        "nomic-embed-text",
+        "voxtral-small-24b",
+        "voxtral-tts",
+        "whisper-large-v3"
+      ],
+      "deepseek_v4_1_flash_available": true,
+      "live_inference_verified": true,
+      "chat": {
+        "http_status": 200,
+        "nonempty_answer": true,
+        "usage": {
+          "completion_tokens": 25,
+          "completion_tokens_details": {
+            "reasoning_tokens": 22
+          },
+          "prompt_tokens": 35,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "created_cache_tokens": 0,
+            "multimodal_tokens": null
+          },
+          "total_tokens": 60
+        }
+      },
+      "embeddings": {
+        "http_status": 200,
+        "dimension": 768,
+        "all_finite": true,
+        "matches_source_dimension": true
+      }
+    }
+  },
+  "tinfoil_glm_5_3_flash_in_catalog": false,
+  "test_client_requirements": {
+    "tinfoil": "Host header includes proxy port: tinfoil-proxy:8089",
+    "both": "Explicit application User-Agent; first Python-urllib request failed before successful retry"
+  },
+  "remaining": [
+    "Verify from the new production Droplet",
+    "Verify protected application inference and Maple fallback end to end",
+    "Mailgun sending domain, SMTP credentials, DNS records and delivery"
+  ],
+  "references": [
+    "https://docs.tinfoil.sh/local-proxy/cli",
+    "https://github.com/tinfoilsh/tinfoil-proxy/blob/v0.1.6/proxy.go",
+    "https://www.trymaple.ai/docs/proxy/api"
+  ]
+}
