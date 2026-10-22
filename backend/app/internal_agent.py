@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 import database
 import ingest_db
+from admin_db_schema import describe_admin_database
 from models import FieldDefinitionCreate, FieldDefinitionUpdate, InstanceSettings
 from query import _build_context, _build_search_query, _process_search_results
 from sql_safety import validate_sql_allowed_tables
@@ -1078,6 +1079,14 @@ async def user_profile_context(user_id: int, user_type_id: Optional[int] = None)
         "user_type_id": user_type_id,
         "profile": database.get_user_chat_context_values(user_id=user_id, user_type_id=user_type_id),
     }
+
+
+@router.get("/admin-db-schema", dependencies=[Depends(_require_internal_token)])
+async def admin_db_schema(table: Optional[str] = None):
+    try:
+        return describe_admin_database(table)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/admin-db-query", dependencies=[Depends(_require_internal_token)])

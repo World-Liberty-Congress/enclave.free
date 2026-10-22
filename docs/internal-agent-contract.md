@@ -352,6 +352,44 @@ and name. `total_count` describes the complete filtered ready set before
 pagination; `has_more` and `next_offset` describe continuation. Invalid payload
 shapes and obsolete aid-specific fields return `422`.
 
+### `GET /internal/agent/admin-db-schema`
+
+Returns the live structure of the existing admin SQL allowlist. Sage exposes
+this as `db_schema` only for Admin turns with the Database (`db-query`) tool
+set enabled. Without parameters the response contains `dialect`, `tables`
+(name and description), `discovery`, `query_rules`,
+`identity_guidance`, and `usage` (metric, definition, coverage, example
+`top_users_sql` and `population_counts_sql`). Passing `?table=users` (or another
+listed table) returns that table's name, description, column names/types, and foreign keys within the
+allowlist. A disallowed or missing table returns `400`. Neither mode contains
+row values, column defaults, or raw DDL. Each response fits Sage's 4,000-character
+per-result budget so metric definitions and example SQL survive intact.
+
+Schema discovery precedes natural-language SQL generation so the model does
+not have to guess table names or probe forbidden SQLite metadata tables.
+The existing query allowlist and read-only restrictions are unchanged.
+
+For an unspecified usage ranking, the supported measure is **recorded turns**
+from retained `session_logs`, counting both user and assistant turns. Join
+`users.id = session_logs.subject_user_id` with `source='user'` in the join
+condition; exclude Admin tests and preserve zero-activity users. Report the
+metric and coverage, conversation counts, and last log update. This is not
+an exact live Postgres message count or a per-message time-window report.
+Approval does not imply activity. Names can be matched by ID from the
+optional, potentially partial AdminSigner-DecryptedContext; SQL cannot
+decrypt encrypted identities.
+
+One-to-many joins must count distinct user IDs for population totals. Counting
+joined rows would count a user once per conversation or profile answer.
+
+Regression coverage lives in `backend/tests/test_admin_db_query_endpoint.py`
+and Sage's `web_runtime` tests. For a live-model replay against the disposable
+`liberator-admin-db-local` Compose project, run
+`python3 scripts/tests/TOOLS/check_admin_database_questions.py --seed --output /tmp/admin-db-ranking.json`.
+The harness refuses other container projects and non-local API hosts. Use
+`--case inventory`, `structure`, `partial-identities`, `no-tools`, or `user` on subsequent
+runs (without `--seed`) to check counts, identity coverage, and tool gating.
+
 ### `POST /internal/agent/admin-db-query`
 
 Executes Python-owned safe read-only admin SQL.
