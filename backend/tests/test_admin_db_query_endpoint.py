@@ -140,6 +140,94 @@ class AdminDbQueryEndpointTest(unittest.TestCase):
         self.assertEqual(body["columns"], ["id", "email"])
         self.assertEqual(body["rows"], [])
 
+    def test_internal_admin_schema_requires_internal_authentication(self) -> None:
+        response = self.client.get("/internal/agent/admin-db-schema")
+        self.assertEqual(response.status_code, 403)
+
+    def test_internal_admin_schema_discovers_only_allowed_structure(self) -> None:
+        from sql_safety import ALLOWED_TABLES
+
+        user_id = self.database.create_user()
+        with self.database.get_cursor() as cursor:
+            cursor.execute("UPDATE users SET email = ? WHERE id = ?",
+                           ("SCHEMA_MUST_NOT_RETURN_ROW_VALUES", user_id))
+        response = self.client.get(
+            "/internal/agent/admin-db-schema",
+            headers={"X-Internal-Agent-Token": "test-internal-token"},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        tables = {table["name"]: table for table in body["tables"]}
+        self.assertEqual(set(tables), ALLOWED_TABLES)
+        # Sage bounds each native tool result to 4,000 characters. A larger
+        # discovery result silently shortens strings, including SQL and semantics.
+        self.assertLessEqual(len(json.dumps(body, separators=(",", ":"))), 3900)
+        for name in tables:
+            detail = self.client.get(
+                "/internal/agent/admin-db-schema", params={"table": name},
+                headers={"X-Internal-Agent-Token": "test-internal-token"},
+            )
+            self.assertEqual(detail.status_code, 200)
+            self.assertNotIn("SCHEMA_MUST_NOT_RETURN_ROW_VALUES", detail.text)
+            tables[name] = detail.json()
+            self.assertLessEqual(len(json.dumps(detail.json(), separators=(",", ":"))), 3900)
+        self.assertIn("turn_count", {c["name"] for c in tables["session_logs"]["columns"]})
+        self.assertIn(
+            {"column": "subject_user_id", "table": "users", "target_column": "id"},
+            tables["session_logs"]["foreign_keys"],
+        )
+        self.assertNotIn("SCHEMA_MUST_NOT_RETURN_ROW_VALUES", response.text)
+        self.assertNotIn("deployment_config", tables)
+        self.assertEqual(body["usage"]["metric"], "recorded_turns")
+
+    def test_internal_admin_schema_rejects_tables_outside_allowlist(self) -> None:
+        for table in ["deployment_config", "sqlite_master", 'users\") ; SELECT 1']:
+            response = self.client.get(
+                "/internal/agent/admin-db-schema", params={"table": table},
+                headers={"X-Internal-Agent-Token": "test-internal-token"},
+            )
+            self.assertEqual(response.status_code, 400)
+
+    def test_discovered_usage_query_ranks_users_without_counting_admin_tests(self) -> None:
+        user_ids = [self.database.create_user() for _ in range(6)]
+        with self.database.get_cursor() as cursor:
+            for index, (user_index, source, turns) in enumerate([
+                (0, "user", 2), (0, "user", 5), (1, "user", 4),
+                (2, "admin_test", 100), (3, "user", 7),
+            ]):
+                cursor.execute(
+                    "INSERT INTO session_logs "
+                    "(log_id, source, subject_user_id, turn_count, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (f"fixture-{index}", source, user_ids[user_index], turns,
+                     f"2026-10-{index + 10:02d} 12:00:00"),
+                )
+        schema = self.client.get(
+            "/internal/agent/admin-db-schema",
+            headers={"X-Internal-Agent-Token": "test-internal-token"},
+        )
+        self.assertEqual(schema.status_code, 200)
+        response = self.client.post(
+            "/internal/agent/admin-db-query",
+            headers={"X-Internal-Agent-Token": "test-internal-token"},
+            json={"sql": schema.json()["usage"]["top_users_sql"]},
+        )
+        body = response.json()
+        self.assertTrue(body["success"], body.get("error"))
+        rows = body["rows"]
+        self.assertEqual([r["user_id"] for r in rows], [user_ids[i] for i in [0, 3, 1, 2, 4]])
+        self.assertEqual([r["recorded_turns"] for r in rows], [7, 7, 4, 0, 0])
+        self.assertEqual([r["recorded_conversations"] for r in rows], [2, 1, 1, 0, 0])
+        self.assertEqual(rows[0]["last_recorded_activity"], "2026-10-11 12:00:00")
+        self.assertIsNone(rows[3]["last_recorded_activity"])
+        population = self.client.post(
+            "/internal/agent/admin-db-query",
+            headers={"X-Internal-Agent-Token": "test-internal-token"},
+            json={"sql": schema.json()["usage"]["population_counts_sql"]},
+        ).json()
+        self.assertTrue(population["success"], population.get("error"))
+        self.assertEqual(population["rows"], [{"total_users": 6, "active_users": 3}])
+
     def test_database_export_creates_copied_export_audit_evidence(self) -> None:
         response = self.client.get("/admin/database/export")
 
