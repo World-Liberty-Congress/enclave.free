@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getPublicKey, nip04 } from 'nostr-tools';
-import { createConversationLookupHandler } from './adminConversationLookup';
+import {
+  createConversationLookupHandler,
+  parseConversationLookupRequest,
+} from './adminConversationLookup';
 
 const adminKey = new Uint8Array(32).fill(1);
 const senderKey = new Uint8Array(32).fill(2);
@@ -19,6 +22,27 @@ const event = (args: Record<string, unknown> = {}) => ({
   args,
 });
 const handlers: ReturnType<typeof createConversationLookupHandler>[] = [];
+it.each([
+  '2026-10-20T10:00:00Z',
+  '2026-10-20T10:00:00.1Z',
+  '2026-10-20T10:00:00.000001+00:00',
+])('accepts the shared Sage UTC timestamp grammar: %s', (start) => {
+  expect(
+    parseConversationLookupRequest(event({ start }), nonce).args.start
+  ).toBe(start);
+});
+it.each([
+  '2026-10-20T10:00:00.000001000Z',
+  '2026-10-20t10:00:00Z',
+  '2026-10-20T10:00:60Z',
+  '2026-02-30T10:00:00Z',
+  '2026-10-20T10:00:00.Z',
+  '2026-10-20T10:00:00+01:00',
+])('rejects timestamps Sage must reject before dispatch: %s', (start) => {
+  expect(() =>
+    parseConversationLookupRequest(event({ start }), nonce)
+  ).toThrow();
+});
 function handler() {
   const result = createConversationLookupHandler({
     nonce,

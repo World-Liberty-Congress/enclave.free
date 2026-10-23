@@ -6,7 +6,7 @@
 - Baselines: application 2ad21aa7fe839b9e5956085c63ada7f3007d9c04 (`liberator/main`); Sage 1d94c033ad6aba694f85849ae8fba7c3eeb26c0f (tree of `production/liberator-baseline`).
 - Branch: `feature/admin-insights` in both repositories.
 - Goal: implement and verify audit, usage, and signer-backed conversation insights; release, deploy, and verify systematically end to end.
-- Current status: specification and implementation.
+- Current status: final verification and release preparation.
 - Skill setup exists. Upstream tracker/default staging instructions are adapted to the user's explicitly selected Liberator fork and existing release branches.
 - Prior design approval and latest explicit deployment instruction cover scope, test seams, the three capability slices, and production release. No new approval gate is inferred from the feature skill's default stop-at-PR workflow.
 - Terminology follows CONTEXT.md and the existing Admin user-lookup contract. No new hard-to-reverse architecture is needed.
@@ -50,10 +50,22 @@ GitHub returned `the 'World-Liberty-Congress/enclave.free' repository has disabl
 ## Integration acceptance
 
 - Config HTTP write and restore produced `admin_ui` per-setting audit entries. Native audit tests cover audit failure, conditional rollback, concurrent edits, override inheritance and revoked Admins.
-- Both Admin chat surfaces returned the five expected names and counts,150 retained messages and585 deduplicated observed tokens.14 focused usage tests also verify ranking ties, timezone boundaries, model gaps, test-user provenance, token conflicts and bounded database timeouts.
+- Both Admin chat surfaces returned the five expected names and per-user counts with585 deduplicated observed tokens. One later full-chat response summed the correct rows to155 instead of150; a total grouping and stronger browser acceptance assertions address this before release.14 focused usage tests also verify ranking ties, timezone boundaries, model gaps, test-user provenance, token conflicts and bounded database timeouts.
 - Real encrypted review fixtures exposed a transcript-envelope mismatch (`{turns:[...]}`); the browser reader and encryption fixtures were corrected before release. Both surfaces then quoted the exact assistant message and feedback, cited the stable IDs, and reported zero unreadable/missing/unknown-time records.
 - Audit pages can contain fewer records than requested because of the byte budget. Tool and turn guidance explicitly require continuation to the requested count and distinguish action summaries from per-setting changes. Actor public keys remain complete.
 - Token field completeness is distinct from assistant-message coverage. Guidance reports `assistant_with_usage / assistant_messages`; complete fields within recorded observations do not imply complete provider usage.
 - Full backend discovery in the production runtime:494 tests,492 passed,1 skipped,1 unchanged FastAPI `_IncludedRouter.path` test error. The same error was independently reproduced against the deployed baseline image/source. The lightweight local venv additionally lacks transformer/docling dependencies; those dependency tests passed in the production image.
 - First consolidated Sage workspace/all-features run:329 tests passed, including real isolated PostgreSQL audit and usage tests. Clippy with warnings denied passed. Final source formatting and changed-test reconciliation are pending.
 - Consolidated frontend:82 files and520 tests passed; actual encrypted-envelope regression tests included. Component console errors were intentional failure-path fixtures. Sage source was formatted and committed for final independent review.
+
+## Final review corrections
+
+- Conversation precision/deletion/unreadable-record corrections committed in application330d42f and Sage dcffb38; focused54frontend,7Python,5native tests passed.
+- Audit filtering, ordering and cursor positions now use exact integer UTC microseconds; inclusion/exclusion within a single millisecond is covered.
+- Migrated Admin test accounts now retain analytics provenance through an additive SQLite registry. Provisioning proves the derived public key; upgrade backfill includes deleted historical User Types without changing user records. Existing impersonation authorization remains unchanged. Four new regression cases cover migration, upgrade, replacement/deletion and invalid registration.
+- Application29f1cd9 contains the audit and provenance fixes. Full production-runtime backend discovery after these changes:501 tests,499 passed,1 skipped,1 unchanged baseline FastAPI route-inspection error. Provenance/impersonation/conversation focused suite:22 passed.
+- Local CodeRabbit initial application and Sage reviews raised zero issues. Application fix review raised one documentation wording issue about token coverage; clarified exact messages versus incomplete observed tokens. Independent standards/spec follow-up reviews are underway.
+
+- Final spec follow-up: no findings; test migration exclusion closed. Standards follow-up found a conversation timestamp grammar mismatch that could abort a browser stream. Sage now rejects lowercase separators, excessive fractional precision and leap seconds before dispatch, matching browser validation; both sides share regression fixtures.
+- Usage total grouping returns one exact aggregate (including empty scopes), with total_messages on every row. Sixteen focused Postgres tests and fresh standards/spec reviews passed. The synthetic aggregate is150 messages (75human/75assistant),585 observed tokens,39 of75 assistant records covered.
+- Final Sage workspace/all-features run:333 tests passed (265library,68tool tests), including real PostgreSQL cases; strict Clippy passed. Frontend final shared conversation/profile/stream regressions:63 passed; typecheck passed. Strengthened browser usage acceptance passed on both Admin chat surfaces with150 messages and explicit partial token coverage.
