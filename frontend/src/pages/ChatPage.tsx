@@ -366,6 +366,16 @@ export function ChatPage() {
       })
   );
   const userConversationRef = useRef<UserConversationHandle>(null);
+  const activeTurnRef = useRef<AbortController | null>(null);
+  const cancelActiveTurn = useCallback(() => {
+    activeTurnRef.current?.abort();
+    activeTurnRef.current = null;
+  }, []);
+  useEffect(() => cancelActiveTurn, [cancelActiveTurn]);
+  const resetAdminConversation = useCallback(() => {
+    cancelActiveTurn();
+    dispatchConversation({ type: 'newConversationStarted' });
+  }, [cancelActiveTurn]);
   const [userConversationState, setUserConversationState] =
     useState<ConversationUiState>(() => createConversationUiState());
   const [userSelectedTools, setUserSelectedTools] = useState<string[]>([]);
@@ -934,6 +944,7 @@ export function ChatPage() {
 
   const handleConversationSelect = useCallback(
     async (conversation: ConversationHistorySummary) => {
+      activeTurnRef.current?.abort();
       try {
         const res = await fetch(
           `${API_BASE}/query/session/${encodeURIComponent(conversation.id)}`,
@@ -1049,6 +1060,8 @@ export function ChatPage() {
   const handleDeleteConversation = useCallback(async () => {
     if (!deleteDraft) return;
 
+    if (conversationSessionId === deleteDraft.id)
+      activeTurnRef.current?.abort();
     setDeleteStatus('deleting');
     setDeleteError(null);
     try {
@@ -1068,7 +1081,7 @@ export function ChatPage() {
       );
       if (conversationSessionId === deleteDraft.id) {
         if (isAdmin) {
-          dispatchConversation({ type: 'newConversationStarted' });
+          resetAdminConversation();
         } else {
           userConversationRef.current?.reset();
         }
@@ -1085,7 +1098,7 @@ export function ChatPage() {
           : t('chat.sessions.deleteError', 'Unable to delete Conversation.')
       );
     }
-  }, [conversationSessionId, deleteDraft, isAdmin, t]);
+  }, [conversationSessionId, deleteDraft, isAdmin, resetAdminConversation, t]);
 
   const generateMessageId = () =>
     `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -1101,6 +1114,9 @@ export function ChatPage() {
   };
 
   const handleSend = async (content: string) => {
+    activeTurnRef.current?.abort();
+    const turnController = new AbortController();
+    activeTurnRef.current = turnController;
     const hasConfigTool = configToolEnabled;
 
     dispatchConversation({
@@ -1138,13 +1154,14 @@ export function ChatPage() {
         };
         try {
           await sendLlmChatStreamWithUnifiedTools({
+            signal: turnController.signal,
             content,
             tools: backendTools,
             sessionId: conversationSessionId,
             jobIds: selectedDocuments,
-            includeAdminSignerDecryptedContext:
-              isAdmin && backendTools.includes('db-query'),
+            adminUserLookup: isAdmin && backendTools.includes('db-query'),
             onEvent: (event, payload) => {
+              if (turnController.signal.aborted) return;
               const data = payload as Record<string, unknown>;
               notifyAffectedAreas(data);
               if (event === 'assistant_message_started') {
@@ -1215,6 +1232,17 @@ export function ChatPage() {
             });
           streamed = true;
         } catch (streamError) {
+          if (activeTurnRef.current !== turnController) return;
+          if (streamMessageId && streamContent) {
+            dispatchConversation({
+              type: 'assistantContentReplaced',
+              assistantTurnId: streamMessageId,
+              content: shareSecrets
+                ? redactSecrets(streamContent, secretsForThisRequest)
+                : streamContent,
+            });
+          }
+          if (turnController.signal.aborted) return;
           const errorMessage =
             streamError instanceof Error
               ? streamError.message
@@ -1253,6 +1281,14 @@ export function ChatPage() {
             });
             dispatchConversation({ type: 'requestErrorDismissed' });
           }
+          if (
+            streamError &&
+            typeof streamError === 'object' &&
+            'streamStarted' in streamError &&
+            streamError.streamStarted
+          ) {
+            throw streamError;
+          }
           if (hasConfigTool) {
             throw streamError;
           }
@@ -1267,12 +1303,12 @@ export function ChatPage() {
         }
 
         response = await sendLlmChatWithUnifiedTools({
+          signal: turnController.signal,
           content,
           tools: backendTools,
           sessionId: conversationSessionId,
           jobIds: selectedDocuments,
-          includeAdminSignerDecryptedContext:
-            isAdmin && backendTools.includes('db-query'),
+          adminUserLookup: isAdmin && backendTools.includes('db-query'),
         });
       }
 
@@ -1325,19 +1361,25 @@ export function ChatPage() {
 
       await loadConversationHistory();
     } catch (e) {
+      if (turnController.signal.aborted) return;
       dispatchConversation({
         type: 'requestFailed',
         message:
           e instanceof Error ? e.message : t('errors.failedToSendMessage'),
       });
     } finally {
-      dispatchConversation({ type: 'assistantTurnFinished' });
+      turnController.abort();
+      if (activeTurnRef.current === turnController) {
+        activeTurnRef.current = null;
+        dispatchConversation({ type: 'assistantTurnFinished' });
+      }
     }
   };
 
   const handleNewChat = () => {
+    activeTurnRef.current?.abort();
     if (isAdmin) {
-      dispatchConversation({ type: 'newConversationStarted' });
+      resetAdminConversation();
     } else {
       userConversationRef.current?.reset();
     }
@@ -1824,6 +1866,7 @@ export function ChatPage() {
           turns={conversationTurns}
           onSend={handleSend}
           isRunning={isLoading}
+          onStop={() => activeTurnRef.current?.abort()}
           placeholder={t('chat.input.placeholder')}
           toolbar={inputToolbar}
           notices={threadNotices}

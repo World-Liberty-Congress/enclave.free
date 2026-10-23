@@ -7,7 +7,7 @@ The product-supported SQL surface is read-only admin inspection.
 - `POST /admin/db/query` accepts `SELECT` statements only.
 - `GET /admin/db/tables` and `GET /admin/db/tables/{table_name}` expose only the shared allowlisted admin inspection tables.
 - The Sage `db-query` Tool Set exposes the executable tool for approved Admin turns when the Tool Set is enabled. Sage may translate natural-language database questions into a single read-only SQLite `SELECT`; executed SQL still uses the same shared allowlist and rejects mutation keywords before execution.
-- Admin Signer-Decrypted Context may supplement an Admin `db-query` turn for encrypted User identity/profile interpretation, but it does not change SQL validation, table allowlisting, query execution, truncation, or redaction.
+- Browser-backed `read_users` and `search_users` supplement live Admin Database turns for encrypted identity/profile interpretation. They use a separate [projected-read contract](contracts/admin-user-lookup.md) and do not change SQL validation or redaction.
 
 Direct database mutation through the Database Explorer is not a supported product path. Admin data changes should use audited product flows such as User Type administration, User approval, Document governance, retention, and Data Deletion workflows.
 

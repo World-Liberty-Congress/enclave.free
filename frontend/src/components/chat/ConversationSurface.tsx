@@ -24,6 +24,7 @@ let conversationSurfaceRuntimeInstance = 0;
 interface ConversationSurfaceProps {
   turns: ConversationSurfaceTurn[];
   onSend: (message: string) => void;
+  onStop?: () => void;
   activityAudience: ConversationActivityAudience;
   isRunning?: boolean;
   disabled?: boolean;
@@ -48,6 +49,7 @@ interface ConversationSurfaceProps {
 export function ConversationSurface({
   turns,
   onSend,
+  onStop,
   activityAudience,
   isRunning = false,
   disabled = false,
@@ -120,6 +122,7 @@ export function ConversationSurface({
         />
         <AssistantComposerInput
           disabled={disabled || isRunning}
+          onStop={isRunning ? onStop : undefined}
           placeholder={placeholder}
           toolbar={toolbar}
         />

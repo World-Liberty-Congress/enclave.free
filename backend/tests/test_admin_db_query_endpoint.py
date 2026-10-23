@@ -158,6 +158,7 @@ class AdminDbQueryEndpointTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         tables = {table["name"]: table for table in body["tables"]}
+        self.assertIn("select name only", body["identity_guidance"])
         self.assertEqual(set(tables), ALLOWED_TABLES)
         # Sage bounds each native tool result to 4,000 characters. A larger
         # discovery result silently shortens strings, including SQL and semantics.

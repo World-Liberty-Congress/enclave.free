@@ -432,9 +432,11 @@ from retained `session_logs`, counting both user and assistant messages. Each
 condition; exclude Admin tests and preserve zero-activity users. Report the
 metric and coverage, conversation counts, and last log update. This is not
 an exact live Postgres message count or a per-message time-window report.
-Approval does not imply activity. Names can be matched by ID from the
-optional, potentially partial AdminSigner-DecryptedContext; SQL cannot
-decrypt encrypted identities.
+Approval does not imply activity. Names can be resolved by ID through `read_users` on live Admin Database streams
+with browser capability; `search_users` evaluates encrypted predicates in the
+browser. SQL cannot decrypt encrypted identities. See
+[the lookup contract](contracts/admin-user-lookup.md) for projection, correlation,
+authentication, budgets and coverage.
 
 One-to-many joins must count distinct user IDs for population totals. Counting
 joined rows would count a user once per conversation or profile answer.
