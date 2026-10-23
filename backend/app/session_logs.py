@@ -39,6 +39,7 @@ import sqlite3
 import uuid
 import zipfile
 from io import BytesIO
+from datetime import datetime
 from typing import Any, Optional
 
 import database
@@ -266,7 +267,7 @@ def record_user_conversation(
     through_sequence_id: int,
     user_type_id: Optional[int] = None,
     title: Optional[str] = None,
-) -> dict[str, Any]:
+) -> Optional[dict[str, Any]]:
     """Keep the encrypted record of one User Conversation in step with Sage.
 
     `messages` is Sage's complete retained user/assistant history, oldest
@@ -281,8 +282,19 @@ def record_user_conversation(
     newer history no longer contains the recorded messages (the Conversation
     continued after its Session Memory was deleted), the existing record is
     archived intact and the continuation starts a new record.
+
+    If an Admin deleted this Conversation's record, only messages after that
+    cut-off are recorded; returns None when nothing remains to record.
     """
-    turns = _prepare_turns(messages, require_ids=True)
+    cutoff = _cutoff_for(sage_session_id, subject_user_id)
+    if cutoff is not None:
+        messages = [message for message in messages if _after_cutoff(message, cutoff)]
+        if not messages:
+            return None
+    turns = _prepare_turns(
+        [{key: value for key, value in message.items() if key != "sequence_id"} for message in messages],
+        require_ids=True,
+    )
     if not turns:
         raise ValueError("A Conversation record needs at least one message")
     if not get_admin_pubkey():
@@ -324,6 +336,28 @@ def record_user_conversation(
                 _discard_unwritten_log(log["log_id"])
             raise
     raise RuntimeError("Conversation record changed concurrently; retry the update")
+
+
+def _cutoff_for(sage_session_id: str, subject_user_id: int) -> Optional[Any]:
+    with database.get_cursor() as cursor:
+        cursor.execute(
+            """SELECT through_sequence_id, cut_at FROM session_log_cutoffs
+               WHERE source = 'user' AND sage_session_id = ? AND subject_user_id = ?""",
+            (sage_session_id, subject_user_id),
+        )
+        return cursor.fetchone()
+
+
+def _after_cutoff(message: dict[str, Any], cutoff: Any) -> bool:
+    if cutoff["through_sequence_id"] is not None:
+        return message["sequence_id"] > cutoff["through_sequence_id"]
+    if not message.get("ts"):
+        return True
+    return _utc_datetime(message["ts"]) > _utc_datetime(cutoff["cut_at"])
+
+
+def _utc_datetime(timestamp: str) -> datetime:
+    return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
 
 
 def _recorded_message_ids(row: Any) -> set[str]:
@@ -392,7 +426,7 @@ def _find_or_create_user_log(
 
 def _discard_unwritten_log(log_id: str) -> None:
     try:
-        delete_session_log(log_id)
+        _delete_log(log_id, record_cutoff=False)
     except OSError:
         logger.warning("Could not clean up unwritten session log %s", log_id, exc_info=True)
 
@@ -489,7 +523,15 @@ def get_session_log(log_id: str) -> Optional[dict[str, Any]]:
 
 
 def delete_session_log(log_id: str) -> bool:
-    """Delete a session log, its feedback (cascade), and any legacy transcript file."""
+    """Delete a session log, its feedback (cascade), and any legacy transcript file.
+
+    Deleting a User Conversation record also records a cut-off, so that if the
+    Conversation continues, the deleted messages are not recorded again.
+    """
+    return _delete_log(log_id, record_cutoff=True)
+
+
+def _delete_log(log_id: str, *, record_cutoff: bool) -> bool:
     row = _get_row(log_id)
     if not row:
         return False
@@ -502,6 +544,29 @@ def delete_session_log(log_id: str) -> bool:
             logger.warning("Could not remove transcript file for %s", log_id, exc_info=True)
             raise
     with database.get_cursor() as cursor:
+        if (
+            record_cutoff
+            and row["source"] == "user"
+            and row["sage_session_id"]
+            and row["subject_user_id"] is not None
+        ):
+            cursor.execute(
+                """INSERT INTO session_log_cutoffs (
+                       source, sage_session_id, subject_user_id, through_sequence_id, cut_at
+                   ) VALUES ('user', ?, ?, ?, ?)
+                   ON CONFLICT(source, sage_session_id, subject_user_id) DO UPDATE SET
+                       through_sequence_id = CASE
+                           WHEN excluded.through_sequence_id IS NULL
+                               THEN session_log_cutoffs.through_sequence_id
+                           WHEN session_log_cutoffs.through_sequence_id IS NULL
+                               THEN excluded.through_sequence_id
+                           ELSE MAX(session_log_cutoffs.through_sequence_id,
+                                    excluded.through_sequence_id)
+                       END,
+                       cut_at = excluded.cut_at""",
+                (row["sage_session_id"], row["subject_user_id"], row["sage_through_sequence_id"],
+                 database.utc_timestamp_z()),
+            )
         cursor.execute("DELETE FROM session_logs WHERE log_id = ?", (log_id,))
         return cursor.rowcount > 0
 

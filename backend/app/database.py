@@ -674,6 +674,22 @@ def init_schema():
     cursor.execute(_SESSION_LOG_FEEDBACK_TABLE_SQL)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_session_log_feedback_log ON session_log_feedback(log_id)")
 
+    # Where an Admin deleted a User Conversation record. If that Conversation
+    # continues, only messages after the cut-off are recorded again, so deleted
+    # content does not come back. through_sequence_id is the newest Sage message
+    # the deleted record covered; records without one fall back to cut_at.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS session_log_cutoffs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            sage_session_id TEXT NOT NULL,
+            subject_user_id INTEGER NOT NULL,
+            through_sequence_id INTEGER,
+            cut_at TEXT NOT NULL,
+            UNIQUE(source, sage_session_id, subject_user_id)
+        )
+    """)
+
     conn.commit()
     logger.info("SQLite schema initialized")
 
@@ -3777,6 +3793,7 @@ def delete_user_lifecycle(user_id: int) -> dict:
     with get_cursor() as cursor:
         # Historical logs retain their own lifecycle after the User Profile is deleted.
         cursor.execute("UPDATE session_logs SET subject_user_id = NULL WHERE subject_user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM session_log_cutoffs WHERE subject_user_id = ?", (user_id,))
         purged_memories = _purge_user_memories_for_subject_user_tx(cursor, user_id)
         cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
         user_deleted = cursor.rowcount > 0

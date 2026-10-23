@@ -76,16 +76,19 @@ class SessionLogsTest(unittest.TestCase):
         ]
 
     @staticmethod
-    def sage_history(exchanges: int, *, prefix: str = "m") -> list[dict]:
+    def sage_history(exchanges: int, *, prefix: str = "m", first_sequence: int = 1) -> list[dict]:
+        """Sage messages as sent to the backend; sequence IDs count from first_sequence."""
         history = []
         for number in range(1, exchanges + 1):
             history.append({
                 "message_id": f"{prefix}-{number}-q",
+                "sequence_id": first_sequence + 2 * number - 2,
                 "role": "user",
                 "content": f"Question {number}",
             })
             history.append({
                 "message_id": f"{prefix}-{number}-a",
+                "sequence_id": first_sequence + 2 * number - 1,
                 "role": "assistant",
                 "content": f"Answer {number}",
             })
@@ -1000,6 +1003,77 @@ class SessionLogsTest(unittest.TestCase):
 
         feedback = self.session_logs.list_feedback(log["log_id"])
         self.assertEqual([(f["message_id"], f["turn_index"]) for f in feedback], [("m-2-a", 3)])
+
+    def cutoffs(self) -> list[tuple]:
+        with self.database.get_cursor() as cursor:
+            cursor.execute("SELECT sage_session_id, subject_user_id, through_sequence_id FROM session_log_cutoffs")
+            return [tuple(row) for row in cursor.fetchall()]
+
+    def test_deleted_record_does_not_come_back_when_the_conversation_continues(self) -> None:
+        user_id = self.database.create_user()
+        history = self.sage_history(4)
+        log = self.record(history[:4], user_id=user_id)
+
+        self.assertTrue(self.session_logs.delete_session_log(log["log_id"]))
+        self.assertEqual(self.cutoffs(), [("sage-session", user_id, 4)])
+
+        # A late retry of the deleted history records nothing.
+        self.assertIsNone(self.record(history[:4], user_id=user_id))
+        # The Conversation continues: only the new exchange is recorded.
+        continued = self.record(history[:6], user_id=user_id)
+        self.assertNotEqual(continued["log_id"], log["log_id"])
+        self.assertEqual(self.message_ids(continued["log_id"]), ["m-3-q", "m-3-a"])
+        self.assertEqual(
+            [turn["content"] for turn in self.decrypt_transcript(continued["log_id"])],
+            ["Question 3", "Answer 3"],
+        )
+        self.assertNotIn("sequence_id", self.decrypt_transcript(continued["log_id"])[0])
+        grown = self.record(history, user_id=user_id)
+        self.assertEqual(grown["log_id"], continued["log_id"])
+        self.assertEqual(grown["turn_count"], 4)
+
+        # Deleting again moves the cut-off forward.
+        self.session_logs.delete_session_log(continued["log_id"])
+        self.assertEqual(self.cutoffs(), [("sage-session", user_id, 8)])
+        self.assertIsNone(self.record(history, user_id=user_id))
+
+    def test_deleting_a_legacy_record_cuts_off_by_deletion_time(self) -> None:
+        user_id = self.database.create_user()
+        log = self.session_logs.create_session_log(
+            source="user", subject_user_id=user_id, sage_session_id="legacy-session")
+        self.session_logs.save_transcript(
+            log["log_id"], [{"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}])
+        self.session_logs.delete_session_log(log["log_id"])
+        self.assertEqual(self.cutoffs(), [("legacy-session", user_id, None)])
+        with self.database.get_cursor() as cursor:
+            cursor.execute("UPDATE session_log_cutoffs SET cut_at = '2026-10-23T12:00:00Z'")
+
+        history = self.sage_history(2)
+        history[0]["ts"] = history[1]["ts"] = "2026-10-23T11:59:00.000000+00:00"
+        history[2]["ts"] = history[3]["ts"] = "2026-10-23T12:01:00.000000+00:00"
+        continued = self.record(history, user_id=user_id, session="legacy-session")
+
+        self.assertEqual(self.message_ids(continued["log_id"]), ["m-2-q", "m-2-a"])
+
+    def test_only_admin_deletion_of_user_records_sets_a_cutoff(self) -> None:
+        trial = self.session_logs.create_session_log(title="Test User Session", sage_session_id="trial")
+        self.session_logs.save_transcript(trial["log_id"], [{"role": "user", "content": "q"}])
+        self.session_logs.delete_session_log(trial["log_id"])
+        user_id = self.database.create_user()
+        self.clear_admins()
+        with self.assertRaises(ValueError):
+            self.record(self.sage_history(1), user_id=user_id)
+        self.assertEqual(self.cutoffs(), [])
+
+    def test_deleting_a_user_removes_their_cutoffs(self) -> None:
+        user_id = self.database.create_user()
+        log = self.record(self.sage_history(1), user_id=user_id)
+        self.session_logs.delete_session_log(log["log_id"])
+        self.assertEqual(len(self.cutoffs()), 1)
+
+        self.database.delete_user_lifecycle(user_id)
+
+        self.assertEqual(self.cutoffs(), [])
 
 
 if __name__ == "__main__":

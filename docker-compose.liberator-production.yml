@@ -34,7 +34,7 @@ services:
     build:
       labels:
         org.opencontainers.image.source: https://github.com/World-Liberty-Congress/sage
-        org.opencontainers.image.revision: 'c19963b771b2bfd2cb7a26e7d62f80250ef00cad'
+        org.opencontainers.image.revision: '9a1936ac8ddb2a1eab578ff8448174d73c3977a3'
     restart: unless-stopped
     environment:
       ENCLAVE_ENV: production
