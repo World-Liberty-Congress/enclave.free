@@ -52,6 +52,14 @@ Direct-write Tools:
 - `manage_onboarding_questions`
 - `update_document_access`
 
+Read Tools answer scoped questions. Without arguments, a read returns a compact
+overview. `user_type` (name or id), `document`, `category`, and `keys` narrow it
+to the slice being asked about and resolve inherited values. Lists are paged
+through `offset`. Every result fits the per-result Tool budget, so asking about
+one User Type, Document, or setting works at any instance size. The
+[Internal Agent Contract](internal-agent-contract.md#model-facing-read-views)
+defines each view.
+
 Privileged read Tool:
 
 - `read_deployment_secret` for an explicit Admin request
