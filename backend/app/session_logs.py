@@ -50,9 +50,9 @@ logger = logging.getLogger("enclave.session_logs")
 VALID_SOURCES = ("admin_test", "user")
 VALID_RATINGS = ("up", "down")
 MESSAGE_ID_PATTERN = re.compile(SESSION_LOG_MESSAGE_ID_PATTERN)
-# Concurrent writers to one record resolve on the next read; three attempts is
-# ample, and Sage retries the whole update if they are ever exhausted.
-_MAX_RECORD_ATTEMPTS = 3
+# Concurrent writers to one record resolve on the next read, and archiving a
+# record takes one extra pass; Sage retries the whole update if these run out.
+_MAX_RECORD_ATTEMPTS = 4
 
 
 def legacy_message_id(turn_index: int) -> str:
@@ -273,10 +273,14 @@ def record_user_conversation(
     first, each with Sage's message_id; `through_sequence_id` is Sage's sequence
     number for the newest of them. Sage numbers messages in the order it stores
     them, so a later read of a Conversation has a higher (through_sequence_id,
-    message count) version than an earlier read, including after its Session
-    Memory was deleted and the Conversation continued. The record only moves
-    forward: an update at or below the stored version (a retry, or an older
-    update arriving late) leaves it unchanged.
+    message count) version than an earlier read. The record only moves forward:
+    an update at or below the stored version (a retry, or an older update
+    arriving late) leaves it unchanged.
+
+    The record has its own lifecycle, separate from Sage Session Memory. When a
+    newer history no longer contains the recorded messages (the Conversation
+    continued after its Session Memory was deleted), the existing record is
+    archived intact and the continuation starts a new record.
     """
     turns = _prepare_turns(messages, require_ids=True)
     if not turns:
@@ -284,21 +288,25 @@ def record_user_conversation(
     if not get_admin_pubkey():
         raise ValueError("No admin configured for encryption")
     incoming: RecordVersion = (through_sequence_id, len(turns))
+    incoming_ids = {turn["message_id"] for turn in turns}
 
-    log, created = _find_or_create_user_log(
-        sage_session_id=sage_session_id,
-        subject_user_id=subject_user_id,
-        user_type_id=user_type_id,
-        title=title,
-    )
-    try:
-        for _ in range(_MAX_RECORD_ATTEMPTS):
+    for _ in range(_MAX_RECORD_ATTEMPTS):
+        log, created = _find_or_create_user_log(
+            sage_session_id=sage_session_id,
+            subject_user_id=subject_user_id,
+            user_type_id=user_type_id,
+            title=title,
+        )
+        try:
             row = _get_row(log["log_id"])
             if row is None:
-                raise KeyError(log["log_id"])
+                continue
             stored: RecordVersion = (row["sage_through_sequence_id"], row["turn_count"])
             if stored[0] is not None and incoming <= stored:
                 return _row_to_metadata(row)
+            if stored[0] is not None and not _recorded_message_ids(row) <= incoming_ids:
+                _archive_record(log["log_id"], expected_version=stored)
+                continue
             if _write_transcript(
                 log["log_id"],
                 turns,
@@ -311,11 +319,37 @@ def record_user_conversation(
                     len(turns),
                 )
                 return get_session_log_metadata(log["log_id"])  # type: ignore[return-value]
-        raise RuntimeError("Conversation record changed concurrently; retry the update")
+        except ValueError:
+            if created:
+                _discard_unwritten_log(log["log_id"])
+            raise
+    raise RuntimeError("Conversation record changed concurrently; retry the update")
+
+
+def _recorded_message_ids(row: Any) -> set[str]:
+    try:
+        return {message["message_id"] for message in _transcript_messages(row)}
     except ValueError:
-        if created:
-            _discard_unwritten_log(log["log_id"])
-        raise
+        return set()
+
+
+def _archive_record(log_id: str, *, expected_version: RecordVersion) -> bool:
+    """Set a record aside, unchanged, so its Conversation can start a new one.
+
+    Clearing sage_session_id releases the one-record-per-session slot; the
+    archived record keeps its subject, transcript, usage and feedback.
+    """
+    with database.get_cursor() as cursor:
+        cursor.execute(
+            """UPDATE session_logs
+               SET status = 'archived', sage_session_id = NULL, updated_at = ?
+               WHERE log_id = ? AND sage_through_sequence_id IS ? AND turn_count = ?""",
+            (database.utc_timestamp_z(), log_id, *expected_version),
+        )
+        archived = cursor.rowcount > 0
+    if archived:
+        logger.info("Archived User Conversation record %s; its Conversation continues in a new record", log_id)
+    return archived
 
 
 def _find_or_create_user_log(

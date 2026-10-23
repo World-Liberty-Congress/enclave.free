@@ -792,6 +792,8 @@ describe('FeedbackView', () => {
         'The transcript is unavailable or incomplete and cannot be exported.'
       )
     ).not.toBeInTheDocument();
+    // Its messages have no recorded IDs to save ratings against.
+    expect(screen.queryByTitle('Needs work')).not.toBeInTheDocument();
   });
 
   it('blocks review when the message order disagrees with the turn count', async () => {

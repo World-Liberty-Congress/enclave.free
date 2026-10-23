@@ -1330,11 +1330,12 @@ def _migrate_session_log_feedback_message_ids() -> None:
     """Rebuild session_log_feedback keyed by transcript message ID.
 
     Feedback used to name a position in the transcript, which pointed at a
-    different answer whenever the transcript changed. Each existing row gets the
-    ID of the message at its position: the stored message ID when the transcript
-    has one (a record written by this release before a rollback), otherwise
-    session_logs.legacy_message_id(turn_index), which stays on the position it
-    was saved for until Sage next replaces that record with its full history.
+    different answer whenever the transcript changed. A row keeps its answer only
+    when that is reliable: the transcript has not changed since the rating was
+    saved. It then gets the ID of the message at its position: the stored
+    message ID when the transcript has one (a record written by this release
+    before a rollback), otherwise session_logs.legacy_message_id(turn_index).
+    Other rows are kept, unattached to any answer, as legacy-unplaced-<id>.
     The rebuild is one transaction, so an interrupted run leaves the old table.
     """
     conn = get_connection()
@@ -1351,7 +1352,7 @@ def _migrate_session_log_feedback_message_ids() -> None:
         cursor.execute("ALTER TABLE session_log_feedback RENAME TO session_log_feedback_old")
         cursor.execute(_SESSION_LOG_FEEDBACK_TABLE_SQL)
         cursor.execute("""
-            SELECT f.*, l.turn_metadata_json
+            SELECT f.*, l.turn_metadata_json, l.updated_at AS log_updated_at
             FROM session_log_feedback_old AS f
             JOIN session_logs AS l ON l.log_id = f.log_id
             ORDER BY f.id
@@ -1366,7 +1367,9 @@ def _migrate_session_log_feedback_message_ids() -> None:
                 (
                     row["id"],
                     row["log_id"],
-                    _message_id_at(row["turn_metadata_json"], row["turn_index"]),
+                    _message_id_at(row["turn_metadata_json"], row["turn_index"])
+                    if _utc_seconds(row["updated_at"]) >= _utc_seconds(row["log_updated_at"])
+                    else f"legacy-unplaced-{row['id']}",
                     row["rating"],
                     row["comment_ciphertext"],
                     row["comment_ephemeral_pubkey"],
@@ -1390,6 +1393,11 @@ def _migrate_session_log_feedback_message_ids() -> None:
         "Migration: Keyed session_log_feedback by message ID (%d existing rows)",
         migrated,
     )
+
+
+def _utc_seconds(timestamp: str | None) -> str:
+    """Comparable UTC second from either stored timestamp format."""
+    return (timestamp or "").replace("T", " ").rstrip("Z")[:19]
 
 
 def _message_id_at(turn_metadata_json: str | None, turn_index: int) -> str:

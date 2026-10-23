@@ -394,8 +394,11 @@ Response:
 The backend keeps one record per Sage session and User, takes the User Type from
 the User's current record, and encrypts the transcript to the Admin pubkey. An
 update whose `(through_sequence_id, message count)` is not above the stored
-record's changes nothing, so retries and late updates are safe; a higher one
-replaces the record. `turn_count` is the number of recorded messages. Admin
+record's changes nothing, so retries and late updates are safe. A higher one
+replaces the record, unless it no longer contains the recorded messages (the
+Conversation continued after its Session Memory was deleted): then the record
+is archived intact and a new one is started. `turn_count` is the number of
+recorded messages. Admin
 actors receive `403`; a missing admin key returns `409` with nothing stored.
 Deleted Users and provisioned Test Users return `status: "skipped"` with an
 empty `log_id`. Payloads without message IDs, or with roles other than `user`

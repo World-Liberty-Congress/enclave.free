@@ -864,6 +864,7 @@ export function FeedbackView() {
             {deleteError && <Callout tone="error">{deleteError}</Callout>}
 
             {(turns ?? []).map((turn, index) => {
+              const canRate = (detail?.transcript_messages.length ?? 0) > 0;
               const draft = drafts[turn.message_id];
               const isAssistant = turn.role === 'assistant';
               return (
@@ -889,8 +890,9 @@ export function FeedbackView() {
                   {isAssistant && <TranscriptTraceSummary turn={turn} />}
 
                   {/* Only the assistant's (machine) turns are ratable — the
-                      user's own messages aren't graded. */}
-                  {isAssistant && (
+                      user's own messages aren't graded. Logs saved before their
+                      message order was recorded are read-only. */}
+                  {isAssistant && canRate && (
                     <div className="mt-1 flex flex-wrap items-center gap-2 border-t border-border pt-2">
                       <button
                         onClick={() => void saveFeedback(turn.message_id, 'up')}
