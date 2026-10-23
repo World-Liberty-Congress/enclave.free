@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 import database
-import impersonation
+import test_user_provenance
 from internal_agent import InternalActorContext, _require_admin_actor, _require_internal_token
 
 router = APIRouter(prefix="/internal/agent/admin", tags=["internal-agent"])
@@ -34,6 +34,6 @@ async def usage_users(payload: UsageUsersRequest) -> dict:
         cursor.execute(f"SELECT id FROM users WHERE id IN ({placeholders})", payload.user_ids)
         existing = {row["id"] for row in cursor.fetchall()}
     return {"users": [
-        {"id": user_id, "is_test": impersonation.is_provisioned_test_user(user_id)}
+        {"id": user_id, "is_test": test_user_provenance.is_test_identity(user_id)}
         for user_id in payload.user_ids if user_id in existing
     ]}

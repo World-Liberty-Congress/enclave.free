@@ -2,7 +2,6 @@
 import base64
 import hashlib
 import json
-import math
 import re
 from datetime import datetime, timezone
 
@@ -102,7 +101,7 @@ def _cursor(row: dict, snapshot: int, scope: str) -> str:
     return base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
 
 
-def _decode_cursor(cursor: str | None, scope: str) -> tuple[tuple[float, int] | None, int | None]:
+def _decode_cursor(cursor: str | None, scope: str) -> tuple[tuple[int, int] | None, int | None]:
     if cursor is None:
         return None, None
     try:
@@ -110,7 +109,7 @@ def _decode_cursor(cursor: str | None, scope: str) -> tuple[tuple[float, int] | 
         at, row_id, snapshot, cursor_scope = data
         if cursor_scope != scope:
             raise ValueError()
-        if (type(at) not in (int, float) or not math.isfinite(at) or not 0 <= at <= 5373484.5
+        if (type(at) is not int or not -(2**63) <= at < 2**63
                 or type(row_id) is not int or type(snapshot) is not int or not 0 < row_id <= snapshot <= 2**63 - 1):
             raise ValueError()
         return (at, row_id), snapshot

@@ -68,6 +68,77 @@ class UsageSubjectsTest(unittest.TestCase):
             cursor.execute('DELETE FROM users WHERE id=?', (ids[1],))
         self.assertEqual(self.request([ids[1]]).json(), {'users': []})
 
+    def test_provisioned_identity_stays_excluded_after_type_migration(self):
+        import impersonation
+
+        self.main.app.dependency_overrides[self.auth.require_admin] = lambda: self.actor
+        original_type = self.database.create_user_type('Original persona')
+        target_type = self.database.create_user_type('Target persona')
+        provision = self.client.post(f'/admin/test-users/provision?user_type_id={original_type}')
+        self.assertEqual(provision.status_code, 200, provision.text)
+        user_id = provision.json()['user_id']
+        pubkey = self.database.get_user(user_id)['pubkey']
+        migrated = self.client.post(f'/admin/users/{user_id}/migrate-type',
+                                    json={'target_user_type_id': target_type})
+        self.assertEqual(migrated.status_code, 200, migrated.text)
+        self.database.delete_user_type(original_type)
+        self.assertEqual(self.database.get_user(user_id)['pubkey'], pubkey)
+        self.assertEqual(self.request([user_id]).json(),
+                         {'users': [{'id': user_id, 'is_test': True}]})
+        # Analytics provenance does not grant impersonation of another persona.
+        with self.assertRaises(impersonation.ImpersonationUnavailable):
+            impersonation.issue_session_token(user_id=user_id, issued_by_pubkey=self.pubkey)
+
+    def test_upgrade_backfills_migrated_identity_after_original_type_was_deleted(self):
+        import impersonation
+
+        original_type = self.database.create_user_type('Deleted original persona')
+        target_type = self.database.create_user_type('Current persona')
+        pubkey = impersonation.derive_test_user_pubkey(self.pubkey, original_type)
+        user_id = self.database.create_user(pubkey=pubkey, user_type_id=original_type)
+        self.database.update_user_type_id(user_id, target_type)
+        self.database.delete_user_type(original_type)
+        ordinary = self.database.create_user(user_type_id=target_type)
+        with self.database.get_cursor() as cursor:
+            cursor.execute('UPDATE users SET email=? WHERE id=?',
+                           ('test-user+type1@enclave.test', ordinary))
+        # Simulate upgrading an old schema, with no review logs or audit history.
+        with self.database.get_cursor() as cursor:
+            cursor.execute('DROP TABLE IF EXISTS admin_test_provenance')
+            cursor.execute('SELECT * FROM users ORDER BY id')
+            before = [dict(row) for row in cursor.fetchall()]
+        self.database.init_schema()
+        self.database.init_schema()
+        with self.database.get_cursor() as cursor:
+            cursor.execute('SELECT * FROM users ORDER BY id')
+            self.assertEqual([dict(row) for row in cursor.fetchall()], before)
+        self.assertEqual(self.request([user_id, ordinary]).json(), {'users': [
+            {'id': user_id, 'is_test': True}, {'id': ordinary, 'is_test': False},
+        ]})
+
+    def test_provenance_is_bound_to_identity_and_removed_with_user(self):
+        from coincurve import PrivateKey
+        import impersonation
+        import test_user_provenance
+
+        user_id = self.database.create_user(
+            pubkey=impersonation.derive_test_user_pubkey(self.pubkey, None))
+        test_user_provenance.record_provisioning(user_id, self.pubkey, None)
+        self.database.set_user_pubkey(user_id, PrivateKey().public_key.format()[1:].hex())
+        self.assertEqual(self.request([user_id]).json(),
+                         {'users': [{'id': user_id, 'is_test': False}]})
+        with self.database.get_cursor() as cursor:
+            cursor.execute('DELETE FROM users WHERE id=?', (user_id,))
+            cursor.execute('SELECT COUNT(*) FROM admin_test_provenance WHERE user_id=?', (user_id,))
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+    def test_ordinary_identity_cannot_be_registered_as_test_provenance(self):
+        import test_user_provenance
+
+        ordinary = self.database.create_user()
+        with self.assertRaises(ValueError):
+            test_user_provenance.record_provisioning(ordinary, self.pubkey, None)
+
 
 if __name__ == '__main__':
     unittest.main()

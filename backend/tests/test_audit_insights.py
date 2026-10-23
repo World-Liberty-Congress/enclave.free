@@ -177,6 +177,31 @@ class AuditInsightsTest(unittest.TestCase):
         self.assertEqual(row["actor"], actor_key)
         self.assertNotIn("actor", row.get("excerpted_fields", []))
 
+    def test_microsecond_filters_and_cursor_order_preserve_recorded_precision(self):
+        for _ in range(3):
+            self.event("temperature")
+        with self.database.get_write_cursor() as cursor:
+            for row_id, timestamp in (
+                (1, "2026-10-23T10:00:00.123457Z"),
+                (2, "2026-10-23T05:00:00.123456-05:00"),
+                (3, "2026-10-23 10:00:00.123455"),
+            ):
+                cursor.execute("UPDATE config_audit_log SET changed_at=? WHERE id=?", (timestamp, row_id))
+        narrow = self.read(start_time="2026-10-23T10:00:00.123455Z",
+                           end_time="2026-10-23T10:00:00.123457Z").json()
+        self.assertEqual([r["id"] for r in narrow["records"]], [2, 3])
+        self.assertEqual(narrow["coverage"]["matched"], 2)
+        later = self.read(start_time="2026-10-23T10:00:00.123457Z").json()
+        self.assertEqual([r["id"] for r in later["records"]], [1])
+        page = self.read(limit=1).json()
+        seen = []
+        while True:
+            seen.extend(r["id"] for r in page["records"])
+            if page["next_cursor"] is None:
+                break
+            page = self.read(limit=1, cursor=page["next_cursor"]).json()
+        self.assertEqual(seen, [1, 2, 3])
+
 
 if __name__ == "__main__":
     unittest.main()
