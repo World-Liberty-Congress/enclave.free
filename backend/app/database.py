@@ -1330,13 +1330,10 @@ def _migrate_session_log_feedback_message_ids() -> None:
     """Rebuild session_log_feedback keyed by transcript message ID.
 
     Feedback used to name a position in the transcript, which pointed at a
-    different answer whenever the transcript changed. A row keeps its answer only
-    when that is reliable: the transcript has not been saved again since the
-    rating was (session_logs.completed_at records each transcript save). It then gets the ID of the message at its position: the stored
-    message ID when the transcript has one (a record written by this release
-    before a rollback), otherwise session_logs.legacy_message_id(turn_index).
-    Other rows are kept, unattached to any answer, as legacy-unplaced-<id>.
-    The rebuild is one transaction, so an interrupted run leaves the old table.
+    different answer whenever the transcript changed. Each row keeps its answer
+    only when that is reliable; see _migrated_message_id. Other rows are kept,
+    unattached to any answer, as legacy-unplaced-<id>. The rebuild is one
+    transaction, so an interrupted run leaves the old table.
     """
     conn = get_connection()
     cursor = conn.cursor()
@@ -1367,9 +1364,7 @@ def _migrate_session_log_feedback_message_ids() -> None:
                 (
                     row["id"],
                     row["log_id"],
-                    _message_id_at(row["turn_metadata_json"], row["turn_index"])
-                    if _utc_seconds(row["updated_at"]) >= _utc_seconds(row["transcript_saved_at"])
-                    else f"legacy-unplaced-{row['id']}",
+                    _migrated_message_id(row),
                     row["rating"],
                     row["comment_ciphertext"],
                     row["comment_ephemeral_pubkey"],
@@ -1400,14 +1395,26 @@ def _utc_seconds(timestamp: str | None) -> str:
     return (timestamp or "").replace("T", " ").rstrip("Z")[:19]
 
 
-def _message_id_at(turn_metadata_json: str | None, turn_index: int) -> str:
-    """The message ID recorded at a transcript position, or its legacy name."""
+def _migrated_message_id(row: sqlite3.Row) -> str:
+    """The message a position-keyed rating belongs to, when that is reliable.
+
+    A transcript that records message IDs (written by this release before a
+    rollback) only ever grows, so its positions keep their messages. A legacy
+    snapshot could slide, so its position is trusted only if the transcript was
+    not saved again after the rating (session_logs.completed_at marks each save);
+    session_logs.legacy_message_id names that position.
+    """
+    turn_index = row["turn_index"]
     try:
-        metadata = json.loads(turn_metadata_json or "[]")
-        message_id = metadata[turn_index].get("message_id") if 0 <= turn_index < len(metadata) else None
+        metadata = json.loads(row["turn_metadata_json"] or "[]")
+        recorded = metadata[turn_index].get("message_id") if 0 <= turn_index < len(metadata) else None
     except (json.JSONDecodeError, AttributeError, TypeError):
-        message_id = None
-    return str(message_id) if message_id else f"legacy-{turn_index}"
+        recorded = None
+    if recorded:
+        return str(recorded)
+    if _utc_seconds(row["updated_at"]) >= _utc_seconds(row["transcript_saved_at"]):
+        return f"legacy-{turn_index}"
+    return f"legacy-unplaced-{row['id']}"
 
 
 def _dedupe_session_log_source_sage_session_subject(cursor: sqlite3.Cursor) -> None:

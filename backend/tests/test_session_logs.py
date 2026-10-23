@@ -990,9 +990,10 @@ class SessionLogsTest(unittest.TestCase):
                     FOREIGN KEY (log_id) REFERENCES session_logs(log_id) ON DELETE CASCADE
                 )
             """)
+            # Rated before the record was archived and before it last grew.
             cursor.execute(
                 "INSERT INTO session_log_feedback (log_id, turn_index, rating, updated_at) VALUES (?, 3, 'up', ?)",
-                (log["log_id"], "2026-10-20T11:00:00Z"),
+                (log["log_id"], "2026-10-20T09:00:00Z"),
             )
 
         self.database._migrate_session_log_feedback_message_ids()
