@@ -931,7 +931,7 @@ class SessionLogsTest(unittest.TestCase):
         )
         with self.database.get_cursor() as cursor:
             cursor.execute(
-                "UPDATE session_logs SET turn_metadata_json = ?, updated_at = ? WHERE log_id = ?",
+                "UPDATE session_logs SET turn_metadata_json = ?, completed_at = ? WHERE log_id = ?",
                 (json.dumps([{"turn_index": 0, "role": "user"}, {"turn_index": 1, "role": "assistant"}]),
                  "2026-10-20T12:00:00Z", log["log_id"]),
             )
@@ -963,6 +963,42 @@ class SessionLogsTest(unittest.TestCase):
         self.assertEqual(feedback[0]["message_id"], "legacy-unplaced-7")
         self.assertIsNone(feedback[0]["turn_index"])
         self.assertEqual(feedback[0]["rating"], "down")
+
+    def test_archiving_a_record_does_not_detach_feedback_on_redeploy(self) -> None:
+        # Rated, then archived (which does not change the transcript), then
+        # rolled back to positions and redeployed.
+        user_id = self.database.create_user()
+        log = self.record(self.sage_history(2), user_id=user_id)
+        with self.database.get_cursor() as cursor:
+            cursor.execute(
+                "UPDATE session_logs SET completed_at = ?, updated_at = ?, status = 'archived' WHERE log_id = ?",
+                ("2026-10-20T10:00:00Z", "2026-10-20T12:00:00Z", log["log_id"]),
+            )
+            cursor.execute("DROP TABLE session_log_feedback")
+            cursor.execute("""
+                CREATE TABLE session_log_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    log_id TEXT NOT NULL,
+                    turn_index INTEGER NOT NULL,
+                    rating TEXT NOT NULL CHECK(rating IN ('up', 'down')),
+                    comment_ciphertext TEXT,
+                    comment_ephemeral_pubkey TEXT,
+                    created_by TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(log_id, turn_index),
+                    FOREIGN KEY (log_id) REFERENCES session_logs(log_id) ON DELETE CASCADE
+                )
+            """)
+            cursor.execute(
+                "INSERT INTO session_log_feedback (log_id, turn_index, rating, updated_at) VALUES (?, 3, 'up', ?)",
+                (log["log_id"], "2026-10-20T11:00:00Z"),
+            )
+
+        self.database._migrate_session_log_feedback_message_ids()
+
+        feedback = self.session_logs.list_feedback(log["log_id"])
+        self.assertEqual([(f["message_id"], f["turn_index"]) for f in feedback], [("m-2-a", 3)])
 
 
 if __name__ == "__main__":
