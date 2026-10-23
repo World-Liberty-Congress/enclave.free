@@ -84,6 +84,7 @@ export function clearAdminAuth(): void {
  * Clear server-side admin/user session cookies and local admin markers.
  */
 export async function clearAdminAuthWithServerLogout(): Promise<void> {
+  window.dispatchEvent(new Event('enclave:admin-auth-cleared'));
   try {
     await fetch(`${API_BASE}/admin/logout`, {
       method: 'POST',

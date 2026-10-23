@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -10,6 +10,7 @@ import { ADMIN_CONFIG_CHANGED_EVENT } from '../../utils/adminConfigEvents';
 import {
   sendLlmChatStreamWithUnifiedTools,
   sendLlmChatWithUnifiedTools,
+  StreamTurnError,
 } from '../../utils/llmChat';
 import { ThemeProvider } from '../../theme';
 
@@ -21,7 +22,8 @@ vi.mock('../../utils/adminApi', async (importOriginal) => {
   };
 });
 
-vi.mock('../../utils/llmChat', () => ({
+vi.mock('../../utils/llmChat', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../utils/llmChat')>()),
   sendLlmChatStreamWithUnifiedTools: vi.fn(),
   sendLlmChatWithUnifiedTools: vi.fn(),
 }));
@@ -237,7 +239,7 @@ describe('AdminConfigAssistant', () => {
     ).toEqual(
       expect.objectContaining({
         tools: expect.arrayContaining(['db-query']),
-        includeAdminSignerDecryptedContext: true,
+        adminUserLookup: true,
       })
     );
   });
@@ -821,6 +823,86 @@ describe('AdminConfigAssistant', () => {
     expect(sendLlmChatWithUnifiedTools).not.toHaveBeenCalled();
   });
 
+  it.each(['stop', 'failure'])(
+    'settles buffered sidebar output and lookup progress after %s without replay',
+    async (ending) => {
+      const user = userEvent.setup();
+      let fail!: () => void;
+      vi.spyOn(performance, 'now').mockReturnValue(1);
+      vi.mocked(sendLlmChatStreamWithUnifiedTools).mockImplementationOnce(
+        ({ onEvent, signal }) => {
+          onEvent('assistant_message_started', {
+            message_id: 'pending-lookup',
+            session_id: 'session-1',
+          });
+          onEvent('trace_status', { status: 'Searching Users: 20 scanned.' });
+          onEvent('answer_delta', { delta: 'Buffered partial answer' });
+          return new Promise((_resolve, reject) => {
+            fail = () =>
+              reject(new StreamTurnError('Stream interrupted', true));
+            signal?.addEventListener('abort', fail, { once: true });
+          });
+        }
+      );
+      render(
+        <ThemeProvider>
+          <AdminConfigAssistant />
+        </ThemeProvider>
+      );
+      await user.type(
+        screen.getByRole('textbox', {
+          name: 'Ask about admin configuration...',
+        }),
+        'Find users'
+      );
+      await user.click(screen.getByRole('button', { name: 'Send message' }));
+      await screen.findByRole('button', { name: 'Stop response' });
+      if (ending === 'stop')
+        await user.click(screen.getByRole('button', { name: 'Stop response' }));
+      else await act(async () => fail());
+      expect(
+        await screen.findByText('Buffered partial answer')
+      ).toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          screen.queryByText('Searching Users: 20 scanned.')
+        ).not.toBeInTheDocument()
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Stop response' })
+      ).not.toBeInTheDocument();
+      expect(sendLlmChatWithUnifiedTools).not.toHaveBeenCalled();
+      vi.restoreAllMocks();
+    }
+  );
+
+  it('never replays a Database stream that failed before assistant text', async () => {
+    const user = userEvent.setup();
+    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockRejectedValueOnce(
+      Object.assign(new Error('Stream interrupted'), { streamStarted: true })
+    );
+    render(
+      <ThemeProvider>
+        <AdminConfigAssistant />
+      </ThemeProvider>
+    );
+    await user.click(screen.getByRole('button', { name: 'Config' }));
+    await user.click(screen.getByRole('button', { name: 'Database' }));
+    await user.type(
+      screen.getByRole('textbox', { name: 'Ask about admin configuration...' }),
+      'Find a user'
+    );
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    expect(await screen.findByText('Stream interrupted')).toBeInTheDocument();
+    expect(sendLlmChatWithUnifiedTools).not.toHaveBeenCalled();
+    expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adminUserLookup: true,
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
   it('surfaces classified raw provider errors without falling back to non-streaming chat', async () => {
     const user = userEvent.setup();
     vi.mocked(sendLlmChatStreamWithUnifiedTools).mockImplementationOnce(
@@ -877,11 +959,15 @@ describe('AdminConfigAssistant', () => {
             message_id: 'msg-1',
             session_id: 'session-1',
           });
-          onEvent('error', {
-            message_id: 'msg-1',
-            session_id: 'session-1',
-            detail: rawProviderDetail,
-          });
+          try {
+            onEvent('error', {
+              message_id: 'msg-1',
+              session_id: 'session-1',
+              detail: rawProviderDetail,
+            });
+          } catch (error) {
+            throw new StreamTurnError((error as Error).message, true);
+          }
           return;
         }
 

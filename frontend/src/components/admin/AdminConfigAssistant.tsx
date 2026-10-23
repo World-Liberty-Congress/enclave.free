@@ -162,6 +162,14 @@ export function AdminConfigAssistant({
     CONFIG_TOOL_ID,
   ]);
 
+  const activeTurnRef = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      activeTurnRef.current?.abort();
+      activeTurnRef.current = null;
+    },
+    []
+  );
   const secretsForRedactionRef = useRef<string[]>([]);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -270,6 +278,9 @@ export function AdminConfigAssistant({
   );
 
   const handleStartNewAssistantConversation = useCallback(() => {
+    activeTurnRef.current?.abort();
+    activeTurnRef.current = null;
+    setIsLoading(false);
     setConversationSessionId(null);
     setMessages(
       isOnboarding
@@ -291,6 +302,9 @@ export function AdminConfigAssistant({
 
   const handleSend = useCallback(
     async (content: string) => {
+      activeTurnRef.current?.abort();
+      const turnController = new AbortController();
+      activeTurnRef.current = turnController;
       const userMessage: Message = {
         id: generateMessageId(),
         role: 'user',
@@ -330,13 +344,14 @@ export function AdminConfigAssistant({
             : raw;
         try {
           await sendLlmChatStreamWithUnifiedTools({
+            signal: turnController.signal,
             content,
             tools: selectedTools,
             conversationSurface: isOnboarding ? 'admin-onboarding' : undefined,
             sessionId: conversationSessionId,
-            includeAdminSignerDecryptedContext:
-              selectedTools.includes('db-query'),
+            adminUserLookup: selectedTools.includes('db-query'),
             onEvent: (event, payload) => {
+              if (turnController.signal.aborted) return;
               const data = payload as Record<string, unknown>;
               notifyAffectedAreas(data);
               if (event === 'assistant_message_started') {
@@ -429,28 +444,14 @@ export function AdminConfigAssistant({
           if (streamSessionId) {
             setConversationSessionId(streamSessionId);
           }
-          if (streamMessageId) {
-            // Final flush: render any tokens buffered since the last throttled
-            // update, and clear the streaming status.
-            const display = computeStreamDisplay();
-            setMessages((prev) =>
-              patchAssistantMessage(prev, streamMessageId!, {
-                content: display,
-                traceStatus: null,
-              })
-            );
-          }
           streamed = true;
         } catch (streamError) {
+          if (
+            activeTurnRef.current !== turnController ||
+            turnController.signal.aborted
+          )
+            return;
           if (streamMessageId && raw.trim()) {
-            // Flush whatever streamed before the error so partial output isn't lost.
-            const display = computeStreamDisplay();
-            setMessages((prev) =>
-              patchAssistantMessage(prev, streamMessageId!, {
-                content: display,
-                traceStatus: null,
-              })
-            );
             setError(
               streamError instanceof Error
                 ? streamError.message
@@ -483,6 +484,14 @@ export function AdminConfigAssistant({
             }
             return;
           }
+          if (
+            streamError &&
+            typeof streamError === 'object' &&
+            'streamStarted' in streamError &&
+            streamError.streamStarted
+          ) {
+            throw streamError;
+          }
           if (selectedTools.includes(CONFIG_TOOL_ID)) {
             throw streamError;
           }
@@ -490,16 +499,27 @@ export function AdminConfigAssistant({
             'Streaming admin assistant failed; falling back to non-streaming chat:',
             streamError
           );
+        } finally {
+          if (streamMessageId && activeTurnRef.current === turnController) {
+            const assistantId = streamMessageId;
+            const display = computeStreamDisplay();
+            setMessages((prev) =>
+              patchAssistantMessage(prev, assistantId, {
+                content: display,
+                traceStatus: null,
+              })
+            );
+          }
         }
 
         if (!streamed) {
           const res = await sendLlmChatWithUnifiedTools({
+            signal: turnController.signal,
             content,
             tools: selectedTools,
             conversationSurface: isOnboarding ? 'admin-onboarding' : undefined,
             sessionId: conversationSessionId,
-            includeAdminSignerDecryptedContext:
-              selectedTools.includes('db-query'),
+            adminUserLookup: selectedTools.includes('db-query'),
           });
           if (res.status === 401) {
             window.location.href = '/admin';
@@ -546,11 +566,16 @@ export function AdminConfigAssistant({
           setMessages((prev) => [...prev, assistantMessage]);
         }
       } catch (e) {
+        if (turnController.signal.aborted) return;
         setError(
           e instanceof Error ? e.message : t('errors.failedToSendMessage')
         );
       } finally {
-        setIsLoading(false);
+        turnController.abort();
+        if (activeTurnRef.current === turnController) {
+          activeTurnRef.current = null;
+          setIsLoading(false);
+        }
       }
     },
     [
@@ -801,6 +826,7 @@ export function AdminConfigAssistant({
       <ChatInput
         onSend={(msg) => void handleSend(msg)}
         disabled={isLoading}
+        onStop={isLoading ? () => activeTurnRef.current?.abort() : undefined}
         placeholder={t('admin.configAssistant.inputPlaceholder')}
         toolbar={isOnboarding ? undefined : inputToolbar}
       />

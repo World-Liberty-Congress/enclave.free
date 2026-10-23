@@ -4,14 +4,9 @@ import {
   sendLlmChatWithUnifiedTools,
 } from './llmChat';
 import { adminFetch } from './adminApi';
-import { buildAdminSignerDecryptedContext } from './adminSignerContext';
 
 vi.mock('./adminApi', () => ({
   adminFetch: vi.fn(),
-}));
-
-vi.mock('./adminSignerContext', () => ({
-  buildAdminSignerDecryptedContext: vi.fn(),
 }));
 
 describe('sendLlmChatWithUnifiedTools', () => {
@@ -118,70 +113,6 @@ describe('sendLlmChatWithUnifiedTools', () => {
     expect(body).toEqual({
       message: 'Use the database tool',
       tools: ['db-query'],
-    });
-  });
-
-  it('sends Admin Signer-Decrypted Context for opted-in Database turns', async () => {
-    vi.mocked(buildAdminSignerDecryptedContext).mockResolvedValueOnce({
-      source: 'admin-signer-user-roster',
-      generated_at: '2026-07-05T22:00:00.000Z',
-      users: [
-        {
-          id: 7,
-          approved: false,
-          user_type_id: null,
-          created_at: '2026-07-03T16:40:00Z',
-          pubkey_present: false,
-          email: 'marisol@example.test',
-          name: 'Marisol Rivera',
-        },
-      ],
-      truncated: false,
-      warnings: [],
-    });
-
-    await sendLlmChatWithUnifiedTools({
-      content: 'Tell me about the users in our db',
-      tools: ['db-query'],
-      includeAdminSignerDecryptedContext: true,
-    });
-
-    const [, options] = vi.mocked(fetch).mock.calls[0];
-    expect(JSON.parse(String(options?.body))).toEqual({
-      message: 'Tell me about the users in our db',
-      tools: ['db-query'],
-      client_decrypted_context: {
-        source: 'admin-signer-user-roster',
-        generated_at: '2026-07-05T22:00:00.000Z',
-        users: [
-          {
-            id: 7,
-            approved: false,
-            user_type_id: null,
-            created_at: '2026-07-03T16:40:00Z',
-            pubkey_present: false,
-            email: 'marisol@example.test',
-            name: 'Marisol Rivera',
-          },
-        ],
-        truncated: false,
-        warnings: [],
-      },
-    });
-  });
-
-  it('does not build signer-decrypted context for non-Database turns', async () => {
-    await sendLlmChatWithUnifiedTools({
-      content: 'Check configuration',
-      tools: ['admin-config'],
-      includeAdminSignerDecryptedContext: true,
-    });
-
-    const [, options] = vi.mocked(fetch).mock.calls[0];
-    expect(buildAdminSignerDecryptedContext).not.toHaveBeenCalled();
-    expect(JSON.parse(String(options?.body))).toEqual({
-      message: 'Check configuration',
-      tools: ['admin-config'],
     });
   });
 
@@ -309,6 +240,7 @@ describe('sendLlmChatWithUnifiedTools', () => {
                   ].join('\n')
                 )
               );
+              controller.enqueue(encoder.encode('event: done\ndata: {}\n\n'));
               controller.close();
             },
           }),
@@ -324,7 +256,7 @@ describe('sendLlmChatWithUnifiedTools', () => {
       onEvent: (event, data) => events.push({ event, data }),
     });
 
-    expect(events).toEqual([
+    expect(events.filter((e) => e.event !== 'done')).toEqual([
       {
         event: 'activity_step',
         data: {
@@ -360,6 +292,7 @@ describe('sendLlmChatWithUnifiedTools', () => {
                   ].join('\n')
                 )
               );
+              controller.enqueue(encoder.encode('event: done\ndata: {}\n\n'));
               controller.close();
             },
           }),
@@ -375,7 +308,7 @@ describe('sendLlmChatWithUnifiedTools', () => {
       onEvent: (event, data) => events.push({ event, data }),
     });
 
-    expect(events).toHaveLength(1);
+    expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({
       event: 'trace_delta',
       data: {
@@ -423,59 +356,6 @@ describe('sendLlmChatWithUnifiedTools', () => {
     expect(JSON.parse(String(options?.body))).toEqual({
       message: 'Check my deployment config',
       tools: ['admin-config'],
-    });
-  });
-
-  it('streams Admin Signer-Decrypted Context for opted-in Database turns', async () => {
-    vi.mocked(buildAdminSignerDecryptedContext).mockResolvedValueOnce({
-      source: 'admin-signer-user-roster',
-      generated_at: '2026-07-05T22:00:00.000Z',
-      users: [
-        {
-          id: 5,
-          approved: true,
-          user_type_id: 1,
-          created_at: '2026-07-01T21:22:00Z',
-          pubkey_present: true,
-          email: 'ana@example.test',
-        },
-      ],
-      truncated: false,
-      warnings: [],
-    });
-    const encoder = new TextEncoder();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('event: done\ndata: {"message_id":"msg_1"}\n\n')
-              );
-              controller.close();
-            },
-          }),
-          { headers: { 'Content-Type': 'text/event-stream' } }
-        )
-      )
-    );
-
-    await sendLlmChatStreamWithUnifiedTools({
-      content: 'Tell me about the users',
-      tools: ['db-query'],
-      includeAdminSignerDecryptedContext: true,
-      onEvent: vi.fn(),
-    });
-
-    const [, options] = vi.mocked(fetch).mock.calls[0];
-    expect(JSON.parse(String(options?.body))).toMatchObject({
-      message: 'Tell me about the users',
-      tools: ['db-query'],
-      client_decrypted_context: {
-        source: 'admin-signer-user-roster',
-        users: [{ id: 5, email: 'ana@example.test' }],
-      },
     });
   });
 
@@ -646,6 +526,7 @@ describe('sendLlmChatWithUnifiedTools', () => {
                 encoder.encode('data: {"message_id":"msg_1","delta":"Hel')
               );
               controller.enqueue(encoder.encode('lo"}\r\n\r\n'));
+              controller.enqueue(encoder.encode('event: done\ndata: {}\n\n'));
               controller.close();
             },
           }),
@@ -661,8 +542,194 @@ describe('sendLlmChatWithUnifiedTools', () => {
       onEvent: (event, data) => events.push({ event, data }),
     });
 
-    expect(events).toEqual([
+    expect(events.filter((e) => e.event !== 'done')).toEqual([
       { event: 'answer_delta', data: { message_id: 'msg_1', delta: 'Hello' } },
     ]);
   });
+});
+
+it('advertises a nonce without asking the signer, and never advertises impersonation or nonstream capability', async () => {
+  const getPublicKey = vi.fn();
+  window.nostr = {
+    getPublicKey,
+    nip04: { decrypt: vi.fn() },
+  } as unknown as NonNullable<Window['nostr']>;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response('event: done\ndata: {}\n\n'))
+  );
+  await sendLlmChatStreamWithUnifiedTools({
+    content: 'users',
+    tools: ['db-query'],
+    adminUserLookup: true,
+    onEvent: vi.fn(),
+  });
+  expect(
+    JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)).user_lookup
+  ).toEqual({ version: 1, nonce: expect.any(String) });
+  expect(getPublicKey).not.toHaveBeenCalled();
+  await sendLlmChatStreamWithUnifiedTools({
+    content: 'users',
+    tools: ['db-query'],
+    adminUserLookup: true,
+    authToken: 'impersonation',
+    onEvent: vi.fn(),
+  });
+  await sendLlmChatWithUnifiedTools({
+    content: 'users',
+    tools: ['db-query'],
+    adminUserLookup: true,
+  });
+  for (const call of vi.mocked(fetch).mock.calls.slice(1))
+    expect(JSON.parse(String(call[1]?.body))).not.toHaveProperty('user_lookup');
+});
+
+it('marks even text-free started streams and truncated EOF as non-replayable', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () =>
+        new Response(
+          'event: assistant_message_started\ndata: {"message_id":"m"}\n\n'
+        )
+    )
+  );
+  await expect(
+    sendLlmChatStreamWithUnifiedTools({
+      content: 'users',
+      tools: ['db-query'],
+      onEvent: vi.fn(),
+    })
+  ).rejects.toMatchObject({ streamStarted: true });
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it('rejects malformed dedicated lookup frames without posting or invoking the signer', async () => {
+  const getPublicKey = vi.fn();
+  window.nostr = {
+    getPublicKey,
+    nip04: { decrypt: vi.fn() },
+  } as unknown as NonNullable<Window['nostr']>;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () =>
+        new Response(
+          'event: user_lookup_request\ndata: {"url":"https://foreign.invalid"}\n\n'
+        )
+    )
+  );
+  await expect(
+    sendLlmChatStreamWithUnifiedTools({
+      content: 'users',
+      tools: ['db-query'],
+      adminUserLookup: true,
+      onEvent: vi.fn(),
+    })
+  ).rejects.toMatchObject({ streamStarted: true });
+  expect(getPublicKey).not.toHaveBeenCalled();
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it('continues reading status while signer awaits and posts only the correlated bounded result', async () => {
+  const pubkey = 'a'.repeat(64);
+  const session_fingerprint = 'b'.repeat(64);
+  let decryptResolve!: (value: string) => void;
+  const decrypt = vi.fn(
+    () =>
+      new Promise<string>((resolve) => {
+        decryptResolve = resolve;
+      })
+  );
+  window.nostr = {
+    getPublicKey: vi.fn(async () => pubkey),
+    nip04: { decrypt },
+  } as unknown as NonNullable<Window['nostr']>;
+  let stream!: ReadableStreamDefaultController<Uint8Array>;
+  const encoder = new TextEncoder();
+  let nonce = '';
+  const received: unknown[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/stream')) {
+        nonce = JSON.parse(String(init?.body)).user_lookup.nonce;
+        return new Response(
+          new ReadableStream({
+            start(c) {
+              stream = c;
+              c.enqueue(
+                encoder.encode(
+                  `event: user_lookup_request\ndata: ${JSON.stringify({ version: 1, nonce, conversation_id: 'c', turn_id: 't', call_id: '11111111-1111-4111-8111-111111111111', admin_pubkey: pubkey, session_fingerprint, expires_at: Date.now() + 120000, operation: 'read_users', args: { user_ids: [999], select: ['name'] } })}\n\n`
+                )
+              );
+            },
+          })
+        );
+      }
+      if (String(input).endsWith('/session'))
+        return Response.json({ pubkey, session_fingerprint });
+      if (String(input).endsWith('/projection'))
+        return Response.json({
+          users: [
+            {
+              id: 999,
+              values: {
+                name: { ciphertext: 'secret', ephemeral_pubkey: pubkey },
+              },
+            },
+          ],
+          fields: [{ selector: 'name', type: 'text' }],
+          through_id: 999,
+          next_after_id: null,
+          eligible: 1,
+        });
+      received.push(JSON.parse(String(init?.body)));
+      stream.enqueue(encoder.encode('event: done\ndata: {}\n\n'));
+      stream.close();
+      return Response.json({ accepted: true });
+    })
+  );
+  const onEvent = vi.fn();
+  const turn = sendLlmChatStreamWithUnifiedTools({
+    content: 'users',
+    tools: ['db-query'],
+    adminUserLookup: true,
+    onEvent,
+  });
+  await vi.waitFor(() => expect(decrypt).toHaveBeenCalledTimes(1));
+  stream.enqueue(
+    encoder.encode(
+      'event: trace_status\ndata: {"status":"Waiting for signer"}\n\n'
+    )
+  );
+  await vi.waitFor(() =>
+    expect(onEvent).toHaveBeenCalledWith('trace_status', {
+      status: 'Waiting for signer',
+    })
+  );
+  decryptResolve('Synthetic Name');
+  await turn;
+  expect(received).toEqual([
+    expect.objectContaining({
+      conversation_id: 'c',
+      turn_id: 't',
+      nonce,
+      call_id: '11111111-1111-4111-8111-111111111111',
+      result: expect.objectContaining({
+        users: [
+          {
+            id: 999,
+            status: 'ok',
+            fields: {
+              name: { status: 'ok', value: 'Synthetic Name', excerpt: false },
+            },
+          },
+        ],
+      }),
+    }),
+  ]);
+  expect(
+    onEvent.mock.calls.some(([name]) => name === 'user_lookup_request')
+  ).toBe(false);
 });

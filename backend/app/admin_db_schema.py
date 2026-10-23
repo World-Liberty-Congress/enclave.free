@@ -89,9 +89,11 @@ def describe_admin_database(table_name: str | None = None) -> dict:
         "identity_guidance": (
             "users.name and users.email are legacy compatibility columns and usually NULL. "
             "Names, emails, encrypted profile answers, and transcripts cannot be decrypted by SQL. "
-            "Match user IDs to AdminSigner-DecryptedContext when supplied. It may be partial; "
-            "otherwise report IDs and say names are unavailable. Never invent identities or "
-            "treat the provided decrypted roster subset as the full database."
+            "Use read_users for exact IDs and search_users for encrypted predicates when enabled. "
+            "For rankings/identity select name only; IDs are automatic. Email/profile values require "
+            "an explicit user request or stated predicate. "
+            "Select field:<definition ID>, not labels. Otherwise report IDs and explain signer "
+            "unavailability. Never invent identities or exact totals from partial/unreadable scans."
         ),
         "usage": {
             "metric": "recorded_turns",

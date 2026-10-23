@@ -20,6 +20,7 @@ import secrets
 import html
 import ipaddress
 from urllib.parse import urlparse
+from user_lookup import router as user_lookup_router
 from fastapi import FastAPI, HTTPException, Query, Depends, Request, BackgroundTasks, Response, Header, Cookie
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -310,6 +311,7 @@ app.include_router(deployment_config_router)
 app.include_router(deployment_config_internal_router)
 app.include_router(key_migration_router)
 app.include_router(internal_agent_router)
+app.include_router(user_lookup_router)
 app.include_router(lifecycle.router)
 
 

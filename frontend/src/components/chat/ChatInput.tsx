@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, KeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send } from 'lucide-react';
+import { Send, Square } from 'lucide-react';
 import { IconButton } from '../ui';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
+  onStop?: () => void;
   placeholder?: string;
   toolbar?: ReactNode;
 }
@@ -13,6 +14,7 @@ interface ChatInputProps {
 export function ChatInput({
   onSend,
   disabled,
+  onStop,
   placeholder,
   toolbar,
 }: ChatInputProps) {
@@ -72,16 +74,27 @@ export function ChatInput({
               rows={1}
               className="flex-1 bg-transparent text-text placeholder:text-text-muted resize-none outline-none focus-visible:outline-none border-none px-2 py-2 max-h-40 text-[15px] leading-relaxed"
             />
-            <IconButton
-              label={t('chat.input.sendLabel')}
-              onClick={handleSubmit}
-              disabled={disabled || !input.trim()}
-              title={t('chat.input.sendTitle')}
-              variant="primary"
-              className="rounded-xl shadow-sm disabled:shadow-none"
-            >
-              <Send className="h-5 w-5" aria-hidden="true" />
-            </IconButton>
+            {onStop ? (
+              <IconButton
+                onClick={onStop}
+                label={t('chat.actions.stop')}
+                variant="secondary"
+                className="rounded-xl"
+              >
+                <Square className="h-5 w-5" aria-hidden="true" />
+              </IconButton>
+            ) : (
+              <IconButton
+                label={t('chat.input.sendLabel')}
+                onClick={handleSubmit}
+                disabled={disabled || !input.trim()}
+                title={t('chat.input.sendTitle')}
+                variant="primary"
+                className="rounded-xl shadow-sm disabled:shadow-none"
+              >
+                <Send className="h-5 w-5" aria-hidden="true" />
+              </IconButton>
+            )}
           </div>
         </div>
       </div>

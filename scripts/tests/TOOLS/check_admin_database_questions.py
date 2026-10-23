@@ -18,7 +18,33 @@ import uuid
 
 NAMES = ["Avery", "Blair", "Casey", "Drew", "Emery", "Flynn"]
 EXPECTED = [("Avery", 17, 2), ("Drew", 9, 1), ("Blair", 6, 1), ("Flynn", 4, 1), ("Casey", 0, 0)]
-QUESTION = "Who are the top 5 users in the db by usage?"
+QUESTION = (
+    "Who are the top 5 users in the db by usage? For each ranked user, include a line "
+    "in this format: User ID: <id>; recorded turns: <count>; conversations: <count>."
+)
+
+
+def validate_ranking_answer(answer: str) -> None:
+    """Require the fixture's ordered SQL facts without a browser signer."""
+    assert not any(
+        name.casefold() in answer.casefold() for name in NAMES
+    ), "Identity invented without signer"
+    plain = answer.replace("*", "").replace("`", "")
+    rows = [
+        tuple(map(int, match))
+        for match in re.findall(
+            r"\bUser\s+ID:\s*(\d+)\s*;\s*recorded\s+turns:\s*(\d+)\s*;\s*conversations:\s*(\d+)",
+            plain,
+            re.I,
+        )
+    ]
+    expected = [
+        (NAMES.index(name) + 1, turns, conversations)
+        for name, turns, conversations in EXPECTED
+    ]
+    assert rows == expected, (
+        f"Wrong ranking IDs/counts/order: {rows!r}; expected {expected!r}"
+    )
 
 
 def container_python(container, source):
@@ -34,7 +60,7 @@ def main():
     parser.add_argument("--api-base", default="http://127.0.0.1:28000")
     parser.add_argument("--container", default="liberator-admin-db-core")
     parser.add_argument("--seed", action="store_true")
-    parser.add_argument("--case", choices=["ranking", "inventory", "structure", "no-tools", "user", "partial-identities"], default="ranking")
+    parser.add_argument("--case", choices=["ranking", "inventory", "structure", "no-tools", "user"], default="ranking")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if urllib.parse.urlparse(args.api_base).hostname not in {"127.0.0.1", "localhost"}:
@@ -81,17 +107,10 @@ print(json.dumps({
         message = "How many users are in the database, and how many have any recorded usage?"
     if args.case == "structure":
         message = "Which columns in session_logs link a logged conversation to a user and describe its usage? Check the live table schema."
-    context = {"source": "admin-signer-user-roster", "users": [
-        {"id": i + 1, "name": name} for i, name in enumerate(NAMES)
-    ]}
-    if args.case == "partial-identities":
-        context["users"] = context["users"][:2]
-        context["truncated"] = True
     payload = {
         "message": message,
         "session_id": str(uuid.uuid4()),
         "tools": [] if args.case == "no-tools" else ["db-query"],
-        "client_decrypted_context": context,
     }
     request = urllib.request.Request(
         args.api_base.rstrip("/") + "/llm/chat/stream",
@@ -139,7 +158,7 @@ print(json.dumps({{"cleaned": True}}))
     if args.case in {"user", "no-tools"}:
         assert not tools, "Database tools must not be exposed"
         hidden_names = NAMES[1:] if args.case == "user" else NAMES
-        assert not any(name in answer for name in hidden_names), "Decrypted roster leaked into an unauthorized turn"
+        assert not any(name.casefold() in answer.casefold() for name in hidden_names), "Identity leaked into an unauthorized turn"
     else:
         assert any(t["tool_name"] == "Database Schema" for t in tools), "Schema was not discovered"
         if args.case == "structure":
@@ -148,25 +167,13 @@ print(json.dumps({{"cleaned": True}}))
             assert any(t["tool_name"] == "Database Query" and not t.get("guarded") for t in tools), "No successful database query"
         assert not any(t.get("guarded") for t in tools), "The model guessed a rejected query"
         if args.case == "ranking":
-            # Check each identity's own segment (the answer may be a table,
-            # list, or a single sentence), not numbers anywhere in the answer.
-            positions = []
-            for name, turns, sessions in EXPECTED:
-                start = answer.index(name)
-                end = min([answer.find(other, start + len(name)) for other in NAMES
-                           if answer.find(other, start + len(name)) >= 0] or [len(answer)])
-                segment = answer[start:end]
-                assert re.search(rf"\b{turns}\b", segment), f"Wrong recorded turns for {name}: {segment}"
-                assert re.search(rf"\b{sessions}\b", segment), f"Wrong conversation count for {name}: {segment}"
-                positions.append(start)
-            assert positions == sorted(positions), "Ranking order is incorrect"
-            assert "recorded" in answer.lower() and "turn" in answer.lower(), "Metric not labeled"
-        if args.case == "partial-identities":
-            assert not any(name in answer for name in NAMES[2:]), "Unavailable identities were invented"
+            # This bearer CLI has no active browser signer. SQL/ID answers stay
+            # supported; encrypted identity acceptance belongs to the browser harness.
+            validate_ranking_answer(answer)
         if args.case == "inventory":
             expected = credentials["expected_inventory"]
             # Compare the stated population count, not incidental numbers in
-            # a later note about the decrypted roster subset.
+            # a later coverage note.
             plain = answer.replace("*", "")
             total = re.search(r"\b(\d+)\s+(?:total\s+)?users\b", plain, re.I)
             assert total, "Could not locate the reported user count; inspect the answer"

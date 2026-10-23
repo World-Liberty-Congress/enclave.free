@@ -43,7 +43,7 @@ For `/llm/chat` and `/llm/chat/stream`, the request shape is:
 - `job_ids` is an optional Knowledge Search constraint: it is a list of selected Document Library `job_id` values, not an arbitrary prompt blob.
 - Additional Knowledge filters must be added as explicit request fields before the browser can send them.
 - Sage owns Conversation history. Model context and the Admin review record come from Sage's stored messages for `session_id`, and Sage ignores any `conversation_history` field. No browser surface sends one: User and Admin Conversations send only the new message (see ADR-0035).
-- `client_decrypted_context` is optional **Admin Signer-Decrypted Context**, shaped like `{ "source": "admin-signer-user-roster", "users": [...] }`. The browser may attach it only for authenticated Admin turns with the `db-query` Tool Set enabled, and Sage treats it as signer-delegated plaintext for the current encrypted inference turn rather than Tool output or trace metadata.
+- `user_lookup: {version: 1, nonce: UUID}` advertises the active Admin browser capability on Database streams. It requests no signer permission until Sage calls a lookup Tool. See [the lookup contract](contracts/admin-user-lookup.md).
 
 ## Tool Sets
 
@@ -120,7 +120,7 @@ Theme requests in Admin Conversations mean Instance visual identity settings, su
 
 `db-query` is an admin-only Tool Set for read-only inspection. When an approved Admin enables it, Sage exposes the executable Database Query Tool to the model for the turn. Sage may translate natural-language database questions into a single read-only SQLite `SELECT` when live database facts would improve the answer. Python remains the safe SQL executor and must enforce read-only validation, blocked keywords, allowed tables, authorization, truncation, and redaction. Direct database mutation is not a supported product path.
 
-Admin Database turns may also include **Admin Signer-Decrypted Context** built by the browser from admin-authorized encrypted User values. This context lets Sage combine safe query results with plaintext identity/profile values under encrypted inference. It must not be accepted for non-Admin turns, non-Database turns, Python database execution, Activity, or Conversation Trace.
+Live Admin Database streams with a browser signer expose `read_users` and `search_users`. These request only selected ciphertext fields, decrypt in the active browser, and return bounded structured pages with explicit coverage. Raw lookup values and predicates stay out of Activity, Conversation Trace, and tool memory. Final answers retain normal Conversation storage. SQL and ID-only answers remain available without the signer.
 
 ## Web Search
 
@@ -128,7 +128,7 @@ Admin Database turns may also include **Admin Signer-Decrypted Context** built b
 
 ## Frontend Duties
 
-The frontend chooses visible Admin Tool Sets and Tool constraints. For non-admin User Conversations, it consumes `/session-defaults` and sends the configured default Tool Set IDs and Knowledge Source scope without showing Tool controls by default. It must not prefetch admin configuration context for chat, run hidden document retrieval outside configured defaults, or send `client_executed_tools` as a compatibility path. It may build Admin Signer-Decrypted Context only after an authenticated Admin submits a Database-enabled turn.
+The frontend chooses visible Admin Tool Sets and Tool constraints. For non-admin User Conversations, it consumes `/session-defaults` and sends the configured default Tool Set IDs and Knowledge Source scope without showing Tool controls by default. It must not prefetch admin configuration context for chat, run hidden document retrieval outside configured defaults, or send `client_executed_tools` as a compatibility path. Both Admin chat surfaces use the shared lookup/SSE transport. It cancels signer work on turn disposal and never automatically replays a started stream.
 
 Normal Admin Conversation composers should make Knowledge, Resources, Web, Config, and Database explicit opt-in controls with none selected by default. Admin configuration conversations are the exception: `admin-config` is default-active and visible there, while all other Tool Sets remain opt-in. Knowledge document scope belongs under the Knowledge Tool Set control. User composers show no Tool Set controls by default; Config and Database must only render for server-validated admins.
 

@@ -28,6 +28,7 @@ import { ADMIN_CONFIG_CHANGED_EVENT } from '../utils/adminConfigEvents';
 import {
   sendLlmChatStreamWithUnifiedTools,
   sendLlmChatWithUnifiedTools,
+  StreamTurnError,
 } from '../utils/llmChat';
 import { resetAdminResilienceInstrumentationListeners } from '../utils/adminResilienceInstrumentation';
 
@@ -41,7 +42,8 @@ vi.mock('../utils/adminApi', async (importOriginal) => {
   };
 });
 
-vi.mock('../utils/llmChat', () => ({
+vi.mock('../utils/llmChat', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils/llmChat')>()),
   sendLlmChatStreamWithUnifiedTools: vi.fn(),
   sendLlmChatWithUnifiedTools: vi.fn(),
 }));
@@ -1486,6 +1488,30 @@ describe('ChatPage', () => {
 
   it('deletes the active durable Conversation from the sidebar without exposing turn contents in the confirmation', async () => {
     const user = userEvent.setup();
+    mockIsAdminAuthenticated.mockReturnValue(true);
+    let turnSignal: AbortSignal | undefined;
+    let releaseSigner!: () => void;
+    const postResult = vi.fn();
+    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockImplementationOnce(
+      ({ onEvent, signal }) => {
+        turnSignal = signal;
+        onEvent('assistant_message_started', {
+          message_id: 'pending-lookup',
+          session_id: 'session-1',
+        });
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => reject(new StreamTurnError('Aborted', true)),
+            { once: true }
+          );
+          releaseSigner = () => {
+            if (!signal?.aborted) postResult();
+            onEvent('answer_delta', { delta: 'Late signer reply' });
+          };
+        });
+      }
+    );
     const conversations = [
       {
         id: 'session-1',
@@ -1585,6 +1611,12 @@ describe('ChatPage', () => {
       )
     ).toBeInTheDocument();
 
+    await waitForValidatedAdminConfig();
+    await user.click(screen.getByRole('button', { name: 'Database' }));
+    await user.type(getComposerTextbox(), 'Find a user');
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(turnSignal).toBeDefined());
+
     await user.click(
       within(sidebar).getByRole('button', {
         name: 'Delete Safe board policy title',
@@ -1637,6 +1669,11 @@ describe('ChatPage', () => {
     expect(
       screen.queryByText('Private answer that should never enter confirmation')
     ).not.toBeInTheDocument();
+    expect(turnSignal?.aborted).toBe(true);
+    await act(async () => releaseSigner());
+    expect(postResult).not.toHaveBeenCalled();
+    expect(sendLlmChatWithUnifiedTools).not.toHaveBeenCalled();
+    expect(screen.queryByText('Late signer reply')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Current chat Empty' })
     ).toHaveAttribute('aria-current', 'page');
@@ -2176,6 +2213,107 @@ describe('ChatPage', () => {
     expect(screen.getByLabelText('Share secret env vars')).toBeChecked();
   });
 
+  it('finalizes redacted partial Admin text after a started stream error without replay', async () => {
+    const user = userEvent.setup();
+    mockIsAdminAuthenticated.mockReturnValue(true);
+    mockAdminFetch.mockImplementation((endpoint) => {
+      if (endpoint === '/admin/deployment/config')
+        return Promise.resolve(
+          Response.json({
+            general: [
+              { key: 'LLM_API_KEY', is_secret: true, value: '[CONFIGURED]' },
+            ],
+          })
+        );
+      if (endpoint.endsWith('/LLM_API_KEY/reveal'))
+        return Promise.resolve(
+          Response.json({ key: 'LLM_API_KEY', value: 'synthetic-secret-token' })
+        );
+      return defaultAdminFetch(endpoint) ?? Promise.resolve(Response.json({}));
+    });
+    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockImplementationOnce(
+      async ({ onEvent }) => {
+        onEvent('assistant_message_started', {
+          message_id: 'partial',
+          session_id: 'session-1',
+        });
+        onEvent('answer_delta', {
+          delta: 'Partial response synthetic-secret-token',
+        });
+        throw new StreamTurnError('Interrupted after partial output', true);
+      }
+    );
+    render(<ChatPage />, { wrapper: ChatPageTestWrapper });
+    await waitForValidatedAdminConfig();
+    await user.click(screen.getByLabelText('Share secret env vars'));
+    await user.type(getComposerTextbox(), 'Review config');
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    expect(await screen.findByText(/Partial response/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('synthetic-secret-token');
+    expect(
+      await screen.findByRole('note', { name: 'Chat request error' })
+    ).toHaveTextContent('Interrupted after partial output');
+    expect(
+      screen.queryByRole('button', { name: 'Stop response' })
+    ).not.toBeInTheDocument();
+    expect(sendLlmChatWithUnifiedTools).not.toHaveBeenCalled();
+  });
+
+  it('preserves an Admin Database selection while session defaults finish loading', async () => {
+    const user = userEvent.setup();
+    mockIsAdminAuthenticated.mockReturnValue(true);
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+    let finishDefaults!: (response: Response) => void;
+    const defaults = new Promise<Response>((resolve) => {
+      finishDefaults = resolve;
+    });
+    vi.mocked(fetch).mockImplementation((input, init) =>
+      String(input).includes('/session-defaults')
+        ? defaults
+        : originalFetch(input, init)
+    );
+    render(<ChatPage />, { wrapper: ChatPageTestWrapper });
+    const database = await screen.findByRole('button', { name: 'Database' });
+    expect(database).toHaveAttribute('aria-pressed', 'false');
+    await user.click(database);
+    expect(database).toHaveAttribute('aria-pressed', 'true');
+    await act(async () => {
+      finishDefaults(Response.json({ default_tool_ids: ['web-search'] }));
+      await defaults;
+    });
+    expect(database).toHaveAttribute('aria-pressed', 'true');
+    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockResolvedValueOnce();
+    await user.type(getComposerTextbox(), 'Who are the top users?');
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalledWith(
+      expect.objectContaining({ tools: ['db-query'], adminUserLookup: true })
+    );
+  });
+
+  it('never replays an accepted Admin Database stream before the first answer', async () => {
+    const user = userEvent.setup();
+    mockIsAdminAuthenticated.mockReturnValue(true);
+    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockRejectedValueOnce(
+      Object.assign(new Error('Stream interrupted'), { streamStarted: true })
+    );
+    render(<ChatPage />, { wrapper: ChatPageTestWrapper });
+    await waitForValidatedAdminConfig();
+    await user.click(screen.getByRole('button', { name: 'Database' }));
+    await user.type(getComposerTextbox(), 'Find a user');
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    const note = await screen.findByRole('note', {
+      name: 'Chat request error',
+    });
+    expect(note).toHaveTextContent('Stream interrupted');
+    expect(sendLlmChatWithUnifiedTools).not.toHaveBeenCalled();
+    expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adminUserLookup: true,
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
   it('surfaces safe provider context limit errors in admin chat without non-streaming fallback', async () => {
     const user = userEvent.setup();
     mockIsAdminAuthenticated.mockReturnValue(true);
@@ -2258,11 +2396,15 @@ describe('ChatPage', () => {
             message_id: 'admin-msg',
             session_id: 'session-1',
           });
-          onEvent('error', {
-            message_id: 'admin-msg',
-            detail:
-              'Token limit exceeded for this session. Please start a new session.',
-          });
+          try {
+            onEvent('error', {
+              message_id: 'admin-msg',
+              detail:
+                'Token limit exceeded for this session. Please start a new session.',
+            });
+          } catch (error) {
+            throw new StreamTurnError((error as Error).message, true);
+          }
           return;
         }
 
