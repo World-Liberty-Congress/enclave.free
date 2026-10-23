@@ -14,7 +14,7 @@ Test User Session records are still saved once by the Admin browser at the end o
 
 - Long Conversations record every message, and feedback stays on the answer it was given for as the Conversation grows.
 - Each update re-encrypts the whole transcript. That is acceptable at current Conversation sizes; incremental storage can replace it behind `session_logs.record_user_conversation` without changing Sage, chat, or feedback.
-- A Conversation that continues after an Admin deleted its record gets a new record containing everything Sage still retains, not only the messages since the deletion. Recording a deletion point is a possible follow-up.
+- Deleting a User Conversation record is a cut-off. The backend records the newest Sage message the deleted record covered (or, for a record saved before message order was recorded, the deletion time); if the Conversation continues, only later messages are recorded, so deleted content does not come back while new activity is still counted. Deleting a User removes their cut-offs.
 - Feedback saved before this decision stays on its answer only when that is reliable, meaning the transcript has not changed since the rating; it is then named `legacy-<index>` (or the recorded message ID at that position). Other existing feedback is kept as `legacy-unplaced-<id>`, attached to no answer. When Sage next updates a legacy record, its legacy feedback also detaches, because a positional snapshot cannot be matched reliably to Sage messages. Detached feedback remains in the database and exports. Logs saved before transcripts recorded their message order open read-only.
 
 ## Rejected alternatives

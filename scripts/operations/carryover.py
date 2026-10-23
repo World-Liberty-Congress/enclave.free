@@ -31,7 +31,7 @@ TABLES = (
 )
 EXCLUDED = {
     "admins", "instance_state", "users", "user_field_values", "user_memories",
-    "session_logs", "session_log_feedback", "config_audit_log", "inference_verification_records",
+    "session_logs", "session_log_feedback", "session_log_cutoffs", "config_audit_log", "inference_verification_records",
     "deletion_tombstones", "retention_run_records", "sqlite_sequence",
 }
 EMPTY_DESTINATION = EXCLUDED - {"instance_state", "sqlite_sequence"}

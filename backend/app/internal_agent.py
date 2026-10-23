@@ -177,6 +177,7 @@ class InternalResourceSearchResponse(BaseModel):
 
 class InternalSessionLogMessage(BaseModel):
     message_id: str = Field(pattern=SESSION_LOG_MESSAGE_ID_PATTERN)
+    sequence_id: int
     role: Literal["user", "assistant"]
     content: str
     ts: Optional[str] = None
@@ -1041,6 +1042,9 @@ async def log_user_session(payload: InternalSessionLogRequest) -> InternalSessio
             )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+    if saved is None:
+        # Everything left predates an Admin's deletion of this record.
+        return InternalSessionLogResponse(log_id="", status="skipped", turn_count=0)
     return InternalSessionLogResponse(
         log_id=saved["log_id"],
         status=saved["status"],

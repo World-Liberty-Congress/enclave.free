@@ -370,12 +370,14 @@ Request:
   "messages": [
     {
       "message_id": "22222222-2222-2222-2222-222222222222",
+      "sequence_id": 8811,
       "role": "user",
       "content": "Earlier question",
       "ts": "2026-10-23T12:00:00+00:00"
     },
     {
       "message_id": "33333333-3333-3333-3333-333333333333",
+      "sequence_id": 8812,
       "role": "assistant",
       "content": "Earlier answer",
       "ts": "2026-10-23T12:00:04+00:00"
@@ -397,8 +399,10 @@ update whose `(through_sequence_id, message count)` is not above the stored
 record's changes nothing, so retries and late updates are safe. A higher one
 replaces the record, unless it no longer contains the recorded messages (the
 Conversation continued after its Session Memory was deleted): then the record
-is archived intact and a new one is started. `turn_count` is the number of
-recorded messages. Admin
+is archived intact and a new one is started. If an Admin deleted the record,
+only messages with a `sequence_id` above the deleted record's newest message
+are recorded, and an update with none returns `status: "skipped"`. `turn_count`
+is the number of recorded messages. Admin
 actors receive `403`; a missing admin key returns `409` with nothing stored.
 Deleted Users and provisioned Test Users return `status: "skipped"` with an
 empty `log_id`. Payloads without message IDs, or with roles other than `user`

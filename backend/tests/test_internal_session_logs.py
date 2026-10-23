@@ -75,6 +75,7 @@ class InternalSessionLogsTest(unittest.TestCase):
         return [
             {
                 "message_id": f"msg-{index}",
+                "sequence_id": index + 1,
                 "role": "user" if index % 2 == 0 else "assistant",
                 "content": content,
             }
@@ -94,10 +95,7 @@ class InternalSessionLogsTest(unittest.TestCase):
                 "actor": {"id": 1, "type": "admin", "approved": True},
                 "sage_session_id": "sage-session-hello",
                 "through_sequence_id": 2,
-                "messages": [
-                    {"message_id": "msg-0", "role": "user", "content": "hello"},
-                    {"message_id": "msg-1", "role": "assistant", "content": "hi"},
-                ],
+                "messages": self._messages("hello", "hi"),
             },
         )
 
@@ -114,10 +112,7 @@ class InternalSessionLogsTest(unittest.TestCase):
                 "actor": {"id": user_id, "type": "user", "approved": True},
                 "sage_session_id": "sage-session-hello",
                 "through_sequence_id": 2,
-                "messages": [
-                    {"message_id": "msg-0", "role": "user", "content": "hello"},
-                    {"message_id": "msg-1", "role": "assistant", "content": "hi"},
-                ],
+                "messages": self._messages("hello", "hi"),
             },
         )
 
@@ -146,10 +141,7 @@ class InternalSessionLogsTest(unittest.TestCase):
                 },
                 "sage_session_id": "sage-session-hello",
                 "through_sequence_id": 2,
-                "messages": [
-                    {"message_id": "msg-0", "role": "user", "content": "hello"},
-                    {"message_id": "msg-1", "role": "assistant", "content": "hi"},
-                ],
+                "messages": self._messages("hello", "hi"),
             },
         )
 
@@ -187,10 +179,7 @@ class InternalSessionLogsTest(unittest.TestCase):
                 },
                 "sage_session_id": "sage-session-hello",
                 "through_sequence_id": 2,
-                "messages": [
-                    {"message_id": "msg-0", "role": "user", "content": "hello"},
-                    {"message_id": "msg-1", "role": "assistant", "content": "hi"},
-                ],
+                "messages": self._messages("hello", "hi"),
             },
         )
 
@@ -330,12 +319,17 @@ class InternalSessionLogsTest(unittest.TestCase):
             {"sage_session_id": "s", "messages": [{"role": "user", "content": "hello"}]},
             {"messages": self._messages("hello", "hi"), "through_sequence_id": 2},
             {"sage_session_id": "s", "messages": self._messages("hello", "hi")},
+            {
+                "sage_session_id": "s",
+                "through_sequence_id": 1,
+                "messages": [{"message_id": "m", "role": "user", "content": "no sequence"}],
+            },
             {"sage_session_id": "s", "messages": [], "through_sequence_id": 0},
             {
                 "sage_session_id": "s",
                 "through_sequence_id": 1,
                 "messages": [
-                    {"message_id": "m", "role": "tool", "content": "internal tool context"},
+                    {"message_id": "m", "sequence_id": 1, "role": "tool", "content": "internal tool context"},
                 ],
             },
         ):
@@ -389,6 +383,25 @@ class InternalSessionLogsTest(unittest.TestCase):
         with self.database.get_cursor() as cursor:
             cursor.execute("SELECT user_type_id FROM session_logs")
             self.assertEqual(cursor.fetchone()["user_type_id"], user_type_id)
+
+    def test_update_with_only_deleted_messages_is_skipped(self) -> None:
+        admin_key = PrivateKey()
+        self.database.add_admin(admin_key.public_key.format(compressed=True)[1:].hex())
+        user_id = self.database.create_user()
+        payload = {
+            "actor": {"id": user_id, "type": "user", "approved": True},
+            "sage_session_id": "deleted-record-session",
+            "through_sequence_id": 2,
+            "messages": self._messages("hello", "hi"),
+        }
+        first = self.client.post("/internal/agent/session-logs", headers=self._headers(), json=payload)
+        self.assertTrue(self.session_logs.delete_session_log(first.json()["log_id"]))
+
+        retried = self.client.post("/internal/agent/session-logs", headers=self._headers(), json=payload)
+
+        self.assertEqual(retried.status_code, 200)
+        self.assertEqual(retried.json(), {"log_id": "", "status": "skipped", "turn_count": 0})
+        self.assertEqual(self._session_log_count(), 0)
 
 
 if __name__ == "__main__":
