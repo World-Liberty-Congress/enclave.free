@@ -71,8 +71,8 @@ from models import (
     ResourceCreate, ResourceUpdate, ResourceResponse, ResourceListResponse,
     # Session Logs (Test & Feedback)
     SessionLogCreate, SessionLogSaveTranscript, SessionLogMetadata,
-    SessionLogListResponse, SessionLogDetail, SessionTurnFeedbackRequest,
-    SessionLogTurnFeedback, TestUserProvisionResponse,
+    SessionLogListResponse, SessionLogDetail, SessionMessageFeedbackRequest,
+    SessionLogMessageFeedback, TestUserProvisionResponse,
 )
 import session_logs
 import impersonation
@@ -1959,11 +1959,10 @@ async def get_session_log_admin(
     log_id: str,
     admin: dict = Depends(auth.require_admin),
 ) -> SessionLogDetail:
-    """Full log for review: metadata + encrypted transcript + per-turn feedback."""
+    """Full log for review: metadata + encrypted transcript + message feedback."""
     detail = session_logs.get_session_log(log_id)
     if detail is None:
         raise HTTPException(status_code=404, detail="Session log not found")
-    detail["feedback"] = [SessionLogTurnFeedback(**fb) for fb in detail["feedback"]]
     return SessionLogDetail(**detail)
 
 
@@ -2011,20 +2010,20 @@ async def record_plaintext_session_log_export_admin(
 
 
 @app.put(
-    "/admin/session-logs/{log_id}/turns/{turn_index}/feedback",
-    response_model=SessionLogTurnFeedback,
+    "/admin/session-logs/{log_id}/messages/{message_id}/feedback",
+    response_model=SessionLogMessageFeedback,
 )
 async def set_session_log_feedback_admin(
     log_id: str,
-    turn_index: int,
-    payload: SessionTurnFeedbackRequest,
+    message_id: str,
+    payload: SessionMessageFeedbackRequest,
     admin: dict = Depends(auth.require_admin),
-) -> SessionLogTurnFeedback:
-    """Set a turn's thumbs up/down + optional (encrypted) comment."""
+) -> SessionLogMessageFeedback:
+    """Set an assistant message's thumbs up/down + optional (encrypted) comment."""
     try:
-        feedback = session_logs.set_turn_feedback(
+        feedback = session_logs.set_message_feedback(
             log_id,
-            turn_index,
+            message_id,
             payload.rating,
             comment=payload.comment,
             created_by=admin.get("pubkey"),
@@ -2033,7 +2032,7 @@ async def set_session_log_feedback_admin(
         raise HTTPException(status_code=404, detail="Session log not found")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    return SessionLogTurnFeedback(**feedback)
+    return SessionLogMessageFeedback(**feedback)
 
 
 @app.delete("/admin/session-logs/{log_id}", response_model=SuccessResponse)
@@ -2041,7 +2040,7 @@ async def delete_session_log_admin(
     log_id: str,
     admin: dict = Depends(auth.require_admin),
 ) -> SuccessResponse:
-    """Delete a session log, its feedback, and its transcript file."""
+    """Delete a session log, its feedback, and any legacy transcript file."""
     if session_logs.delete_session_log(log_id):
         return SuccessResponse(success=True, message="Session log deleted")
     raise HTTPException(status_code=404, detail="Session log not found")

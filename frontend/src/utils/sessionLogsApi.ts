@@ -64,6 +64,8 @@ export interface TranscriptToolCall {
 }
 
 export interface TranscriptTurn {
+  /** Stable ID of this message; feedback is saved against it. */
+  message_id?: string | null;
   role: string; // 'user' | 'assistant' | 'system'
   content: string;
   ts?: string | null;
@@ -87,8 +89,15 @@ export interface SessionLogMetadata {
   has_transcript: boolean;
 }
 
-export interface SessionLogTurnFeedback {
-  turn_index: number;
+export interface SessionLogTranscriptMessage {
+  message_id: string;
+  role: string;
+}
+
+export interface SessionLogMessageFeedback {
+  message_id: string;
+  /** The message's current position, or null if the transcript no longer has it. */
+  turn_index: number | null;
   rating: FeedbackRating;
   comment_ciphertext: string | null;
   comment_ephemeral_pubkey: string | null;
@@ -101,7 +110,9 @@ export interface SessionLogDetail extends SessionLogMetadata {
   transcript_ciphertext: string | null;
   transcript_ephemeral_pubkey: string | null;
   encrypted_to_pubkey: string | null;
-  feedback: SessionLogTurnFeedback[];
+  /** Plaintext message order of the encrypted transcript. */
+  transcript_messages: SessionLogTranscriptMessage[];
+  feedback: SessionLogMessageFeedback[];
 }
 
 export interface AdminUserType {
@@ -222,15 +233,15 @@ export async function saveTranscript(
   );
 }
 
-export async function setTurnFeedback(
+export async function setMessageFeedback(
   logId: string,
-  turnIndex: number,
+  messageId: string,
   rating: FeedbackRating,
   comment?: string | null
-): Promise<SessionLogTurnFeedback> {
-  return jsonOrThrow<SessionLogTurnFeedback>(
+): Promise<SessionLogMessageFeedback> {
+  return jsonOrThrow<SessionLogMessageFeedback>(
     await adminFetch(
-      `/admin/session-logs/${encodeURIComponent(logId)}/turns/${turnIndex}/feedback`,
+      `/admin/session-logs/${encodeURIComponent(logId)}/messages/${encodeURIComponent(messageId)}/feedback`,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

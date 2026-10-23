@@ -18,10 +18,11 @@ import {
   getSessionLog,
   listSessionLogs,
   recordSessionLogPlaintextExport,
-  setTurnFeedback,
+  setMessageFeedback,
   type FeedbackRating,
   type SessionLogDetail,
   type SessionLogMetadata,
+  type SessionLogTranscriptMessage,
   type TranscriptToolCall,
   type TranscriptTurn,
 } from '../../../utils/sessionLogsApi';
@@ -77,6 +78,11 @@ interface ParsedTranscriptTurn extends Omit<TranscriptTurn, 'tools_used'> {
   tools_used?: ParsedTranscriptToolCall[] | null;
 }
 
+/** A decrypted transcript message, identified for feedback. */
+interface ReviewTurn extends TranscriptTurn {
+  message_id: string;
+}
+
 function isTranscriptToolCall(
   value: unknown
 ): value is ParsedTranscriptToolCall {
@@ -107,6 +113,7 @@ function isTranscriptTurn(value: unknown): value is ParsedTranscriptTurn {
   const toolsUsed = value.tools_used;
   const trace = value.trace;
   return (
+    isOptionalString(value.message_id) &&
     typeof value.role === 'string' &&
     typeof value.content === 'string' &&
     (toolsUsed == null ||
@@ -119,11 +126,18 @@ function isTranscriptTurn(value: unknown): value is ParsedTranscriptTurn {
   );
 }
 
+/**
+ * Decrypted turns paired with the server's plaintext message order. Feedback is
+ * saved against each message's ID, so the two must describe the same messages.
+ * Logs saved before the message order was recorded have none; their messages
+ * are named by position, as the backend names them.
+ */
 function parseTranscriptTurns(
   plaintext: string,
+  messages: SessionLogTranscriptMessage[],
   expectedTurnCount: number,
   integrityError: string
-): TranscriptTurn[] {
+): ReviewTurn[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(plaintext) as unknown;
@@ -140,14 +154,34 @@ function parseTranscriptTurns(
   ) {
     throw new Error(integrityError);
   }
-  return parsed.turns.map((turn) => ({
-    ...turn,
-    tools_used: (turn.tools_used ?? []).map((tool) => ({
-      ...tool,
-      warnings: tool.warnings ?? [],
-      guarded: tool.guarded ?? false,
-    })),
-  }));
+  const order =
+    messages.length > 0
+      ? messages
+      : parsed.turns.map((turn, index) => ({
+          message_id: `legacy-${index}`,
+          role: turn.role,
+        }));
+  if (order.length !== parsed.turns.length) {
+    throw new Error(integrityError);
+  }
+  return parsed.turns.map((turn, index) => {
+    const message = order[index];
+    if (
+      turn.role !== message.role ||
+      (turn.message_id != null && turn.message_id !== message.message_id)
+    ) {
+      throw new Error(integrityError);
+    }
+    return {
+      ...turn,
+      message_id: message.message_id,
+      tools_used: (turn.tools_used ?? []).map((tool) => ({
+        ...tool,
+        warnings: tool.warnings ?? [],
+        guarded: tool.guarded ?? false,
+      })),
+    };
+  });
 }
 
 function transcriptToolSummaries(
@@ -232,11 +266,11 @@ export function FeedbackView() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<SessionLogDetail | null>(null);
-  const [turns, setTurns] = useState<TranscriptTurn[] | null>(null);
-  const [drafts, setDrafts] = useState<Record<number, TurnDraft>>({});
-  const [undecryptedFeedbackTurns, setUndecryptedFeedbackTurns] = useState<
-    number[]
-  >([]);
+  const [turns, setTurns] = useState<ReviewTurn[] | null>(null);
+  // Keyed by message ID, so a rating stays on its answer.
+  const [drafts, setDrafts] = useState<Record<string, TurnDraft>>({});
+  const [undecryptedFeedbackMessages, setUndecryptedFeedbackMessages] =
+    useState<string[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
@@ -272,7 +306,7 @@ export function FeedbackView() {
       ? 'decrypting'
       : !turns
         ? 'not-decrypted'
-        : undecryptedFeedbackTurns.length > 0
+        : undecryptedFeedbackMessages.length > 0
           ? 'partial'
           : null;
 
@@ -324,165 +358,173 @@ export function FeedbackView() {
     void loadList();
   }, [loadList]);
 
-  const openLog = useCallback(async (logId: string) => {
-    const requestId = openLogRequestIdRef.current + 1;
-    openLogRequestIdRef.current = requestId;
-    const isCurrentRequest = () => openLogRequestIdRef.current === requestId;
+  const openLog = useCallback(
+    async (logId: string) => {
+      const requestId = openLogRequestIdRef.current + 1;
+      openLogRequestIdRef.current = requestId;
+      const isCurrentRequest = () => openLogRequestIdRef.current === requestId;
 
-    setSelectedId(logId);
-    setLoadingDetail(true);
-    setDetailError(null);
-    setFeedbackError(null);
-    setExportError(null);
-    setDeleteError(null);
-    setTurns(null);
-    setDrafts({});
-    setUndecryptedFeedbackTurns([]);
-    setDecryptProgress(null);
-    try {
-      const full = await getSessionLog(logId);
-      if (!isCurrentRequest()) return;
-      setDetail(full);
-
-      const hasTranscriptCiphertext = Boolean(full.transcript_ciphertext);
-      const hasTranscriptKey = Boolean(full.transcript_ephemeral_pubkey);
-      if (
-        hasTranscriptCiphertext !== hasTranscriptKey ||
-        (!hasTranscriptCiphertext && full.turn_count > 0)
-      ) {
-        throw new Error(transcriptIntegrityError);
-      }
-
-      // Count everything that will need an extension approval up front, so the
-      // Admin sees real progress rather than an anonymous spinner. See #648.
-      const encryptedCommentCount = full.feedback.filter(
-        (fb) => fb.comment_ciphertext
-      ).length;
-      const transcriptCount =
-        full.transcript_ciphertext && full.transcript_ephemeral_pubkey ? 1 : 0;
-      const totalDecrypts = transcriptCount + encryptedCommentCount;
-      if (totalDecrypts > 0) {
-        setDecryptProgress({ done: 0, total: totalDecrypts });
-      }
-
-      // Decrypt the transcript ciphertext via NIP-07.
-      let parsedTurns: TranscriptTurn[] | null = null;
-      if (full.transcript_ciphertext && full.transcript_ephemeral_pubkey) {
-        const plaintext = await decryptField({
-          ciphertext: full.transcript_ciphertext,
-          ephemeral_pubkey: full.transcript_ephemeral_pubkey,
-        });
+      setSelectedId(logId);
+      setLoadingDetail(true);
+      setDetailError(null);
+      setFeedbackError(null);
+      setExportError(null);
+      setDeleteError(null);
+      setTurns(null);
+      setDrafts({});
+      setUndecryptedFeedbackMessages([]);
+      setDecryptProgress(null);
+      try {
+        const full = await getSessionLog(logId);
         if (!isCurrentRequest()) return;
-        if (plaintext == null) {
-          throw new Error(
-            t(
-              'adminTestFeedback.feedback.decryptTranscriptError',
-              'Could not decrypt the transcript. Approve the decryption request in your Nostr extension.'
-            )
-          );
+        setDetail(full);
+
+        const hasTranscriptCiphertext = Boolean(full.transcript_ciphertext);
+        const hasTranscriptKey = Boolean(full.transcript_ephemeral_pubkey);
+        if (
+          hasTranscriptCiphertext !== hasTranscriptKey ||
+          (!hasTranscriptCiphertext && full.turn_count > 0) ||
+          (full.transcript_messages.length > 0 &&
+            full.transcript_messages.length !== full.turn_count)
+        ) {
+          throw new Error(transcriptIntegrityError);
         }
+
+        // Count everything that will need an extension approval up front, so the
+        // Admin sees real progress rather than an anonymous spinner. See #648.
+        const encryptedCommentCount = full.feedback.filter(
+          (fb) => fb.comment_ciphertext
+        ).length;
+        const transcriptCount =
+          full.transcript_ciphertext && full.transcript_ephemeral_pubkey
+            ? 1
+            : 0;
+        const totalDecrypts = transcriptCount + encryptedCommentCount;
+        if (totalDecrypts > 0) {
+          setDecryptProgress({ done: 0, total: totalDecrypts });
+        }
+
+        // Decrypt the transcript ciphertext via NIP-07.
+        let parsedTurns: ReviewTurn[] | null = null;
+        if (full.transcript_ciphertext && full.transcript_ephemeral_pubkey) {
+          const plaintext = await decryptField({
+            ciphertext: full.transcript_ciphertext,
+            ephemeral_pubkey: full.transcript_ephemeral_pubkey,
+          });
+          if (!isCurrentRequest()) return;
+          if (plaintext == null) {
+            throw new Error(
+              t(
+                'adminTestFeedback.feedback.decryptTranscriptError',
+                'Could not decrypt the transcript. Approve the decryption request in your Nostr extension.'
+              )
+            );
+          }
           parsedTurns = parseTranscriptTurns(
             plaintext,
+            full.transcript_messages,
             full.turn_count,
             transcriptIntegrityError
           );
-        setDecryptProgress((prev) =>
-          prev ? { ...prev, done: prev.done + 1 } : prev
-        );
-      }
-      if (!isCurrentRequest()) return;
-      setTurns(parsedTurns);
-
-      // Hydrate per-turn drafts from existing (decrypted) feedback.
-      //
-      // Sequential on purpose. Decrypts are already serialized globally (see
-      // encryption.ts), but iterating in order keeps the progress count honest
-      // and makes the approval sequence predictable for the Admin. See #648.
-      const nextDrafts: Record<number, TurnDraft> = {};
-      const nextUndecryptedFeedbackTurns: number[] = [];
-      for (const fb of full.feedback) {
+          setDecryptProgress((prev) =>
+            prev ? { ...prev, done: prev.done + 1 } : prev
+          );
+        }
         if (!isCurrentRequest()) return;
-        let comment = '';
-        if (fb.comment_ciphertext) {
-          if (!fb.comment_ephemeral_pubkey) {
-            nextUndecryptedFeedbackTurns.push(fb.turn_index);
-          } else {
-            try {
-              const decryptedComment = await decryptField({
-                ciphertext: fb.comment_ciphertext,
-                ephemeral_pubkey: fb.comment_ephemeral_pubkey,
-              });
-              if (decryptedComment == null) {
-                nextUndecryptedFeedbackTurns.push(fb.turn_index);
-              } else {
-                comment = decryptedComment;
+        setTurns(parsedTurns);
+
+        // Hydrate per-turn drafts from existing (decrypted) feedback.
+        //
+        // Sequential on purpose. Decrypts are already serialized globally (see
+        // encryption.ts), but iterating in order keeps the progress count honest
+        // and makes the approval sequence predictable for the Admin. See #648.
+        const nextDrafts: Record<string, TurnDraft> = {};
+        const nextUndecryptedFeedbackMessages: string[] = [];
+        for (const fb of full.feedback) {
+          if (!isCurrentRequest()) return;
+          let comment = '';
+          if (fb.comment_ciphertext) {
+            if (!fb.comment_ephemeral_pubkey) {
+              nextUndecryptedFeedbackMessages.push(fb.message_id);
+            } else {
+              try {
+                const decryptedComment = await decryptField({
+                  ciphertext: fb.comment_ciphertext,
+                  ephemeral_pubkey: fb.comment_ephemeral_pubkey,
+                });
+                if (decryptedComment == null) {
+                  nextUndecryptedFeedbackMessages.push(fb.message_id);
+                } else {
+                  comment = decryptedComment;
+                }
+              } catch {
+                nextUndecryptedFeedbackMessages.push(fb.message_id);
               }
-            } catch {
-              nextUndecryptedFeedbackTurns.push(fb.turn_index);
+            }
+            if (isCurrentRequest()) {
+              setDecryptProgress((prev) =>
+                prev ? { ...prev, done: prev.done + 1 } : prev
+              );
             }
           }
-          if (isCurrentRequest()) {
-            setDecryptProgress((prev) =>
-              prev ? { ...prev, done: prev.done + 1 } : prev
-            );
-          }
+          nextDrafts[fb.message_id] = {
+            rating: fb.rating,
+            comment,
+            saved: true,
+          };
         }
-        nextDrafts[fb.turn_index] = {
-          rating: fb.rating,
-          comment,
-          saved: true,
-        };
+        if (!isCurrentRequest()) return;
+        setDrafts(nextDrafts);
+        setUndecryptedFeedbackMessages(nextUndecryptedFeedbackMessages);
+      } catch (err) {
+        if (isCurrentRequest()) {
+          setDetailError(
+            err instanceof Error
+              ? err.message
+              : t(
+                  'adminTestFeedback.feedback.loadTranscriptError',
+                  'Failed to load transcript'
+                )
+          );
+        }
+      } finally {
+        if (isCurrentRequest()) {
+          setLoadingDetail(false);
+          setDecryptProgress(null);
+        }
       }
-      if (!isCurrentRequest()) return;
-      setDrafts(nextDrafts);
-      setUndecryptedFeedbackTurns(nextUndecryptedFeedbackTurns);
-    } catch (err) {
-      if (isCurrentRequest()) {
-        setDetailError(
-          err instanceof Error
-            ? err.message
-            : t(
-                'adminTestFeedback.feedback.loadTranscriptError',
-                'Failed to load transcript'
-              )
-        );
-      }
-    } finally {
-      if (isCurrentRequest()) {
-        setLoadingDetail(false);
-        setDecryptProgress(null);
-      }
-    }
-  }, [t, transcriptIntegrityError]);
+    },
+    [t, transcriptIntegrityError]
+  );
 
-  const updateDraft = (turnIndex: number, patch: Partial<TurnDraft>) => {
+  const updateDraft = (messageId: string, patch: Partial<TurnDraft>) => {
     setDrafts((prev) => {
-      const existing: TurnDraft = prev[turnIndex] ?? { comment: '' };
+      const existing: TurnDraft = prev[messageId] ?? { comment: '' };
       return {
         ...prev,
-        [turnIndex]: { ...existing, ...patch, saved: false },
+        [messageId]: { ...existing, ...patch, saved: false },
       };
     });
   };
 
   const saveFeedback = useCallback(
-    async (turnIndex: number, rating: FeedbackRating) => {
+    async (messageId: string, rating: FeedbackRating) => {
       if (!selectedId) return;
-      const draft = drafts[turnIndex];
+      const draft = drafts[messageId];
       setFeedbackError(null);
-      updateDraft(turnIndex, { rating, saving: true });
+      updateDraft(messageId, { rating, saving: true });
       try {
-        await setTurnFeedback(
+        await setMessageFeedback(
           selectedId,
-          turnIndex,
+          messageId,
           rating,
           draft?.comment?.trim() || null
         );
         setDrafts((prev) => {
-          const existing: TurnDraft = prev[turnIndex] ?? { comment: '' };
+          const existing: TurnDraft = prev[messageId] ?? { comment: '' };
           return {
             ...prev,
-            [turnIndex]: {
+            [messageId]: {
               ...existing,
               rating,
               saving: false,
@@ -499,7 +541,8 @@ export function FeedbackView() {
                 'Feedback could not be saved'
               )
         );
-        updateDraft(turnIndex, { saving: false });
+        // Show the rating that is actually saved, not the one that failed.
+        updateDraft(messageId, { rating: draft?.rating, saving: false });
       }
     },
     [selectedId, drafts, t]
@@ -514,7 +557,7 @@ export function FeedbackView() {
           setSelectedId(null);
           setDetail(null);
           setTurns(null);
-          setUndecryptedFeedbackTurns([]);
+          setUndecryptedFeedbackMessages([]);
         }
         await loadList();
       } catch (err) {
@@ -546,7 +589,7 @@ export function FeedbackView() {
       );
       return;
     }
-    if (undecryptedFeedbackTurns.length > 0) {
+    if (undecryptedFeedbackMessages.length > 0) {
       setExportError(
         t(
           'adminTestFeedback.feedback.exportFeedbackNotDecrypted',
@@ -557,14 +600,22 @@ export function FeedbackView() {
     }
     setExporting(true);
     try {
+      const positions = new Map(
+        turns.map((turn, index) => [turn.message_id, index])
+      );
       const feedback = Object.entries(drafts)
-        .map(([turnIndex, draft]) => ({
-          turn_index: Number(turnIndex),
+        .map(([messageId, draft]) => ({
+          message_id: messageId,
+          turn_index: positions.get(messageId) ?? null,
           rating: draft.rating ?? null,
           comment: draft.comment || null,
         }))
         .filter((entry) => entry.rating || entry.comment)
-        .sort((a, b) => a.turn_index - b.turn_index);
+        .sort(
+          (a, b) =>
+            (a.turn_index ?? Number.MAX_SAFE_INTEGER) -
+            (b.turn_index ?? Number.MAX_SAFE_INTEGER)
+        );
 
       const exportData = {
         log_id: detail.log_id,
@@ -599,7 +650,7 @@ export function FeedbackView() {
     } finally {
       setExporting(false);
     }
-  }, [selectedId, detail, turns, drafts, undecryptedFeedbackTurns, t]);
+  }, [selectedId, detail, turns, drafts, undecryptedFeedbackMessages, t]);
 
   const sourceLabel = useCallback(
     (source: string) => {
@@ -813,10 +864,11 @@ export function FeedbackView() {
             {deleteError && <Callout tone="error">{deleteError}</Callout>}
 
             {(turns ?? []).map((turn, index) => {
-              const draft = drafts[index];
+              const canRate = (detail?.transcript_messages.length ?? 0) > 0;
+              const draft = drafts[turn.message_id];
               const isAssistant = turn.role === 'assistant';
               return (
-                <Card key={index} className="flex flex-col gap-2">
+                <Card key={turn.message_id} className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <span
                       className={[
@@ -838,11 +890,12 @@ export function FeedbackView() {
                   {isAssistant && <TranscriptTraceSummary turn={turn} />}
 
                   {/* Only the assistant's (machine) turns are ratable — the
-                      user's own messages aren't graded. */}
-                  {isAssistant && (
+                      user's own messages aren't graded. Logs saved before their
+                      message order was recorded are read-only. */}
+                  {isAssistant && canRate && (
                     <div className="mt-1 flex flex-wrap items-center gap-2 border-t border-border pt-2">
                       <button
-                        onClick={() => void saveFeedback(index, 'up')}
+                        onClick={() => void saveFeedback(turn.message_id, 'up')}
                         disabled={draft?.saving}
                         aria-pressed={draft?.rating === 'up'}
                         className={[
@@ -859,7 +912,9 @@ export function FeedbackView() {
                         <ThumbsUp className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => void saveFeedback(index, 'down')}
+                        onClick={() =>
+                          void saveFeedback(turn.message_id, 'down')
+                        }
                         disabled={draft?.saving}
                         aria-pressed={draft?.rating === 'down'}
                         className={[
@@ -879,11 +934,13 @@ export function FeedbackView() {
                         type="text"
                         value={draft?.comment ?? ''}
                         onChange={(e) =>
-                          updateDraft(index, { comment: e.target.value })
+                          updateDraft(turn.message_id, {
+                            comment: e.target.value,
+                          })
                         }
                         onBlur={() => {
                           if (draft?.rating)
-                            void saveFeedback(index, draft.rating);
+                            void saveFeedback(turn.message_id, draft.rating);
                         }}
                         placeholder={t(
                           'adminTestFeedback.feedback.notePlaceholder',

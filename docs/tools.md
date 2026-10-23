@@ -33,11 +33,7 @@ For `/llm/chat` and `/llm/chat/stream`, the request shape is:
   "session_id": "optional-session-id",
   "conversation_surface": "admin-onboarding",
   "tools": ["knowledge-search", "curated-resources", "web-search"],
-  "job_ids": ["doc-handbook", "doc-faq"],
-  "conversation_history": [
-    { "role": "user", "content": "Earlier user turn" },
-    { "role": "assistant", "content": "Earlier assistant turn" }
-  ]
+  "job_ids": ["doc-handbook", "doc-faq"]
 }
 ```
 
@@ -46,7 +42,7 @@ For `/llm/chat` and `/llm/chat/stream`, the request shape is:
 - Sage drops or rejects Tool Sets the actor is not authorized to use. For non-admin users, Sage ignores the client-submitted `tools` list for effective resolution and computes the Tool Set list from server-side `/session-defaults`, including the empty or omitted case where configured defaults still apply.
 - `job_ids` is an optional Knowledge Search constraint: it is a list of selected Document Library `job_id` values, not an arbitrary prompt blob.
 - Additional Knowledge filters must be added as explicit request fields before the browser can send them.
-- `conversation_history` is optional recent client context; Sage-owned session memory remains authoritative when a `session_id` is present.
+- Sage owns Conversation history. Model context and the Admin review record come from Sage's stored messages for `session_id`, and Sage ignores any `conversation_history` field. User Conversations no longer send one; some Admin surfaces still do, which is harmless and pending cleanup (see ADR-0035).
 - `client_decrypted_context` is optional **Admin Signer-Decrypted Context**, shaped like `{ "source": "admin-signer-user-roster", "users": [...] }`. The browser may attach it only for authenticated Admin turns with the `db-query` Tool Set enabled, and Sage treats it as signer-delegated plaintext for the current encrypted inference turn rather than Tool output or trace metadata.
 
 ## Tool Sets

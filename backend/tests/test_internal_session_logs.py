@@ -70,6 +70,17 @@ class InternalSessionLogsTest(unittest.TestCase):
     def _headers(self) -> dict[str, str]:
         return {"x-internal-agent-token": "test-internal-token"}
 
+    @staticmethod
+    def _messages(*contents: str) -> list[dict[str, str]]:
+        return [
+            {
+                "message_id": f"msg-{index}",
+                "role": "user" if index % 2 == 0 else "assistant",
+                "content": content,
+            }
+            for index, content in enumerate(contents)
+        ]
+
     def _session_log_count(self) -> int:
         with self.database.get_cursor() as cursor:
             cursor.execute("SELECT COUNT(*) AS count FROM session_logs")
@@ -81,9 +92,11 @@ class InternalSessionLogsTest(unittest.TestCase):
             headers=self._headers(),
             json={
                 "actor": {"id": 1, "type": "admin", "approved": True},
-                "turns": [
-                    {"role": "user", "content": "hello"},
-                    {"role": "assistant", "content": "hi"},
+                "sage_session_id": "sage-session-hello",
+                "through_sequence_id": 2,
+                "messages": [
+                    {"message_id": "msg-0", "role": "user", "content": "hello"},
+                    {"message_id": "msg-1", "role": "assistant", "content": "hi"},
                 ],
             },
         )
@@ -99,9 +112,11 @@ class InternalSessionLogsTest(unittest.TestCase):
             headers=self._headers(),
             json={
                 "actor": {"id": user_id, "type": "user", "approved": True},
-                "turns": [
-                    {"role": "user", "content": "hello"},
-                    {"role": "assistant", "content": "hi"},
+                "sage_session_id": "sage-session-hello",
+                "through_sequence_id": 2,
+                "messages": [
+                    {"message_id": "msg-0", "role": "user", "content": "hello"},
+                    {"message_id": "msg-1", "role": "assistant", "content": "hi"},
                 ],
             },
         )
@@ -129,9 +144,11 @@ class InternalSessionLogsTest(unittest.TestCase):
                     "approved": True,
                     "email": "test-user+ordinary@enclave.test",
                 },
-                "turns": [
-                    {"role": "user", "content": "hello"},
-                    {"role": "assistant", "content": "hi"},
+                "sage_session_id": "sage-session-hello",
+                "through_sequence_id": 2,
+                "messages": [
+                    {"message_id": "msg-0", "role": "user", "content": "hello"},
+                    {"message_id": "msg-1", "role": "assistant", "content": "hi"},
                 ],
             },
         )
@@ -168,9 +185,11 @@ class InternalSessionLogsTest(unittest.TestCase):
                     "email": f"test-user+type{user_type_id}@enclave.test",
                     "user_type_id": user_type_id,
                 },
-                "turns": [
-                    {"role": "user", "content": "hello"},
-                    {"role": "assistant", "content": "hi"},
+                "sage_session_id": "sage-session-hello",
+                "through_sequence_id": 2,
+                "messages": [
+                    {"message_id": "msg-0", "role": "user", "content": "hello"},
+                    {"message_id": "msg-1", "role": "assistant", "content": "hi"},
                 ],
             },
         )
@@ -191,10 +210,8 @@ class InternalSessionLogsTest(unittest.TestCase):
             json={
                 "actor": {"id": user_id, "type": "user", "approved": True},
                 "sage_session_id": "sage-session-1",
-                "turns": [
-                    {"role": "user", "content": "first question"},
-                    {"role": "assistant", "content": "first answer"},
-                ],
+                "through_sequence_id": 2,
+                "messages": self._messages("first question", "first answer"),
             },
         )
         second = self.client.post(
@@ -203,12 +220,13 @@ class InternalSessionLogsTest(unittest.TestCase):
             json={
                 "actor": {"id": user_id, "type": "user", "approved": True},
                 "sage_session_id": "sage-session-1",
-                "turns": [
-                    {"role": "user", "content": "first question"},
-                    {"role": "assistant", "content": "first answer"},
-                    {"role": "user", "content": "second question"},
-                    {"role": "assistant", "content": "second answer"},
-                ],
+                "through_sequence_id": 4,
+                "messages": self._messages(
+                    "first question",
+                    "first answer",
+                    "second question",
+                    "second answer",
+                ),
             },
         )
 
@@ -223,10 +241,8 @@ class InternalSessionLogsTest(unittest.TestCase):
             json={
                 "actor": {"id": user_id, "type": "user", "approved": True},
                 "sage_session_id": "sage-session-1",
-                "turns": [
-                    {"role": "user", "content": "first question"},
-                    {"role": "assistant", "content": "first answer"},
-                ],
+                "through_sequence_id": 2,
+                "messages": self._messages("first question", "first answer"),
             },
         )
         self.assertEqual(stale.status_code, 200)
@@ -247,7 +263,9 @@ class InternalSessionLogsTest(unittest.TestCase):
         user_id = self.database.create_user()
         barrier = threading.Barrier(2)
 
-        def post_session(content: str):
+        history = self._messages("q1", "a1", "q2", "a2")
+
+        def post_session(message_count: int):
             barrier.wait(timeout=5)
             return self.client.post(
                 "/internal/agent/session-logs",
@@ -255,24 +273,20 @@ class InternalSessionLogsTest(unittest.TestCase):
                 json={
                     "actor": {"id": user_id, "type": "user", "approved": True},
                     "sage_session_id": "sage-session-concurrent",
-                    "turns": [
-                        {"role": "user", "content": content},
-                        {"role": "assistant", "content": f"answer to {content}"},
-                    ],
+                    "through_sequence_id": message_count,
+                    "messages": history[:message_count],
                 },
             )
 
         with ThreadPoolExecutor(max_workers=2) as executor:
-            responses = list(
-                executor.map(
-                    post_session,
-                    ["first concurrent turn", "second concurrent turn"],
-                )
-            )
+            responses = list(executor.map(post_session, [2, 4]))
 
         self.assertEqual([response.status_code for response in responses], [200, 200])
         self.assertEqual(self._session_log_count(), 1)
         self.assertEqual(responses[0].json()["log_id"], responses[1].json()["log_id"])
+        with self.database.get_cursor() as cursor:
+            cursor.execute("SELECT turn_count FROM session_logs")
+            self.assertEqual(cursor.fetchone()["turn_count"], 4)
 
     def test_internal_user_session_log_reuse_is_scoped_to_subject_user(self) -> None:
         admin_key = PrivateKey()
@@ -286,10 +300,8 @@ class InternalSessionLogsTest(unittest.TestCase):
             json={
                 "actor": {"id": first_user_id, "type": "user", "approved": True},
                 "sage_session_id": "shared-sage-session",
-                "turns": [
-                    {"role": "user", "content": "first user question"},
-                    {"role": "assistant", "content": "first user answer"},
-                ],
+                "through_sequence_id": 2,
+                "messages": self._messages("first user question", "first user answer"),
             },
         )
         second = self.client.post(
@@ -298,10 +310,8 @@ class InternalSessionLogsTest(unittest.TestCase):
             json={
                 "actor": {"id": second_user_id, "type": "user", "approved": True},
                 "sage_session_id": "shared-sage-session",
-                "turns": [
-                    {"role": "user", "content": "second user question"},
-                    {"role": "assistant", "content": "second user answer"},
-                ],
+                "through_sequence_id": 4,
+                "messages": self._messages("second user question", "second user answer"),
             },
         )
 
@@ -309,6 +319,76 @@ class InternalSessionLogsTest(unittest.TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertNotEqual(second.json()["log_id"], first.json()["log_id"])
         self.assertEqual(self._session_log_count(), 2)
+
+    def test_internal_user_session_log_rejects_snapshots_without_message_ids(self) -> None:
+        admin_key = PrivateKey()
+        self.database.add_admin(admin_key.public_key.format(compressed=True)[1:].hex())
+        user_id = self.database.create_user()
+
+        for payload in (
+            {"sage_session_id": "s", "turns": [{"role": "user", "content": "hello"}]},
+            {"sage_session_id": "s", "messages": [{"role": "user", "content": "hello"}]},
+            {"messages": self._messages("hello", "hi"), "through_sequence_id": 2},
+            {"sage_session_id": "s", "messages": self._messages("hello", "hi")},
+            {"sage_session_id": "s", "messages": [], "through_sequence_id": 0},
+            {
+                "sage_session_id": "s",
+                "through_sequence_id": 1,
+                "messages": [
+                    {"message_id": "m", "role": "tool", "content": "internal tool context"},
+                ],
+            },
+        ):
+            with self.subTest(payload=payload):
+                response = self.client.post(
+                    "/internal/agent/session-logs",
+                    headers=self._headers(),
+                    json={"actor": {"id": user_id, "type": "user", "approved": True}, **payload},
+                )
+                self.assertEqual(response.status_code, 422)
+        self.assertEqual(self._session_log_count(), 0)
+
+    def test_deleted_user_conversation_is_skipped_not_recorded(self) -> None:
+        admin_key = PrivateKey()
+        self.database.add_admin(admin_key.public_key.format(compressed=True)[1:].hex())
+
+        response = self.client.post(
+            "/internal/agent/session-logs",
+            headers=self._headers(),
+            json={
+                "actor": {"id": 9999, "type": "user", "approved": True},
+                "sage_session_id": "deleted-user-session",
+                "through_sequence_id": 2,
+                "messages": self._messages("hello", "hi"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "skipped")
+        self.assertEqual(self._session_log_count(), 0)
+
+    def test_record_takes_the_user_type_from_the_users_table(self) -> None:
+        admin_key = PrivateKey()
+        self.database.add_admin(admin_key.public_key.format(compressed=True)[1:].hex())
+        user_type_id = self.database.create_user_type("Student")
+        user_id = self.database.create_user(user_type_id=user_type_id)
+
+        response = self.client.post(
+            "/internal/agent/session-logs",
+            headers=self._headers(),
+            json={
+                # A retried update may carry a stale or deleted user type.
+                "actor": {"id": user_id, "type": "user", "approved": True, "user_type_id": 999},
+                "sage_session_id": "typed-session",
+                "through_sequence_id": 2,
+                "messages": self._messages("hello", "hi"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        with self.database.get_cursor() as cursor:
+            cursor.execute("SELECT user_type_id FROM session_logs")
+            self.assertEqual(cursor.fetchone()["user_type_id"], user_type_id)
 
 
 if __name__ == "__main__":

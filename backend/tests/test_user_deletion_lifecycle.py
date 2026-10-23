@@ -163,8 +163,8 @@ class UserDeletionLifecycleTest(unittest.TestCase):
                     (log_id, user_id),
                 )
             cursor.execute(
-                "INSERT INTO session_log_feedback (log_id, turn_index, rating) "
-                "VALUES ('deleted-user-log', 0, 'up')"
+                "INSERT INTO session_log_feedback (log_id, message_id, rating) "
+                "VALUES ('deleted-user-log', 'legacy-1', 'up')"
             )
 
         for _ in range(2):

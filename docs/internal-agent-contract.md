@@ -352,6 +352,58 @@ and name. `total_count` describes the complete filtered ready set before
 pagination; `has_more` and `next_offset` describe continuation. Invalid payload
 shapes and obsolete aid-specific fields return `422`.
 
+### `POST /internal/agent/session-logs`
+
+Records a User Conversation for Admin review (ADR-0035). Sage calls this after
+each exchange with every retained user and assistant message of the
+Conversation, oldest first, and the Sage sequence number of the newest one. If
+the update does not complete, Sage resends it about five minutes after the
+Conversation's last activity.
+
+Request:
+
+```json
+{
+  "actor": { "id": 123, "type": "user", "approved": true, "user_type_id": 1 },
+  "sage_session_id": "11111111-1111-1111-1111-111111111111",
+  "through_sequence_id": 8812,
+  "messages": [
+    {
+      "message_id": "22222222-2222-2222-2222-222222222222",
+      "role": "user",
+      "content": "Earlier question",
+      "ts": "2026-10-23T12:00:00+00:00"
+    },
+    {
+      "message_id": "33333333-3333-3333-3333-333333333333",
+      "role": "assistant",
+      "content": "Earlier answer",
+      "ts": "2026-10-23T12:00:04+00:00"
+    }
+  ],
+  "title": "User Conversation - Avery"
+}
+```
+
+Response:
+
+```json
+{ "log_id": "4f0c2b9e8d7a4c1b9e3f5a6d7c8b9a01", "status": "completed", "turn_count": 2 }
+```
+
+The backend keeps one record per Sage session and User, takes the User Type from
+the User's current record, and encrypts the transcript to the Admin pubkey. An
+update whose `(through_sequence_id, message count)` is not above the stored
+record's changes nothing, so retries and late updates are safe. A higher one
+replaces the record, unless it no longer contains the recorded messages (the
+Conversation continued after its Session Memory was deleted): then the record
+is archived intact and a new one is started. `turn_count` is the number of
+recorded messages. Admin
+actors receive `403`; a missing admin key returns `409` with nothing stored.
+Deleted Users and provisioned Test Users return `status: "skipped"` with an
+empty `log_id`. Payloads without message IDs, or with roles other than `user`
+and `assistant`, return `422`.
+
 ### `GET /internal/agent/admin-db-schema`
 
 Returns the live structure of the existing admin SQL allowlist. Sage exposes
@@ -370,7 +422,8 @@ not have to guess table names or probe forbidden SQLite metadata tables.
 The existing query allowlist and read-only restrictions are unchanged.
 
 For an unspecified usage ranking, the supported measure is **recorded turns**
-from retained `session_logs`, counting both user and assistant turns. Join
+from retained `session_logs`, counting both user and assistant messages. Each
+`source='user'` log holds every message Sage retains for that Conversation. Join
 `users.id = session_logs.subject_user_id` with `source='user'` in the join
 condition; exclude Admin tests and preserve zero-activity users. Report the
 metric and coverage, conversation counts, and last log update. This is not

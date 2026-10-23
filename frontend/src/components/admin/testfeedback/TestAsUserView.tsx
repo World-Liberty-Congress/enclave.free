@@ -95,15 +95,15 @@ function completedTranscript(
     sageSessionId = terminal.sessionId ?? sageSessionId;
     turns.push(
       {
+        message_id: userTurn.id,
         role: 'user',
         content: userTurn.content,
-        ts: userTurn.id,
         tools_used: [],
       },
       {
+        message_id: assistantTurn.id,
         role: 'assistant',
         content: assistantTurn.content,
-        ts: assistantTurn.id,
         trace: assistantTurn.trace,
         tools_used: terminal.toolsUsed,
       }

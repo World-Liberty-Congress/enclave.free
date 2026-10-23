@@ -22,7 +22,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 import database
 import ingest_db
 from admin_db_schema import describe_admin_database
-from models import FieldDefinitionCreate, FieldDefinitionUpdate, InstanceSettings
+from models import (
+    SESSION_LOG_MESSAGE_ID_PATTERN,
+    FieldDefinitionCreate,
+    FieldDefinitionUpdate,
+    InstanceSettings,
+)
 from query import _build_context, _build_search_query, _process_search_results
 from sql_safety import validate_sql_allowed_tables
 from store import embed_texts, COLLECTION_NAME, QDRANT_HOST, QDRANT_PORT
@@ -170,19 +175,22 @@ class InternalResourceSearchResponse(BaseModel):
     next_offset: Optional[int] = None
 
 
-class InternalSessionLogTurn(BaseModel):
-    role: str
+class InternalSessionLogMessage(BaseModel):
+    message_id: str = Field(pattern=SESSION_LOG_MESSAGE_ID_PATTERN)
+    role: Literal["user", "assistant"]
     content: str
     ts: Optional[str] = None
 
 
 class InternalSessionLogRequest(BaseModel):
-    """Log a real user's chat session for admin review. The transcript is NIP-04
-    encrypted to the admin pubkey at rest — see session_logs.save_transcript."""
+    """Record a real user's Conversation for admin review: Sage's complete
+    retained user/assistant history, oldest first, and Sage's sequence number
+    for the newest message. The transcript is NIP-04 encrypted to the admin
+    pubkey at rest — see session_logs.record_user_conversation."""
     actor: InternalActorContext
-    turns: list[InternalSessionLogTurn]
-    sage_session_id: Optional[str] = None
-    user_type_id: Optional[int] = None
+    messages: list[InternalSessionLogMessage] = Field(min_length=1)
+    through_sequence_id: int
+    sage_session_id: str = Field(min_length=1, max_length=200)
     title: Optional[str] = None
 
 
@@ -976,11 +984,13 @@ async def resources_search(payload: InternalResourceSearchRequest) -> InternalRe
     dependencies=[Depends(_require_internal_token)],
 )
 async def log_user_session(payload: InternalSessionLogRequest) -> InternalSessionLogResponse:
-    """Pathway for logging a real (non-admin) user's chat session for admin review.
+    """Record a real (non-admin) User Conversation for admin review.
 
-    Mirrors the admin-test logging path but is callable by the runtime over the
-    internal token. The transcript is NIP-04 encrypted to the admin pubkey; fails
-    closed (409) if no admin is configured, so nothing is stored in plaintext.
+    Sage calls this after each exchange, and again to retry a failed update,
+    with the Conversation's complete retained history. Repeated or out-of-order
+    updates never shrink the record — see session_logs.record_user_conversation.
+    The transcript is NIP-04 encrypted to the admin pubkey; fails closed (409) if
+    no admin is configured, so nothing is stored in plaintext.
     """
     import session_logs
     import impersonation
@@ -996,7 +1006,16 @@ async def log_user_session(payload: InternalSessionLogRequest) -> InternalSessio
     # only when the persisted user has the instance-derived test-user pubkey, so
     # an ordinary user with a reserved-looking email remains logged. See #494.
     with database.dedicated_connection():
-        is_test_user = impersonation.is_provisioned_test_user(payload.actor.id)
+        with database.get_cursor() as cursor:
+            cursor.execute("SELECT user_type_id FROM users WHERE id = ?", (payload.actor.id,))
+            user = cursor.fetchone()
+        user_exists = user is not None
+        is_test_user = user_exists and impersonation.is_provisioned_test_user(payload.actor.id)
+    if not user_exists:
+        # Sage may retry an update after the User was deleted; there is no one
+        # left to record it for.
+        logger.info("Skipping session log for missing user %s", payload.actor.id)
+        return InternalSessionLogResponse(log_id="", status="skipped", turn_count=0)
     if is_test_user:
         logger.info(
             "Skipping ambient session log for provisioned test user %s",
@@ -1004,57 +1023,17 @@ async def log_user_session(payload: InternalSessionLogRequest) -> InternalSessio
         )
         return InternalSessionLogResponse(log_id="", status="skipped", turn_count=0)
 
-    log = None
-    created_log = False
-    subject_user_id = payload.actor.id
     try:
         with database.dedicated_connection():
-            if payload.sage_session_id:
-                log = session_logs.get_session_log_metadata_by_sage_session_id(
-                    source="user",
-                    sage_session_id=payload.sage_session_id,
-                    subject_user_id=subject_user_id,
-                )
-            if log is None:
-                try:
-                    log = session_logs.create_session_log(
-                        source="user",
-                        title=payload.title,
-                        subject_user_id=subject_user_id,
-                        user_type_id=payload.user_type_id or payload.actor.user_type_id,
-                        sage_session_id=payload.sage_session_id,
-                        created_by=f"user:{subject_user_id}",
-                    )
-                    created_log = True
-                except sqlite3.IntegrityError:
-                    if not payload.sage_session_id:
-                        raise
-                    log = session_logs.get_session_log_metadata_by_sage_session_id(
-                        source="user",
-                        sage_session_id=payload.sage_session_id,
-                        subject_user_id=subject_user_id,
-                    )
-                    if log is None:
-                        raise
-            incoming_turns = [turn.model_dump() for turn in payload.turns]
-            saved_turn_count = int(log.get("turn_count") or 0)
-            if saved_turn_count > len(incoming_turns):
-                saved = log
-            else:
-                saved = session_logs.save_transcript(
-                    log["log_id"],
-                    incoming_turns,
-                )
+            saved = session_logs.record_user_conversation(
+                sage_session_id=payload.sage_session_id,
+                subject_user_id=payload.actor.id,
+                messages=[message.model_dump() for message in payload.messages],
+                through_sequence_id=payload.through_sequence_id,
+                user_type_id=user["user_type_id"],
+                title=payload.title,
+            )
     except ValueError as exc:
-        if created_log and log is not None:
-            try:
-                session_logs.delete_session_log(log["log_id"])
-            except OSError:
-                logger.warning(
-                    "Could not clean up failed internal session log %s",
-                    log["log_id"],
-                    exc_info=True,
-                )
         raise HTTPException(status_code=409, detail=str(exc))
     return InternalSessionLogResponse(
         log_id=saved["log_id"],

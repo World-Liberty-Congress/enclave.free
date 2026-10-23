@@ -9,7 +9,7 @@ import {
   getSessionLog,
   listSessionLogs,
   recordSessionLogPlaintextExport,
-  setTurnFeedback,
+  setMessageFeedback,
 } from '../../../utils/sessionLogsApi';
 
 vi.mock('../../../utils/encryption', () => ({
@@ -23,7 +23,7 @@ vi.mock('../../../utils/sessionLogsApi', () => ({
   getSessionLog: vi.fn(),
   listSessionLogs: vi.fn(),
   recordSessionLogPlaintextExport: vi.fn(),
-  setTurnFeedback: vi.fn(),
+  setMessageFeedback: vi.fn(),
 }));
 
 const mockDecryptField = vi.mocked(decryptField);
@@ -35,7 +35,7 @@ const mockListSessionLogs = vi.mocked(listSessionLogs);
 const mockRecordSessionLogPlaintextExport = vi.mocked(
   recordSessionLogPlaintextExport
 );
-const mockSetTurnFeedback = vi.mocked(setTurnFeedback);
+const mockSetMessageFeedback = vi.mocked(setMessageFeedback);
 const mockCreateObjectURL = vi.fn(() => 'blob:test-feedback-log-1');
 const mockRevokeObjectURL = vi.fn();
 const mockAnchorClick = vi.fn();
@@ -99,7 +99,7 @@ describe('FeedbackView', () => {
     mockGetSessionLog.mockReset();
     mockListSessionLogs.mockReset();
     mockRecordSessionLogPlaintextExport.mockReset();
-    mockSetTurnFeedback.mockReset();
+    mockSetMessageFeedback.mockReset();
     mockCreateObjectURL.mockClear();
     mockRevokeObjectURL.mockClear();
     mockAnchorClick.mockClear();
@@ -156,6 +156,10 @@ describe('FeedbackView', () => {
       transcript_ciphertext: 'encrypted-transcript',
       transcript_ephemeral_pubkey: 'ephemeral-pubkey',
       encrypted_to_pubkey: 'admin-pubkey',
+      transcript_messages: [
+        { message_id: 'm-question', role: 'user' },
+        { message_id: 'm-answer', role: 'assistant' },
+      ],
       feedback: [],
     });
     mockDecryptField.mockResolvedValue(
@@ -181,7 +185,7 @@ describe('FeedbackView', () => {
 
   it('shows a clear error when rating feedback is rejected', async () => {
     const user = userEvent.setup();
-    mockSetTurnFeedback.mockRejectedValue(
+    mockSetMessageFeedback.mockRejectedValue(
       new Error('Feedback can only be saved for assistant turns')
     );
 
@@ -202,6 +206,10 @@ describe('FeedbackView', () => {
     await waitFor(() => {
       expect(screen.queryByText('Saved')).not.toBeInTheDocument();
     });
+    expect(screen.getByTitle('Needs work')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
   });
 
   it('exports the selected session log as a decrypted plaintext JSON download', async () => {
@@ -349,6 +357,7 @@ describe('FeedbackView', () => {
       has_transcript: false,
       transcript_ciphertext: null,
       transcript_ephemeral_pubkey: null,
+      transcript_messages: [],
     });
 
     render(<FeedbackView />);
@@ -373,6 +382,7 @@ describe('FeedbackView', () => {
       ...sessionLog,
       feedback: [
         {
+          message_id: 'm-answer',
           turn_index: 1,
           rating: 'down',
           comment_ciphertext: 'encrypted-comment',
@@ -433,6 +443,7 @@ describe('FeedbackView', () => {
       ...sessionLog,
       feedback: [
         {
+          message_id: 'm-answer',
           turn_index: 1,
           rating: 'down',
           comment_ciphertext: 'encrypted-comment',
@@ -587,6 +598,7 @@ describe('FeedbackView', () => {
         transcript_ciphertext: null,
         transcript_ephemeral_pubkey: null,
         encrypted_to_pubkey: 'admin-pubkey',
+        transcript_messages: [],
         feedback: [],
       });
     });
@@ -615,6 +627,7 @@ describe('FeedbackView', () => {
         transcript_ciphertext: null,
         transcript_ephemeral_pubkey: null,
         encrypted_to_pubkey: 'admin-pubkey',
+        transcript_messages: [],
         feedback: [],
       });
       await Promise.resolve();
@@ -642,5 +655,156 @@ describe('FeedbackView', () => {
     expect(await screen.findByText('Delete failed')).toBeInTheDocument();
     expect(screen.getByText('Yes, here is a plan.')).toBeInTheDocument();
     expect(mockListSessionLogs).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves feedback against the rated answer message ID', async () => {
+    const user = userEvent.setup();
+    mockSetMessageFeedback.mockResolvedValue({
+      message_id: 'm-answer',
+      turn_index: 1,
+      rating: 'down',
+      comment_ciphertext: null,
+      comment_ephemeral_pubkey: null,
+      created_by: 'admin',
+      created_at: null,
+      updated_at: null,
+    });
+
+    render(<FeedbackView />);
+    await openStudentTrial();
+    await screen.findByText('Yes, here is a plan.');
+    await user.click(screen.getByTitle('Needs work'));
+
+    await waitFor(() => {
+      expect(mockSetMessageFeedback).toHaveBeenCalledWith(
+        'log-1',
+        'm-answer',
+        'down',
+        null
+      );
+    });
+  });
+
+  it('shows saved feedback on the answer it was given for after the conversation grew', async () => {
+    const sessionLog = await mockGetSessionLog('log-1');
+    mockGetSessionLog.mockResolvedValue({
+      ...sessionLog,
+      source: 'user',
+      turn_count: 4,
+      transcript_messages: [
+        { message_id: 'm-q1', role: 'user' },
+        { message_id: 'm-a1', role: 'assistant' },
+        { message_id: 'm-q2', role: 'user' },
+        { message_id: 'm-a2', role: 'assistant' },
+      ],
+      feedback: [
+        {
+          message_id: 'm-a1',
+          turn_index: 1,
+          rating: 'down',
+          comment_ciphertext: null,
+          comment_ephemeral_pubkey: null,
+          created_by: 'admin',
+          created_at: null,
+          updated_at: null,
+        },
+        {
+          message_id: 'm-removed-answer',
+          turn_index: null,
+          rating: 'up',
+          comment_ciphertext: null,
+          comment_ephemeral_pubkey: null,
+          created_by: 'admin',
+          created_at: null,
+          updated_at: null,
+        },
+      ],
+    });
+    mockDecryptField.mockResolvedValue(
+      JSON.stringify({
+        turns: [
+          { message_id: 'm-q1', role: 'user', content: 'First question' },
+          { message_id: 'm-a1', role: 'assistant', content: 'First answer' },
+          { message_id: 'm-q2', role: 'user', content: 'Second question' },
+          { message_id: 'm-a2', role: 'assistant', content: 'Second answer' },
+        ],
+      })
+    );
+
+    render(<FeedbackView />);
+    await openStudentTrial();
+    await screen.findByText('Second answer');
+
+    const [firstNeedsWork, secondNeedsWork] =
+      screen.getAllByTitle('Needs work');
+    expect(firstNeedsWork).toHaveAttribute('aria-pressed', 'true');
+    expect(secondNeedsWork).toHaveAttribute('aria-pressed', 'false');
+    for (const goodAnswer of screen.getAllByTitle('Good answer')) {
+      expect(goodAnswer).toHaveAttribute('aria-pressed', 'false');
+    }
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Export' }));
+    await waitFor(() => {
+      expect(mockCreateObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    });
+    const blob = (mockCreateObjectURL.mock.calls[0] as unknown as [Blob])[0];
+    const exported = JSON.parse(await blob.text()) as {
+      feedback: Array<{ message_id: string; turn_index: number | null }>;
+    };
+    expect(exported.feedback).toEqual([
+      expect.objectContaining({ message_id: 'm-a1', turn_index: 1 }),
+      expect.objectContaining({
+        message_id: 'm-removed-answer',
+        turn_index: null,
+      }),
+    ]);
+  });
+
+  it('blocks review when the decrypted transcript does not match its message order', async () => {
+    mockDecryptField.mockResolvedValue(
+      JSON.stringify({
+        turns: [
+          { message_id: 'm-question', role: 'user', content: 'Can you help?' },
+          { message_id: 'other-answer', role: 'assistant', content: 'Yes.' },
+        ],
+      })
+    );
+
+    render(<FeedbackView />);
+    await expectTranscriptIntegrityFailure();
+  });
+
+  it('still opens a log saved before its message order was recorded', async () => {
+    const sessionLog = await mockGetSessionLog('log-1');
+    mockGetSessionLog.mockResolvedValue({
+      ...sessionLog,
+      transcript_messages: [],
+    });
+
+    render(<FeedbackView />);
+    await openStudentTrial();
+
+    expect(await screen.findByText('Yes, here is a plan.')).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'The transcript is unavailable or incomplete and cannot be exported.'
+      )
+    ).not.toBeInTheDocument();
+    // Its messages have no recorded IDs to save ratings against.
+    expect(screen.queryByTitle('Needs work')).not.toBeInTheDocument();
+  });
+
+  it('blocks review when the message order disagrees with the turn count', async () => {
+    const sessionLog = await mockGetSessionLog('log-1');
+    mockGetSessionLog.mockResolvedValue({
+      ...sessionLog,
+      transcript_messages: [{ message_id: 'm-question', role: 'user' }],
+    });
+
+    render(<FeedbackView />);
+    await expectTranscriptIntegrityFailure();
+    expect(mockDecryptField).not.toHaveBeenCalled();
   });
 });

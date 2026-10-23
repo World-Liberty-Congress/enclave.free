@@ -1,5 +1,5 @@
 """
-Session Logs — captured chat transcripts for the Test & Feedback module.
+Session Logs — encrypted Conversation records for the Test & Feedback module.
 
 Sensitive by default: a transcript is NIP-04 encrypted to the admin pubkey
 *before* it touches disk, so the control plane persists only ciphertext (plus the
@@ -10,10 +10,22 @@ General by design: `source` distinguishes an admin testing as a user persona
 ('admin_test') from a real user's logged session ('user'), so the same storage +
 review pathway serves both without re-architecting.
 
+- 'user' records mirror Sage. After each exchange Sage sends the complete
+  retained user/assistant history with its own message IDs, and
+  record_user_conversation keeps the encrypted copy in step.
+- 'admin_test' records are saved once by the Admin browser at the end of a trial
+  through save_transcript.
+
+Every transcript message has a stable `message_id`. Usage (`turn_count`) is the
+number of recorded messages, and review feedback belongs to a message ID, never
+to a position in the transcript.
+
 Layout:
 - metadata rows live in the session_logs / session_log_feedback tables
+- turn_metadata_json is the plaintext message order: turn_index, role, message_id
 - transcript ciphertext lives in session_logs.transcript_ciphertext for Database
-  Explorer visibility; transcript_path remains a legacy encrypted-file fallback
+  Explorer visibility; transcript_path only points at encrypted files written by
+  older releases
 - the DB row carries the ephemeral pubkey for admin-side decryption
 """
 
@@ -22,6 +34,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+import sqlite3
 import uuid
 import zipfile
 from io import BytesIO
@@ -29,23 +43,25 @@ from typing import Any, Optional
 
 import database
 from encryption import encrypt_for_admin_required, get_admin_pubkey
+from models import SESSION_LOG_MESSAGE_ID_PATTERN
 
 logger = logging.getLogger("enclave.session_logs")
 
 VALID_SOURCES = ("admin_test", "user")
 VALID_RATINGS = ("up", "down")
+MESSAGE_ID_PATTERN = re.compile(SESSION_LOG_MESSAGE_ID_PATTERN)
+# Concurrent writers to one record resolve on the next read, and archiving a
+# record takes one extra pass; Sage retries the whole update if these run out.
+_MAX_RECORD_ATTEMPTS = 4
 
 
-def _transcripts_dir() -> str:
-    base = os.path.dirname(database.SQLITE_PATH) or "."
-    path = os.path.join(base, "session_logs")
-    os.makedirs(path, exist_ok=True)
-    return path
+def legacy_message_id(turn_index: int) -> str:
+    """ID for a message saved before transcripts carried message IDs.
 
-
-def _transcript_file(log_id: str) -> str:
-    # log_id is a server-generated uuid hex; safe as a filename.
-    return os.path.join(_transcripts_dir(), f"{log_id}.json")
+    database._migrate_session_log_feedback_message_ids gives existing feedback
+    the same IDs, so it stays on the message it was saved for.
+    """
+    return f"legacy-{turn_index}"
 
 
 def _new_log_id() -> str:
@@ -71,10 +87,36 @@ def _row_to_metadata(row: Any) -> dict[str, Any]:
     }
 
 
+def _prepare_turns(turns: list[dict[str, Any]], *, require_ids: bool) -> list[dict[str, Any]]:
+    """Give every turn a valid, unique message_id."""
+    prepared: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for turn in turns:
+        item = dict(turn)
+        message_id = item.get("message_id")
+        if message_id is None:
+            if require_ids:
+                raise ValueError("Conversation messages require message IDs")
+            message_id = uuid.uuid4().hex
+        message_id = str(message_id)
+        if not MESSAGE_ID_PATTERN.fullmatch(message_id):
+            raise ValueError("Invalid transcript message ID")
+        if message_id in seen:
+            raise ValueError("Transcript message IDs must be unique")
+        seen.add(message_id)
+        item["message_id"] = message_id
+        prepared.append(item)
+    return prepared
+
+
 def _turn_metadata_json(turns: list[dict[str, Any]]) -> str:
     return json.dumps(
         [
-            {"turn_index": index, "role": str(turn.get("role", ""))}
+            {
+                "turn_index": index,
+                "role": str(turn.get("role", "")),
+                "message_id": turn["message_id"],
+            }
             for index, turn in enumerate(turns)
         ],
         ensure_ascii=False,
@@ -82,25 +124,87 @@ def _turn_metadata_json(turns: list[dict[str, Any]]) -> str:
     )
 
 
-def _assistant_turn_indexes(row: Any) -> set[int]:
+def _transcript_messages(row: Any) -> list[dict[str, str]]:
+    """The stored transcript's message order as [{message_id, role}]."""
     raw_metadata = row["turn_metadata_json"]
     if not raw_metadata:
-        raise ValueError("Transcript turn metadata is unavailable")
+        return []
     try:
         metadata = json.loads(raw_metadata)
     except json.JSONDecodeError as exc:
         raise ValueError("Transcript turn metadata is invalid") from exc
+    if not isinstance(metadata, list):
+        raise ValueError("Transcript turn metadata is invalid")
 
-    assistant_indexes: set[int] = set()
-    for item in metadata:
+    messages: list[dict[str, str]] = []
+    for index, item in enumerate(metadata):
         if not isinstance(item, dict):
-            continue
-        if item.get("role") == "assistant":
-            try:
-                assistant_indexes.add(int(item["turn_index"]))
-            except (KeyError, TypeError, ValueError):
-                continue
-    return assistant_indexes
+            raise ValueError("Transcript turn metadata is invalid")
+        messages.append(
+            {
+                "message_id": str(item.get("message_id") or legacy_message_id(index)),
+                "role": str(item.get("role", "")),
+            }
+        )
+    return messages
+
+
+RecordVersion = tuple[Optional[int], int]
+
+
+def _write_transcript(
+    log_id: str,
+    turns: list[dict[str, Any]],
+    *,
+    through_sequence_id: Optional[int] = None,
+    expected_version: Optional[RecordVersion] = None,
+) -> bool:
+    """Encrypt turns to the admin pubkey and store them as the log's transcript.
+
+    With expected_version, the write only lands if the record is still at that
+    (sage_through_sequence_id, turn_count) version, and returns False otherwise.
+    Fails closed: raises if no admin is configured, so a transcript is never
+    written in plaintext.
+    """
+    admin_pubkey = get_admin_pubkey()
+    if not admin_pubkey:
+        raise ValueError("No admin configured for encryption")
+
+    plaintext = json.dumps({"turns": turns}, ensure_ascii=False)
+    ciphertext, ephemeral_pubkey = encrypt_for_admin_required(plaintext)
+    now = database.utc_timestamp_z()
+    sql = """UPDATE session_logs
+             SET transcript_ciphertext = ?,
+                 transcript_ephemeral_pubkey = ?,
+                 encrypted_to_pubkey = ?,
+                 turn_metadata_json = ?,
+                 turn_count = ?,
+                 sage_through_sequence_id = ?,
+                 status = 'completed',
+                 completed_at = ?,
+                 updated_at = ?
+             WHERE log_id = ?"""
+    params: list[Any] = [
+        ciphertext,
+        ephemeral_pubkey,
+        admin_pubkey,
+        _turn_metadata_json(turns),
+        len(turns),
+        through_sequence_id,
+        now,
+        now,
+        log_id,
+    ]
+    if expected_version is not None:
+        sql += " AND sage_through_sequence_id IS ? AND turn_count = ?"
+        params.extend(expected_version)
+
+    with database.get_cursor() as cursor:
+        cursor.execute(sql, params)
+        written = cursor.rowcount > 0
+    if not written and expected_version is None:
+        raise KeyError(log_id)
+    return written
 
 
 def create_session_log(
@@ -142,62 +246,155 @@ def save_transcript(
     *,
     created_by: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Encrypt the transcript to the admin pubkey, write the ciphertext to disk,
-    and mark the log completed. Fails closed: raises if no admin is configured,
-    so a transcript is never written in plaintext."""
-    admin_pubkey = get_admin_pubkey()
-    if not admin_pubkey:
-        raise ValueError("No admin configured for encryption")
+    """Encrypt and store a complete transcript, and mark the log completed.
+
+    Turns without a message_id get a new one. Fails closed: raises if no admin
+    is configured, so a transcript is never written in plaintext."""
     if _get_row(log_id) is None:
         raise KeyError(log_id)
-
-    plaintext = json.dumps({"turns": turns}, ensure_ascii=False)
-    ciphertext, ephemeral_pubkey = encrypt_for_admin_required(plaintext)
-    turn_metadata = _turn_metadata_json(turns)
-
-    path = _transcript_file(log_id)
-    try:
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(ciphertext)
-
-        now = database.utc_timestamp_z()
-        with database.get_cursor() as cursor:
-            cursor.execute(
-                """UPDATE session_logs
-                   SET transcript_path = ?,
-                       transcript_ciphertext = ?,
-                       transcript_ephemeral_pubkey = ?,
-                       encrypted_to_pubkey = ?,
-                       turn_metadata_json = ?,
-                       turn_count = ?,
-                       status = 'completed',
-                       completed_at = ?,
-                       updated_at = ?
-                   WHERE log_id = ?""",
-                (
-                    path,
-                    ciphertext,
-                    ephemeral_pubkey,
-                    admin_pubkey,
-                    turn_metadata,
-                    len(turns),
-                    now,
-                    now,
-                    log_id,
-                ),
-            )
-            if cursor.rowcount == 0:
-                raise KeyError(log_id)
-    except Exception:
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
-        except OSError:
-            logger.warning("Could not remove failed transcript file for %s", log_id, exc_info=True)
-        raise
-    logger.info("Saved encrypted transcript for session log %s (%d turns)", log_id, len(turns))
+    prepared = _prepare_turns(turns, require_ids=False)
+    _write_transcript(log_id, prepared)
+    logger.info("Saved encrypted transcript for session log %s (%d turns)", log_id, len(prepared))
     return get_session_log_metadata(log_id)  # type: ignore[return-value]
+
+
+def record_user_conversation(
+    *,
+    sage_session_id: str,
+    subject_user_id: int,
+    messages: list[dict[str, Any]],
+    through_sequence_id: int,
+    user_type_id: Optional[int] = None,
+    title: Optional[str] = None,
+) -> dict[str, Any]:
+    """Keep the encrypted record of one User Conversation in step with Sage.
+
+    `messages` is Sage's complete retained user/assistant history, oldest
+    first, each with Sage's message_id; `through_sequence_id` is Sage's sequence
+    number for the newest of them. Sage numbers messages in the order it stores
+    them, so a later read of a Conversation has a higher (through_sequence_id,
+    message count) version than an earlier read. The record only moves forward:
+    an update at or below the stored version (a retry, or an older update
+    arriving late) leaves it unchanged.
+
+    The record has its own lifecycle, separate from Sage Session Memory. When a
+    newer history no longer contains the recorded messages (the Conversation
+    continued after its Session Memory was deleted), the existing record is
+    archived intact and the continuation starts a new record.
+    """
+    turns = _prepare_turns(messages, require_ids=True)
+    if not turns:
+        raise ValueError("A Conversation record needs at least one message")
+    if not get_admin_pubkey():
+        raise ValueError("No admin configured for encryption")
+    incoming: RecordVersion = (through_sequence_id, len(turns))
+    incoming_ids = {turn["message_id"] for turn in turns}
+
+    for _ in range(_MAX_RECORD_ATTEMPTS):
+        log, created = _find_or_create_user_log(
+            sage_session_id=sage_session_id,
+            subject_user_id=subject_user_id,
+            user_type_id=user_type_id,
+            title=title,
+        )
+        try:
+            row = _get_row(log["log_id"])
+            if row is None:
+                continue
+            stored: RecordVersion = (row["sage_through_sequence_id"], row["turn_count"])
+            if stored[0] is not None and incoming <= stored:
+                return _row_to_metadata(row)
+            if stored[0] is not None and not _recorded_message_ids(row) <= incoming_ids:
+                _archive_record(log["log_id"], expected_version=stored)
+                continue
+            if _write_transcript(
+                log["log_id"],
+                turns,
+                through_sequence_id=through_sequence_id,
+                expected_version=stored,
+            ):
+                logger.info(
+                    "Recorded User Conversation %s (%d messages)",
+                    log["log_id"],
+                    len(turns),
+                )
+                return get_session_log_metadata(log["log_id"])  # type: ignore[return-value]
+        except ValueError:
+            if created:
+                _discard_unwritten_log(log["log_id"])
+            raise
+    raise RuntimeError("Conversation record changed concurrently; retry the update")
+
+
+def _recorded_message_ids(row: Any) -> set[str]:
+    try:
+        return {message["message_id"] for message in _transcript_messages(row)}
+    except ValueError:
+        return set()
+
+
+def _archive_record(log_id: str, *, expected_version: RecordVersion) -> bool:
+    """Set a record aside, unchanged, so its Conversation can start a new one.
+
+    Clearing sage_session_id releases the one-record-per-session slot; the
+    archived record keeps its subject, transcript, usage and feedback.
+    """
+    with database.get_cursor() as cursor:
+        cursor.execute(
+            """UPDATE session_logs
+               SET status = 'archived', sage_session_id = NULL, updated_at = ?
+               WHERE log_id = ? AND sage_through_sequence_id IS ? AND turn_count = ?""",
+            (database.utc_timestamp_z(), log_id, *expected_version),
+        )
+        archived = cursor.rowcount > 0
+    if archived:
+        logger.info("Archived User Conversation record %s; its Conversation continues in a new record", log_id)
+    return archived
+
+
+def _find_or_create_user_log(
+    *,
+    sage_session_id: str,
+    subject_user_id: int,
+    user_type_id: Optional[int],
+    title: Optional[str],
+) -> tuple[dict[str, Any], bool]:
+    log = get_session_log_metadata_by_sage_session_id(
+        source="user",
+        sage_session_id=sage_session_id,
+        subject_user_id=subject_user_id,
+    )
+    if log is not None:
+        return log, False
+    try:
+        return (
+            create_session_log(
+                source="user",
+                title=title,
+                subject_user_id=subject_user_id,
+                user_type_id=user_type_id,
+                sage_session_id=sage_session_id,
+                created_by=f"user:{subject_user_id}",
+            ),
+            True,
+        )
+    except sqlite3.IntegrityError:
+        # A concurrent update for the same Conversation created it first.
+        log = get_session_log_metadata_by_sage_session_id(
+            source="user",
+            sage_session_id=sage_session_id,
+            subject_user_id=subject_user_id,
+        )
+        if log is None:
+            raise
+        return log, False
+
+
+def _discard_unwritten_log(log_id: str) -> None:
+    try:
+        delete_session_log(log_id)
+    except OSError:
+        logger.warning("Could not clean up unwritten session log %s", log_id, exc_info=True)
 
 
 def list_session_logs(
@@ -261,8 +458,9 @@ def get_session_log_metadata(log_id: str) -> Optional[dict[str, Any]]:
 
 def get_session_log(log_id: str) -> Optional[dict[str, Any]]:
     """Full log for admin review: metadata + the encrypted transcript ciphertext
-    (for client-side NIP-07 decryption) + per-turn feedback. The backend does NOT
-    decrypt — it hands the admin the ciphertext and the ephemeral pubkey."""
+    (for client-side NIP-07 decryption) + the plaintext message order + feedback.
+    The backend does NOT decrypt — it hands the admin the ciphertext and the
+    ephemeral pubkey."""
     row = _get_row(log_id)
     if not row:
         return None
@@ -275,22 +473,31 @@ def get_session_log(log_id: str) -> Optional[dict[str, Any]]:
         except OSError:
             logger.warning("Transcript file missing for session log %s", log_id, exc_info=True)
 
+    try:
+        transcript_messages = _transcript_messages(row)
+    except ValueError:
+        logger.warning("Transcript metadata is invalid for session log %s", log_id)
+        transcript_messages = []
+
     data = _row_to_metadata(row)
     data["transcript_ciphertext"] = transcript_ciphertext
     data["transcript_ephemeral_pubkey"] = row["transcript_ephemeral_pubkey"]
     data["encrypted_to_pubkey"] = row["encrypted_to_pubkey"]
-    data["feedback"] = list_feedback(log_id)
+    data["transcript_messages"] = transcript_messages
+    data["feedback"] = _feedback_for_messages(log_id, transcript_messages)
     return data
 
 
 def delete_session_log(log_id: str) -> bool:
-    """Delete a session log, its feedback (cascade), and its transcript file."""
+    """Delete a session log, its feedback (cascade), and any legacy transcript file."""
     row = _get_row(log_id)
     if not row:
         return False
     if row["transcript_path"]:
         try:
             os.remove(row["transcript_path"])
+        except FileNotFoundError:
+            pass
         except OSError:
             logger.warning("Could not remove transcript file for %s", log_id, exc_info=True)
             raise
@@ -330,6 +537,7 @@ def export_session_log_zip(
         "updated_at": detail["updated_at"],
         "completed_at": detail["completed_at"],
         "has_transcript": detail["has_transcript"],
+        "transcript_messages": detail["transcript_messages"],
         "transcript_ephemeral_pubkey": detail["transcript_ephemeral_pubkey"],
         "encrypted_to_pubkey": detail["encrypted_to_pubkey"],
         "copied_export": True,
@@ -403,9 +611,12 @@ def record_plaintext_export(
     )
 
 
-def _feedback_to_dict(row: Any) -> dict[str, Any]:
+def _feedback_to_dict(row: Any, positions: dict[str, int]) -> dict[str, Any]:
     return {
-        "turn_index": row["turn_index"],
+        "message_id": row["message_id"],
+        # The message's current position, or None when the record no longer
+        # contains it (for example, after Sage memory for it was deleted).
+        "turn_index": positions.get(row["message_id"]),
         "rating": row["rating"],
         "comment_ciphertext": row["comment_ciphertext"],
         "comment_ephemeral_pubkey": row["comment_ephemeral_pubkey"],
@@ -415,33 +626,60 @@ def _feedback_to_dict(row: Any) -> dict[str, Any]:
     }
 
 
-def list_feedback(log_id: str) -> list[dict[str, Any]]:
+def _feedback_for_messages(
+    log_id: str,
+    transcript_messages: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    positions = {
+        message["message_id"]: index for index, message in enumerate(transcript_messages)
+    }
     with database.get_cursor() as cursor:
         cursor.execute(
-            "SELECT * FROM session_log_feedback WHERE log_id = ? ORDER BY turn_index",
+            "SELECT * FROM session_log_feedback WHERE log_id = ? ORDER BY id",
             (log_id,),
         )
-        return [_feedback_to_dict(row) for row in cursor.fetchall()]
+        feedback = [_feedback_to_dict(row, positions) for row in cursor.fetchall()]
+    return sorted(
+        feedback,
+        key=lambda item: (item["turn_index"] is None, item["turn_index"] or 0),
+    )
 
 
-def set_turn_feedback(
+def list_feedback(log_id: str) -> list[dict[str, Any]]:
+    row = _get_row(log_id)
+    if row is None:
+        return []
+    try:
+        transcript_messages = _transcript_messages(row)
+    except ValueError:
+        transcript_messages = []
+    return _feedback_for_messages(log_id, transcript_messages)
+
+
+def set_message_feedback(
     log_id: str,
-    turn_index: int,
+    message_id: str,
     rating: str,
     *,
     comment: Optional[str] = None,
     created_by: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Upsert per-turn feedback. Rating is stored plaintext (for querying); the
-    optional comment is NIP-04 encrypted to the admin pubkey (it may quote
-    transcript content)."""
+    """Upsert feedback for one assistant message. Rating is stored plaintext (for
+    querying); the optional comment is NIP-04 encrypted to the admin pubkey (it
+    may quote transcript content)."""
     if rating not in VALID_RATINGS:
         raise ValueError(f"Invalid rating: {rating}")
     row = _get_row(log_id)
     if row is None:
         raise KeyError(log_id)
-    if turn_index not in _assistant_turn_indexes(row):
-        raise ValueError("Feedback can only be saved for assistant turns")
+    if not row["turn_metadata_json"]:
+        raise ValueError("Transcript turn metadata is unavailable")
+    transcript_messages = _transcript_messages(row)
+    if not any(
+        message["message_id"] == message_id and message["role"] == "assistant"
+        for message in transcript_messages
+    ):
+        raise ValueError("Feedback can only be saved for assistant messages in this transcript")
 
     comment_ciphertext: Optional[str] = None
     comment_ephemeral_pubkey: Optional[str] = None
@@ -453,10 +691,10 @@ def set_turn_feedback(
     with database.get_cursor() as cursor:
         cursor.execute(
             """INSERT INTO session_log_feedback (
-                log_id, turn_index, rating, comment_ciphertext,
+                log_id, message_id, rating, comment_ciphertext,
                 comment_ephemeral_pubkey, created_by, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(log_id, turn_index) DO UPDATE SET
+            ON CONFLICT(log_id, message_id) DO UPDATE SET
                 rating = excluded.rating,
                 comment_ciphertext = excluded.comment_ciphertext,
                 comment_ephemeral_pubkey = excluded.comment_ephemeral_pubkey,
@@ -464,7 +702,7 @@ def set_turn_feedback(
                 updated_at = excluded.updated_at""",
             (
                 log_id,
-                turn_index,
+                message_id,
                 rating,
                 comment_ciphertext,
                 comment_ephemeral_pubkey,
@@ -472,9 +710,12 @@ def set_turn_feedback(
                 now,
             ),
         )
-    with database.get_cursor() as cursor:
         cursor.execute(
-            "SELECT * FROM session_log_feedback WHERE log_id = ? AND turn_index = ?",
-            (log_id, turn_index),
+            "SELECT * FROM session_log_feedback WHERE log_id = ? AND message_id = ?",
+            (log_id, message_id),
         )
-        return _feedback_to_dict(cursor.fetchone())
+        saved = cursor.fetchone()
+    positions = {
+        message["message_id"]: index for index, message in enumerate(transcript_messages)
+    }
+    return _feedback_to_dict(saved, positions)

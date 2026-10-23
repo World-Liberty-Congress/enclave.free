@@ -348,14 +348,12 @@ describe('UserConversation', () => {
 
     expect(await screen.findByText('Continued answer')).toBeInTheDocument();
     expect(mockStream).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sessionId: 'session-existing',
-        conversationHistory: [
-          { role: 'user', content: 'Earlier question' },
-          { role: 'assistant', content: 'Earlier answer' },
-        ],
-      })
+      expect.objectContaining({ sessionId: 'session-existing' })
     );
+    // Sage owns the Conversation history; the browser sends only the new message.
+    const [latestRequest] =
+      mockStream.mock.calls[mockStream.mock.calls.length - 1];
+    expect(latestRequest).not.toHaveProperty('conversationHistory');
 
     act(() => handle.current?.reset());
     expect(screen.queryByText('Earlier answer')).not.toBeInTheDocument();

@@ -217,10 +217,6 @@ export const UserConversation = forwardRef<
         jobIds: selectedDocuments,
         sessionId,
         authToken,
-        conversationHistory: state.turns.map((turn) => ({
-          role: turn.role,
-          content: turn.content,
-        })),
       };
 
       try {
