@@ -721,7 +721,6 @@ endpoint:
 - `POST /internal/agent/admin-config/configure-instance`
 - `POST /internal/agent/admin-config/update-instance-settings`
 - `POST /internal/agent/admin-config/update-deployment-settings`
-- `POST /internal/agent/admin-config/update-agent-settings`
 - `POST /internal/agent/admin-config/manage-user-types`
 - `POST /internal/agent/admin-config/manage-onboarding-questions`
 - `POST /internal/agent/admin-config/update-document-access`
@@ -730,10 +729,42 @@ The privileged read endpoint is:
 
 - `POST /internal/agent/admin-config/read-deployment-secret`
 
+Agent Settings live in Sage's store
+([ADR-0036](adr/0036-sage-applies-agent-settings-writes-in-its-own-store.md)).
+`update_agent_settings` and the guided behavior rules and forbidden topics in
+`configure_instance` are validated and written by Sage in one transaction. Sage
+then records the change through:
+
+- `POST /internal/agent/admin-config/record-agent-settings-change`
+
+```json
+{
+  "actor": {"id": 1, "type": "admin", "approved": true, "pubkey": "<hex-pubkey>"},
+  "conversation_id": "<conversation id>",
+  "tool_name": "update_agent_settings",
+  "user_type_id": 5,
+  "changes": [
+    {"key": "temperature", "old_value": "0.1", "new_value": "0.4"},
+    {"key": "prompt_tone", "old_value": "Warm.", "new_value": null}
+  ]
+}
+```
+
+`tool_name` is `update_agent_settings` or `configure_instance`. Omit
+`user_type_id` for global values. In a User Type scope, a `null` `new_value`
+means the override was removed and is recorded as `(reverted to global)`. A
+`null` `new_value` in global scope returns `422`. Values are capped at 20,000
+characters. The
+endpoint writes one audit entry per change and one `admin_config_tools` outcome
+entry with `"store": "sage"`, in one transaction. It never touches Agent
+Settings. An unknown User Type returns `422`. A non-Admin actor returns `403`.
+If recording fails, Sage restores the previous values and reports that nothing
+changed.
+
 The authoritative typed request models and common response model live in
 `backend/app/internal_agent.py`: `InternalUpdateInstanceSettingsRequest`,
 `InternalConfigureInstanceRequest`, `InternalUpdateDeploymentSettingsRequest`,
-`InternalUpdateAgentSettingsRequest`, `InternalManageUserTypesRequest`,
+`InternalRecordAgentSettingsChangeRequest`, `InternalManageUserTypesRequest`,
 `InternalManageOnboardingQuestionsRequest`,
 `InternalUpdateDocumentAccessRequest`, `InternalReadDeploymentSecretRequest`,
 and `InternalAdminConfigToolResponse`. Sage and Python must update these models
@@ -741,10 +772,10 @@ and the matching Sage Tool schema together.
 
 | Tool | Tool-specific request fields after `actor` and `conversation_id` | Validation and authoritative `affected_areas` |
 | --- | --- | --- |
-| `configure_instance` | typed Instance Settings, up to five typed User Types, up to ten typed Onboarding Questions, behavior rules, forbidden topics | validates the complete guided setup and returns `instance_settings`, `agent_settings`, `user_types`, and `onboarding_questions` |
+| `configure_instance` | typed Instance Settings, up to five typed User Types, and up to ten typed Onboarding Questions. Sage handles up to eight behavior rules and eight forbidden topics itself; an empty list leaves that setting unchanged. | validates the complete guided setup and returns `instance_settings`, `user_types`, and `onboarding_questions`. Sage adds `agent_settings` after applying the guided rules, and restores them if the control plane rejects the setup |
 | `update_instance_settings` | typed `settings` object | validates supported values as one batch and returns `instance_settings` |
 | `update_deployment_settings` | string-valued `settings` map; secret inputs are ordinary string values and results are masked | validates allowed keys, value types, URLs, and restart metadata and returns `deployment_settings` |
-| `update_agent_settings` | optional `user_type_id`, string-valued `updates`, and `revert_keys` | validates known Agent Settings and inheritance rules and returns `agent_settings` |
+| `update_agent_settings` | Sage-owned: optional `user_type_id`, string-valued `updates`, and `revert_keys` | Sage validates known Agent Settings and values, writes its store in one transaction, records the change, and returns `agent_settings` |
 | `manage_user_types` | `operation`, optional `user_type_id`, and typed name/description/icon/order fields | validates lifecycle and uniqueness; returns `user_types`, plus cascading `onboarding_questions`, `agent_settings`, and `document_access` for deletion |
 | `manage_onboarding_questions` | `operation`, optional `question_id`, and typed question fields | validates field types, encryption/include-in-chat, assignment, and uniqueness and returns `onboarding_questions` |
 | `update_document_access` | optional `user_type_id`, typed `updates`, and `revert_job_ids` | validates Documents, scope, and inheritance and returns `document_access` |

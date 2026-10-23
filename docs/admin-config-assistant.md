@@ -64,9 +64,9 @@ Privileged read Tool:
 
 - `read_deployment_secret` for an explicit Admin request
 
-`configure_instance` atomically applies one coherent guided first-time setup. The smaller product-area Tools handle later edits.
+`configure_instance` applies one coherent guided first-time setup. Sage writes its behavior rules and forbidden topics to its own Agent Settings first. The control plane then applies Instance Settings, User Types, and Onboarding Questions; if it rejects the setup, Sage restores the previous rules. An empty rule or topic list leaves the current list unchanged. The smaller product-area Tools handle later edits.
 
-Each Tool has product-level arguments and a fixed private Enclave Control Plane endpoint. The model cannot choose a request path or submit raw Admin API JSON. Each write Tool call validates and commits atomically. Separate write Tool calls are not one transaction: an earlier success remains applied if a later call fails, and Sage should report that partial outcome honestly.
+Each Tool has product-level arguments and a fixed private Enclave Control Plane endpoint, except Agent Settings. Sage writes those in its own store and records them in the control-plane Audit Log; if the record fails, it rolls them back ([ADR-0036](adr/0036-sage-applies-agent-settings-writes-in-its-own-store.md)). The model cannot choose a request path or submit raw Admin API JSON. Each write Tool call validates before writing and applies all of its changes or none. Separate write Tool calls are not one transaction: an earlier success remains applied if a later call fails, and Sage should report that partial outcome honestly.
 
 Structured Tool arguments stay native end to end: settings are objects and collections such as User Types, Onboarding Questions, rules, and Document updates are arrays. They are never passed as JSON encoded inside strings. When the Enclave Control Plane rejects a call, Sage receives its structured validation field locations and messages so it can make a focused correction.
 
@@ -76,7 +76,7 @@ Structured Tool arguments stay native end to end: settings are objects and colle
 2. The Gateway routes the public Conversation request to Sage. Python exposes no public `/llm/chat` handler.
 3. Sage verifies Admin authority, loads Session Memory, and exposes the authorized Tool contracts. For the guided Admin surface with Config enabled, it adds only the exact numbered-answer mapping, a conversational confirmation reminder, and guidance to use the atomic `configure_instance` Tool after confirmation.
 4. The model chooses read or direct-write Tools.
-5. Sage calls fixed `/internal/agent/admin-config/*` contracts with the real Conversation identifier.
+5. Sage calls fixed `/internal/agent/admin-config/*` contracts with the real Conversation identifier. For Agent Settings, it writes its own store and calls `record-agent-settings-change` for audit provenance.
 6. The Enclave Control Plane validates and atomically applies each write, records audit provenance, and returns authoritative normalized state.
 7. Sage emits secret-safe Activity and Trace metadata, then answers naturally.
 8. Sage returns `admin_config_affected_areas`; the browser refetches matching settings views and never repeats the write.

@@ -1,5 +1,7 @@
 # Sage Owns Direct Admin Config Writes
 
+Refined by [ADR-0036](0036-sage-applies-agent-settings-writes-in-its-own-store.md): Sage writes Agent Settings in its own store and records them in the control-plane Audit Log.
+
 Sage will receive direct Admin Config write Tools and may apply supported configuration after asking the Admin for natural-language Conversational Confirmation. Confirmation is trusted model behavior guided by a basic system prompt, not a runtime gate: Admin Config writes will not require proposal Tools, Executable Change Sets, Apply cards, confirmation tokens, intent classifiers, or forced Tool calls. This deliberately favors a simple, agent-owned Tool model over deterministic confirmation enforcement; the Tool boundary still enforces Admin authentication, supported operations, argument validation, secret handling, and Audit Log requirements.
 
 Risk acceptance: the product owner explicitly accepts that Conversational Confirmation is advisory behavior rather than an independently enforceable authorization artifact. Compensating controls are approved-Admin authentication, fixed product-level Tool contracts, allowlisted operations and fields, complete-call validation, atomic writes, authoritative results, affected-area refreshes, and tamper-evident actor/action-source/Conversation audit provenance. These controls constrain what Sage may do and make outcomes reviewable; they intentionally do not prove that a confirmation utterance occurred.

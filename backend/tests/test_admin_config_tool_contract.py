@@ -1,4 +1,5 @@
 import importlib
+import json
 import os
 import sys
 import tempfile
@@ -615,101 +616,142 @@ class AdminConfigToolContractTest(unittest.TestCase):
         self.assertEqual(data["limits"]["user_types_returned"], 1)
         self.assertNotIn("test-secret", response.text)
 
-    def test_update_agent_settings_manages_override_and_reversion(self) -> None:
-        user_type_id = self.database.create_user_type(
-            "Case Workers",
-            "People providing direct case support",
-        )
-        update = self.client.post(
-            "/internal/agent/admin-config/update-agent-settings",
+    def _agent_settings_audit(self, conversation_id: str) -> list[dict]:
+        return [
+            entry
+            for entry in self.database.get_config_audit_log(limit=None)
+            if entry.get("conversation_id") == conversation_id
+        ]
+
+    def test_record_agent_settings_change_audits_sage_writes_with_provenance(self) -> None:
+        user_type_id = self.database.create_user_type("Case Workers")
+        original_temperature = self.database.get_ai_config("temperature")["value"]
+
+        response = self.client.post(
+            "/internal/agent/admin-config/record-agent-settings-change",
             headers=self.headers,
             json={
                 "actor": self.admin_actor,
                 "conversation_id": "conversation-agent-override",
+                "tool_name": "update_agent_settings",
                 "user_type_id": user_type_id,
-                "updates": {"temperature": "0.25", "web_search_default": "true"},
+                "changes": [
+                    {"key": "temperature", "old_value": None, "new_value": "0.4"},
+                    {"key": "prompt_tone", "old_value": "Warm.", "new_value": None},
+                ],
             },
         )
 
-        self.assertEqual(update.status_code, 200, update.text)
-        self.assertEqual(update.json()["tool"], "update_agent_settings")
-        self.assertEqual(
-            update.json()["data"]["saved_values"],
-            {"temperature": "0.25", "web_search_default": "true"},
-        )
-        self.assertEqual(update.json()["data"]["affected_areas"], ["agent_settings"])
-        self.assertEqual(
-            self.database.get_ai_config_override("temperature", user_type_id)["value"],
-            "0.25",
-        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["tool"], "record_agent_settings_change")
+        self.assertEqual(response.json()["data"]["recorded"], 2)
+        entries = self._agent_settings_audit("conversation-agent-override")
+        by_key = {entry["config_key"]: entry for entry in entries}
+        override = by_key[f"temperature:type_{user_type_id}"]
+        self.assertEqual(override["table_name"], "ai_config_user_type_overrides")
+        self.assertIsNone(override["old_value"])
+        self.assertEqual(override["new_value"], "0.4")
+        reverted = by_key[f"prompt_tone:type_{user_type_id}"]
+        self.assertEqual(reverted["old_value"], "Warm.")
+        self.assertEqual(reverted["new_value"], "(reverted to global)")
+        tool_entry = by_key["update_agent_settings"]
+        self.assertEqual(tool_entry["table_name"], "admin_config_tools")
+        outcome = json.loads(tool_entry["new_value"])
+        self.assertEqual(outcome["changed_names"], ["prompt_tone", "temperature"])
+        self.assertEqual(outcome["affected_areas"], ["agent_settings"])
+        self.assertEqual(outcome["store"], "sage")
+        self.assertEqual(outcome["user_type_id"], user_type_id)
+        self.assertEqual(outcome["reverted_keys"], ["prompt_tone"])
+        self.assertTrue(all(entry["changed_by"] == "abc123" for entry in entries))
+        self.assertTrue(all(entry["action_source"] == "sage_conversation" for entry in entries))
+        # Agent Settings live in Sage; the control plane only records the change.
+        self.assertEqual(self.database.get_ai_config("temperature")["value"], original_temperature)
+        self.assertIsNone(self.database.get_ai_config_override("temperature", user_type_id))
 
-        revert = self.client.post(
-            "/internal/agent/admin-config/update-agent-settings",
+    def test_record_agent_settings_change_names_guided_setup_changes(self) -> None:
+        response = self.client.post(
+            "/internal/agent/admin-config/record-agent-settings-change",
             headers=self.headers,
             json={
                 "actor": self.admin_actor,
-                "conversation_id": "conversation-agent-revert",
-                "user_type_id": user_type_id,
-                "revert_keys": ["temperature"],
+                "conversation_id": "conversation-guided-agent",
+                "tool_name": "configure_instance",
+                "changes": [
+                    {"key": "prompt_rules", "old_value": "[]", "new_value": "[\"Be brief.\"]"},
+                ],
             },
         )
 
-        self.assertEqual(revert.status_code, 200, revert.text)
-        self.assertIsNone(self.database.get_ai_config_override("temperature", user_type_id))
-        effective = {
-            row["key"]: row["value"]
-            for row in self.database.get_effective_ai_config(user_type_id)
+        self.assertEqual(response.status_code, 200, response.text)
+        by_key = {
+            entry["config_key"]: entry
+            for entry in self._agent_settings_audit("conversation-guided-agent")
         }
-        self.assertEqual(revert.json()["data"]["saved_values"]["temperature"], effective["temperature"])
-        self.assertEqual(revert.json()["data"]["reverted_keys"], ["temperature"])
+        self.assertEqual(by_key["prompt_rules"]["table_name"], "ai_config")
+        self.assertEqual(by_key["prompt_rules"]["new_value"], "[\"Be brief.\"]")
+        outcome = json.loads(by_key["configure_instance"]["new_value"])
+        self.assertEqual(outcome["changed_names"], ["agent_settings.prompt_rules"])
 
-    def test_update_agent_settings_rejects_invalid_batch_without_mutation(self) -> None:
-        original_temperature = self.database.get_ai_config("temperature")["value"]
+    def test_record_agent_settings_change_rejects_invalid_requests_without_audit(self) -> None:
+        cases = [
+            (
+                {"actor": self.admin_actor, "user_type_id": 9999, "tool_name": "update_agent_settings"},
+                422,
+            ),
+            (
+                {"actor": self.admin_actor, "tool_name": "update_instance_settings"},
+                422,
+            ),
+            (
+                {
+                    "actor": {"id": 42, "type": "user", "approved": True, "email": "user@example.test"},
+                    "tool_name": "update_agent_settings",
+                },
+                403,
+            ),
+            (
+                {
+                    "actor": self.admin_actor,
+                    "tool_name": "update_agent_settings",
+                    "changes": [{"key": "temperature", "old_value": "0.1", "new_value": None}],
+                },
+                422,
+            ),
+            (
+                {
+                    "actor": self.admin_actor,
+                    "tool_name": "update_agent_settings",
+                    "changes": [{"key": "prompt_tone", "old_value": "x" * 20_001, "new_value": "y"}],
+                },
+                422,
+            ),
+        ]
+        for body, status in cases:
+            response = self.client.post(
+                "/internal/agent/admin-config/record-agent-settings-change",
+                headers=self.headers,
+                json={
+                    "changes": [{"key": "temperature", "old_value": "0.1", "new_value": "0.2"}],
+                    **body,
+                    "conversation_id": "conversation-rejected-record",
+                },
+            )
+            self.assertEqual(response.status_code, status, response.text)
+        self.assertEqual(self._agent_settings_audit("conversation-rejected-record"), [])
+
+    def test_control_plane_no_longer_writes_agent_settings(self) -> None:
         response = self.client.post(
             "/internal/agent/admin-config/update-agent-settings",
             headers=self.headers,
             json={
                 "actor": self.admin_actor,
-                "conversation_id": "conversation-invalid-agent-write",
-                "updates": {"temperature": "0.7", "top_k": "not-a-number"},
+                "conversation_id": "conversation-removed-write",
+                "updates": {"temperature": "0.25"},
             },
         )
 
-        self.assertEqual(response.status_code, 422)
-        self.assertEqual(self.database.get_ai_config("temperature")["value"], original_temperature)
-
-        with self.assertRaisesRegex(LookupError, "Unknown Agent Setting"):
-            self.database.update_agent_settings_with_audit(
-                {"not_a_real_setting": "value"},
-                revert_keys=[],
-                user_type_id=None,
-                changed_by="abc123",
-                action_source="sage_conversation",
-                conversation_id="conversation-unknown-agent-setting",
-            )
-        user_type_id = self.database.create_user_type("Unknown Setting Scope")
-        with self.assertRaisesRegex(LookupError, "Unknown Agent Setting"):
-            self.database.update_agent_settings_with_audit(
-                {"not_a_real_setting": "value"},
-                revert_keys=[],
-                user_type_id=user_type_id,
-                changed_by="abc123",
-                action_source="sage_conversation",
-                conversation_id="conversation-unknown-agent-setting",
-            )
-        with self.database.get_cursor() as cursor:
-            cursor.execute(
-                "SELECT 1 FROM ai_config_user_type_overrides WHERE ai_config_key = ?",
-                ("not_a_real_setting",),
-            )
-            self.assertIsNone(cursor.fetchone())
-        self.assertFalse(any(
-            entry.get("conversation_id") in {
-                "conversation-invalid-agent-write",
-                "conversation-unknown-agent-setting",
-            }
-            for entry in self.database.get_config_audit_log(limit=None)
-        ))
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(hasattr(self.database, "update_agent_settings_with_audit"))
 
     def test_read_user_types_returns_onboarding_questions(self) -> None:
         user_type_id = self.database.create_user_type(
@@ -1307,6 +1349,8 @@ class AdminConfigToolContractTest(unittest.TestCase):
         self.assertIsNone(self.database.get_document_defaults("doc-duplicate"))
 
     def test_configure_instance_applies_guided_setup_atomically_with_audit(self) -> None:
+        original_rules = self.database.get_ai_config("prompt_rules")["value"]
+        original_forbidden = self.database.get_ai_config("prompt_forbidden")["value"]
         response = self.client.post(
             "/internal/agent/admin-config/configure-instance",
             headers=self.headers,
@@ -1359,11 +1403,11 @@ class AdminConfigToolContractTest(unittest.TestCase):
         self.assertEqual(payload["tool"], "configure_instance")
         self.assertEqual(payload["data"]["outcome"], "succeeded")
         self.assertEqual(payload["data"]["validation"], {"status": "valid"})
+        # Sage applies and audits the guided Agent Settings in its own store.
         self.assertEqual(
             payload["data"]["affected_areas"],
             [
                 "instance_settings",
-                "agent_settings",
                 "user_types",
                 "onboarding_questions",
             ],
@@ -1378,13 +1422,7 @@ class AdminConfigToolContractTest(unittest.TestCase):
         created_question = payload["data"]["saved_setup"]["onboarding_questions"][0]
         self.assertEqual(created_question["user_type_id"], created_type["id"])
         self.assertEqual(created_question["options"], ["English", "Spanish"])
-        self.assertEqual(
-            payload["data"]["saved_setup"]["behavior_rules"],
-            [
-                "Prioritize practical, verified support steps.",
-                "State uncertainty plainly.",
-            ],
-        )
+        self.assertNotIn("behavior_rules", payload["data"]["saved_setup"])
 
         self.assertEqual(self.database.get_setting("instance_name"), "Freedom Network")
         self.assertEqual(self.database.get_user_type(created_type["id"])["name"], "Families")
@@ -1392,14 +1430,13 @@ class AdminConfigToolContractTest(unittest.TestCase):
             self.database.get_field_definition_by_id(created_question["id"])["field_name"],
             "Preferred language",
         )
-        self.assertEqual(
-            self.database.get_ai_config("prompt_rules")["value"],
-            '["Prioritize practical, verified support steps.", "State uncertainty plainly."]',
-        )
-        self.assertEqual(
-            self.database.get_ai_config("prompt_forbidden")["value"],
-            '["Never invent organizations or contact details."]',
-        )
+        self.assertEqual(self.database.get_ai_config("prompt_rules")["value"], original_rules)
+        self.assertEqual(self.database.get_ai_config("prompt_forbidden")["value"], original_forbidden)
+        self.assertFalse(any(
+            entry["table_name"] == "ai_config"
+            for entry in self.database.get_config_audit_log(limit=None)
+            if entry.get("conversation_id") == "conversation-guided-setup"
+        ))
 
         audit_entries = [
             entry

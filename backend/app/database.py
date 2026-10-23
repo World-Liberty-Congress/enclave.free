@@ -2996,21 +2996,20 @@ def configure_instance_with_audit(
     settings: dict[str, object],
     user_types: list[dict[str, object]],
     onboarding_questions: list[dict[str, object]],
-    behavior_rules: list[str],
-    forbidden_topics: list[str],
     changed_by: str,
     action_source: str,
     conversation_id: str,
 ) -> dict:
-    """Apply one guided Instance setup as a single audited transaction."""
+    """Apply one guided Instance setup as a single audited transaction.
+
+    Guided Agent Settings (behavior rules and forbidden topics) live in Sage's
+    store; Sage applies them and records them through
+    record_agent_settings_change_audit.
+    """
     normalized_settings = {
         key: _coerce_instance_setting_value(value)
         for key, value in settings.items()
         if value is not None
-    }
-    agent_updates = {
-        "prompt_rules": json.dumps(behavior_rules),
-        "prompt_forbidden": json.dumps(forbidden_topics),
     }
     changed_names: list[str] = []
     created_user_types: list[dict] = []
@@ -3045,30 +3044,6 @@ def configure_instance_with_audit(
                     conversation_id=conversation_id,
                 )
         _mark_onboarding_configured_keys_tx(cursor, normalized_settings.keys())
-
-        for key in sorted(agent_updates):
-            value = agent_updates[key]
-            cursor.execute("SELECT value FROM ai_config WHERE key = ?", (key,))
-            row = cursor.fetchone()
-            if not row:
-                raise LookupError(f"Unknown Agent Setting: {key}")
-            old_value = row["value"]
-            cursor.execute(
-                "UPDATE ai_config SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?",
-                (value, key),
-            )
-            if old_value != value:
-                changed_names.append(f"agent_settings.{key}")
-                _insert_config_audit_log(
-                    cursor,
-                    "ai_config",
-                    key,
-                    old_value,
-                    value,
-                    changed_by,
-                    action_source=action_source,
-                    conversation_id=conversation_id,
-                )
 
         user_type_ids: dict[str, int] = {}
         for item in user_types:
@@ -3154,7 +3129,6 @@ def configure_instance_with_audit(
 
         affected_areas = [
             "instance_settings",
-            "agent_settings",
             "user_types",
             "onboarding_questions",
         ]
@@ -3173,8 +3147,6 @@ def configure_instance_with_audit(
             "settings": {key: normalized_settings[key] for key in sorted(normalized_settings)},
             "user_types": created_user_types,
             "onboarding_questions": created_questions,
-            "behavior_rules": behavior_rules,
-            "forbidden_topics": forbidden_topics,
         },
         "changed_names": sorted(changed_names),
     }
@@ -4092,116 +4064,64 @@ def delete_ai_config_override(key: str, user_type_id: int, changed_by: str = "")
         return deleted
 
 
-def update_agent_settings_with_audit(
-    updates: dict[str, str],
+def record_agent_settings_change_audit(
+    changes: list[dict],
     *,
-    revert_keys: list[str],
+    tool_name: str,
     user_type_id: int | None,
     changed_by: str,
     action_source: str,
     conversation_id: str,
 ) -> dict:
-    """Atomically update global Agent Settings or one User Type's overrides."""
+    """Record Agent Settings changes that Sage applied to its own store.
+
+    Each change is a dict with ``key``, ``old_value``, and ``new_value``. A
+    ``new_value`` of None in a User Type scope means the override was removed.
+    The per-setting entries and the Tool outcome commit as one audited batch.
+    """
     changed_names: list[str] = []
     reverted_keys: list[str] = []
     with get_write_cursor() as cursor:
-        for key in sorted(updates):
-            value = updates[key]
-            cursor.execute("SELECT value FROM ai_config WHERE key = ?", (key,))
-            global_row = cursor.fetchone()
-            if not global_row:
-                raise LookupError(f"Unknown Agent Setting: {key}")
+        for change in changes:
+            key = str(change["key"])
+            new_value = change.get("new_value")
             if user_type_id is None:
-                old_value = global_row["value"]
-                cursor.execute(
-                    "UPDATE ai_config SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?",
-                    (value, key),
-                )
-                audit_table = "ai_config"
-                audit_key = key
+                table_name, config_key = "ai_config", key
             else:
-                cursor.execute(
-                    """
-                    SELECT value FROM ai_config_user_type_overrides
-                    WHERE ai_config_key = ? AND user_type_id = ?
-                    """,
-                    (key, user_type_id),
-                )
-                row = cursor.fetchone()
-                old_value = row["value"] if row else None
-                cursor.execute(
-                    """
-                    INSERT INTO ai_config_user_type_overrides (ai_config_key, user_type_id, value)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(ai_config_key, user_type_id) DO UPDATE SET
-                        value = excluded.value,
-                        updated_at = CURRENT_TIMESTAMP
-                    """,
-                    (key, user_type_id, value),
-                )
-                audit_table = "ai_config_user_type_overrides"
-                audit_key = f"{key}:type_{user_type_id}"
-
-            if old_value != value:
-                changed_names.append(key)
-                _insert_config_audit_log(
-                    cursor,
-                    audit_table,
-                    audit_key,
-                    old_value,
-                    value,
-                    changed_by,
-                    action_source=action_source,
-                    conversation_id=conversation_id,
-                )
-
-        if user_type_id is not None:
-            for key in sorted(set(revert_keys)):
-                cursor.execute(
-                    """
-                    SELECT value FROM ai_config_user_type_overrides
-                    WHERE ai_config_key = ? AND user_type_id = ?
-                    """,
-                    (key, user_type_id),
-                )
-                row = cursor.fetchone()
-                if not row:
-                    continue
-                cursor.execute(
-                    """
-                    DELETE FROM ai_config_user_type_overrides
-                    WHERE ai_config_key = ? AND user_type_id = ?
-                    """,
-                    (key, user_type_id),
-                )
-                reverted_keys.append(key)
-                changed_names.append(key)
-                _insert_config_audit_log(
-                    cursor,
-                    "ai_config_user_type_overrides",
-                    f"{key}:type_{user_type_id}",
-                    row["value"],
-                    "(reverted to global)",
-                    changed_by,
-                    action_source=action_source,
-                    conversation_id=conversation_id,
-                )
+                table_name, config_key = "ai_config_user_type_overrides", f"{key}:type_{user_type_id}"
+                if new_value is None:
+                    new_value = "(reverted to global)"
+                    reverted_keys.append(key)
+            _insert_config_audit_log(
+                cursor,
+                table_name,
+                config_key,
+                change.get("old_value"),
+                new_value,
+                changed_by,
+                action_source=action_source,
+                conversation_id=conversation_id,
+            )
+            changed_names.append(
+                f"agent_settings.{key}" if tool_name == "configure_instance" else key
+            )
 
         _insert_admin_config_tool_audit(
             cursor,
-            tool_name="update_agent_settings",
+            tool_name=tool_name,
             changed_names=changed_names,
             affected_areas=["agent_settings"],
             changed_by=changed_by,
             action_source=action_source,
             conversation_id=conversation_id,
-            metadata={"user_type_id": user_type_id, "reverted_keys": reverted_keys},
+            metadata={
+                "store": "sage",
+                "user_type_id": user_type_id,
+                "reverted_keys": sorted(reverted_keys),
+            },
         )
 
-    return {
-        "changed_names": sorted(set(changed_names)),
-        "reverted_keys": reverted_keys,
-    }
+    return {"recorded": len(changes), "changed_names": sorted(set(changed_names))}
 
 
 def get_effective_ai_config(user_type_id: int | None = None) -> list[dict]:
