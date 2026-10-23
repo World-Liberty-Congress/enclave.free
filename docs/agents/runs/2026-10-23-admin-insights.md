@@ -36,3 +36,24 @@ None. Billing estimates are explicitly unavailable without versioned prices. His
 ## Tracker fallback
 
 GitHub returned `the 'World-Liberty-Congress/enclave.free' repository has disabled issues`. The agreed spec remains in the contract above; ready-for-agent tickets are stored locally in `.scratch/admin-insights/issues/01-audit.md`, `02-usage.md`, and `03-conversations.md`. No upstream issues are created for fork-specific work.
+
+## Implementation and release preparation evidence
+
+- Full worker task IDs and ownership are recorded in `.cache/admin-insights/tasks.json`.
+- Parent wired provisional common entrypoints and added future requested-model attribution to assistant metadata and per-attempt observations. Two focused Sage observation tests pass.
+- Parent added the narrow usage owner classifier API (live Admin + internal token, 200 IDs, public-key test provenance, no PII). Five endpoint tests pass after expected 404 failures.
+- Production preflight: ten healthy services on user-lookup-68b26e7; successful enabled daily backup; 120GiB server free. No production mutations have occurred.
+- Local previous lookup Compose stack restarted against the latest immutable production images. Existing synthetic roster retained. New fixture:150 user/assistant messages across five users,200 Admin messages excluded,39 duplicated provider-observation records expected to total585 tokens after deduplication,5 encrypted logs with feedback.
+- Collaborative preview open succeeds but snapshot times out twice (`Preview automation snapshot timed out after 15000ms.`). Local browser acceptance uses established Playwright harness; production uses the already-authorized Zen session through cua-driver. Local signer login passes with no browser errors.
+- Release scripts adapted under `.cache/admin-insights/release`; production fixture/cleanup rehearsed locally. Native Sage/cache path is `/Users/plebdev/Desktop/Projects/enclave-free/sage/target`.
+
+## Integration acceptance
+
+- Config HTTP write and restore produced `admin_ui` per-setting audit entries. Native audit tests cover audit failure, conditional rollback, concurrent edits, override inheritance and revoked Admins.
+- Both Admin chat surfaces returned the five expected names and counts,150 retained messages and585 deduplicated observed tokens.14 focused usage tests also verify ranking ties, timezone boundaries, model gaps, test-user provenance, token conflicts and bounded database timeouts.
+- Real encrypted review fixtures exposed a transcript-envelope mismatch (`{turns:[...]}`); the browser reader and encryption fixtures were corrected before release. Both surfaces then quoted the exact assistant message and feedback, cited the stable IDs, and reported zero unreadable/missing/unknown-time records.
+- Audit pages can contain fewer records than requested because of the byte budget. Tool and turn guidance explicitly require continuation to the requested count and distinguish action summaries from per-setting changes. Actor public keys remain complete.
+- Token field completeness is distinct from assistant-message coverage. Guidance reports `assistant_with_usage / assistant_messages`; complete fields within recorded observations do not imply complete provider usage.
+- Full backend discovery in the production runtime:494 tests,492 passed,1 skipped,1 unchanged FastAPI `_IncludedRouter.path` test error. The same error was independently reproduced against the deployed baseline image/source. The lightweight local venv additionally lacks transformer/docling dependencies; those dependency tests passed in the production image.
+- First consolidated Sage workspace/all-features run:329 tests passed, including real isolated PostgreSQL audit and usage tests. Clippy with warnings denied passed. Final source formatting and changed-test reconciliation are pending.
+- Consolidated frontend:82 files and520 tests passed; actual encrypted-envelope regression tests included. Component console errors were intentional failure-path fixtures. Sage source was formatted and committed for final independent review.

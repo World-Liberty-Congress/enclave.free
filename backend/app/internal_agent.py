@@ -268,8 +268,8 @@ class InternalAgentSettingChange(BaseModel):
 
 class InternalRecordAgentSettingsChangeRequest(InternalAdminConfigToolRequest):
     """An Agent Settings change Sage already applied to its own store."""
-    conversation_id: str = Field(min_length=1, max_length=255)
-    tool_name: Literal["update_agent_settings", "configure_instance"]
+    conversation_id: str | None = Field(default=None, max_length=255)
+    tool_name: Literal["update_agent_settings", "configure_instance", "admin_ui_update_agent_settings"]
     user_type_id: int | None = None
     changes: list[InternalAgentSettingChange] = Field(default_factory=list, max_length=50)
 
@@ -1416,8 +1416,11 @@ async def admin_config_record_agent_settings_change(
     """Audit an Agent Settings change. Agent Settings live in Sage's store;
     Sage applies the change there and records its provenance here."""
     _require_admin_actor(payload.actor)
-    conversation_id = payload.conversation_id.strip()
-    if not conversation_id:
+    is_ui = payload.tool_name == "admin_ui_update_agent_settings"
+    conversation_id = (payload.conversation_id or "").strip()
+    if is_ui and conversation_id:
+        raise HTTPException(status_code=422, detail="Admin UI writes cannot claim a Conversation")
+    if not is_ui and not conversation_id:
         raise HTTPException(status_code=422, detail="conversation_id must not be blank")
     if payload.user_type_id is not None and not database.get_user_type(payload.user_type_id):
         raise HTTPException(status_code=422, detail="User Type not found")
@@ -1429,8 +1432,8 @@ async def admin_config_record_agent_settings_change(
         tool_name=payload.tool_name,
         user_type_id=payload.user_type_id,
         changed_by=payload.actor.pubkey or str(payload.actor.id),
-        action_source="sage_conversation",
-        conversation_id=conversation_id,
+        action_source="admin_ui" if is_ui else "sage_conversation",
+        conversation_id=conversation_id or None,
     )
     return InternalAdminConfigToolResponse(
         tool="record_agent_settings_change",

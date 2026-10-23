@@ -6018,3 +6018,38 @@ def seed_country_regions() -> None:
                 row,
             )
     logger.info("Country/region map seeded")
+
+
+def query_audit_insights(*, limit: int, after: tuple[float, int] | None = None,
+                         snapshot: int | None = None, start_time: str | None = None,
+                         end_time: str | None = None, actor_id: str | None = None,
+                         action_source: str | None = None,
+                         config_key: str | None = None) -> tuple[list[dict], int, int]:
+    """Read a stable retained-audit page; IDs disambiguate equal timestamps."""
+    with get_cursor() as cursor:
+        if snapshot is None:
+            cursor.execute("SELECT COALESCE(MAX(id), 0) FROM config_audit_log")
+            snapshot = int(cursor.fetchone()[0])
+        clauses, params = ["id <= ?"], [snapshot]
+        for column, value in (("changed_by", actor_id), ("action_source", action_source), ("config_key", config_key)):
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                params.append(value)
+        for operator, value in ((">=", start_time), ("<", end_time)):
+            if value is not None:
+                clauses.append(f"julianday(changed_at) {operator} julianday(?)")
+                params.append(value)
+        where = " AND ".join(clauses)
+        cursor.execute(f"SELECT COUNT(*) FROM config_audit_log WHERE {where}", params)
+        matched = int(cursor.fetchone()[0])
+        if after is not None:
+            clauses.append("(COALESCE(julianday(changed_at), 0) < ? OR (COALESCE(julianday(changed_at), 0) = ? AND id < ?))")
+            params.extend([after[0], after[0], after[1]])
+        where = " AND ".join(clauses)
+        cursor.execute(f"""
+            SELECT id, table_name, config_key, old_value, new_value, changed_by,
+                   action_source, changed_at, COALESCE(julianday(changed_at), 0) AS sort_time
+            FROM config_audit_log WHERE {where}
+            ORDER BY sort_time DESC, id DESC LIMIT ?
+        """, [*params, limit])
+        return [dict(row) for row in cursor.fetchall()], matched, snapshot
