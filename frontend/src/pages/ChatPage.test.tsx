@@ -2259,6 +2259,37 @@ describe('ChatPage', () => {
     expect(sendLlmChatWithUnifiedTools).not.toHaveBeenCalled();
   });
 
+  it('preserves an Admin Database selection while session defaults finish loading', async () => {
+    const user = userEvent.setup();
+    mockIsAdminAuthenticated.mockReturnValue(true);
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+    let finishDefaults!: (response: Response) => void;
+    const defaults = new Promise<Response>((resolve) => {
+      finishDefaults = resolve;
+    });
+    vi.mocked(fetch).mockImplementation((input, init) =>
+      String(input).includes('/session-defaults')
+        ? defaults
+        : originalFetch(input, init)
+    );
+    render(<ChatPage />, { wrapper: ChatPageTestWrapper });
+    const database = await screen.findByRole('button', { name: 'Database' });
+    expect(database).toHaveAttribute('aria-pressed', 'false');
+    await user.click(database);
+    expect(database).toHaveAttribute('aria-pressed', 'true');
+    await act(async () => {
+      finishDefaults(Response.json({ default_tool_ids: ['web-search'] }));
+      await defaults;
+    });
+    expect(database).toHaveAttribute('aria-pressed', 'true');
+    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockResolvedValueOnce();
+    await user.type(getComposerTextbox(), 'Who are the top users?');
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalledWith(
+      expect.objectContaining({ tools: ['db-query'], adminUserLookup: true })
+    );
+  });
+
   it('never replays an accepted Admin Database stream before the first answer', async () => {
     const user = userEvent.setup();
     mockIsAdminAuthenticated.mockReturnValue(true);

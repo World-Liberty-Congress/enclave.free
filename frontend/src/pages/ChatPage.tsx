@@ -772,6 +772,12 @@ export function ChatPage() {
   // Fetch session defaults from admin config
   useEffect(() => {
     if (sessionDefaultsLoaded || adminSessionChecking) return;
+    // Admin Tools start empty in the reducer and belong to the Admin's choices.
+    // User defaults must not overwrite a selection made during page loading.
+    if (isAdmin) {
+      setSessionDefaultsLoaded(true);
+      return;
+    }
 
     const fetchSessionDefaults = async () => {
       try {
@@ -783,42 +789,20 @@ export function ChatPage() {
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
-          // Admin conversations show Tool Set controls, but start opt-in.
-          if (isAdmin) {
-            dispatchConversation({
-              type: 'selectedToolsChanged',
-              selectedTools: [],
-            });
-          } else {
-            const defaults = resolveUserConversationSessionDefaults(data);
-            setUserSelectedTools(defaults.tools);
-            if (defaults.documentIds.length > 0) {
-              setPendingDefaultDocs(defaults.documentIds);
-            }
+          const defaults = resolveUserConversationSessionDefaults(data);
+          setUserSelectedTools(defaults.tools);
+          if (defaults.documentIds.length > 0) {
+            setPendingDefaultDocs(defaults.documentIds);
           }
         } else {
           // Non-2xx response - fail closed for non-admin user Tool Sets.
           console.warn('Failed to fetch session defaults:', res.status);
-          if (isAdmin) {
-            dispatchConversation({
-              type: 'selectedToolsChanged',
-              selectedTools: [],
-            });
-          } else {
-            setUserSelectedTools([]);
-          }
+          setUserSelectedTools([]);
         }
       } catch (err) {
         console.error('Failed to fetch session defaults:', err);
         // Fail closed for non-admin user Tool Sets on defaults load errors.
-        if (isAdmin) {
-          dispatchConversation({
-            type: 'selectedToolsChanged',
-            selectedTools: [],
-          });
-        } else {
-          setUserSelectedTools([]);
-        }
+        setUserSelectedTools([]);
       } finally {
         setSessionDefaultsLoaded(true);
       }
