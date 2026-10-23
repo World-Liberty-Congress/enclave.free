@@ -246,8 +246,6 @@ class InternalConfigureInstanceRequest(InternalAdminConfigToolRequest):
         default_factory=list,
         max_length=10,
     )
-    behavior_rules: list[str] = Field(default_factory=list, max_length=8)
-    forbidden_topics: list[str] = Field(default_factory=list, max_length=8)
 
 
 class InternalUpdateDeploymentSettingsRequest(InternalAdminConfigToolRequest):
@@ -260,11 +258,19 @@ class InternalReadDeploymentSecretRequest(InternalAdminConfigToolRequest):
     key: str = Field(min_length=1, max_length=255)
 
 
-class InternalUpdateAgentSettingsRequest(InternalAdminConfigToolRequest):
+class InternalAgentSettingChange(BaseModel):
+    key: str = Field(min_length=1, max_length=120)
+    old_value: str | None = Field(default=None, max_length=20_000)
+    # None removes a User Type override; global settings always have a value.
+    new_value: str | None = Field(default=None, max_length=20_000)
+
+
+class InternalRecordAgentSettingsChangeRequest(InternalAdminConfigToolRequest):
+    """An Agent Settings change Sage already applied to its own store."""
     conversation_id: str = Field(min_length=1, max_length=255)
+    tool_name: Literal["update_agent_settings", "configure_instance"]
     user_type_id: int | None = None
-    updates: dict[str, str] = Field(default_factory=dict)
-    revert_keys: list[str] = Field(default_factory=list)
+    changes: list[InternalAgentSettingChange] = Field(default_factory=list, max_length=50)
 
 
 class InternalManageUserTypesRequest(InternalAdminConfigToolRequest):
@@ -1200,22 +1206,11 @@ async def admin_config_configure_instance(
         validated["user_type_reference"] = reference
         questions.append(validated)
 
-    def _normalize_rules(values: list[str], label: str) -> list[str]:
-        normalized = [str(value).strip() for value in values]
-        if any(not value for value in normalized):
-            raise HTTPException(status_code=422, detail=f"{label} cannot contain blank values")
-        return normalized
-
-    behavior_rules = _normalize_rules(payload.behavior_rules, "behavior_rules")
-    forbidden_topics = _normalize_rules(payload.forbidden_topics, "forbidden_topics")
-
     try:
         result = database.configure_instance_with_audit(
             settings=settings,
             user_types=user_types,
             onboarding_questions=questions,
-            behavior_rules=behavior_rules,
-            forbidden_topics=forbidden_topics,
             changed_by=payload.actor.pubkey or str(payload.actor.id),
             action_source="sage_conversation",
             conversation_id=conversation_id,
@@ -1233,9 +1228,10 @@ async def admin_config_configure_instance(
             "validation": {"status": "valid"},
             "saved_setup": result["saved_setup"],
             "changed_names": result["changed_names"],
+            # Sage applies guided Agent Settings to its own store and records
+            # them through record-agent-settings-change.
             "affected_areas": [
                 "instance_settings",
-                "agent_settings",
                 "user_types",
                 "onboarding_questions",
             ],
@@ -1406,73 +1402,35 @@ async def admin_config_agent_settings(
 
 
 @router.post(
-    "/admin-config/update-agent-settings",
+    "/admin-config/record-agent-settings-change",
     response_model=InternalAdminConfigToolResponse,
     dependencies=[Depends(_require_internal_token)],
 )
-async def admin_config_update_agent_settings(
-    payload: InternalUpdateAgentSettingsRequest,
+async def admin_config_record_agent_settings_change(
+    payload: InternalRecordAgentSettingsChangeRequest,
 ) -> InternalAdminConfigToolResponse:
+    """Audit an Agent Settings change. Agent Settings live in Sage's store;
+    Sage applies the change there and records its provenance here."""
     _require_admin_actor(payload.actor)
     conversation_id = payload.conversation_id.strip()
     if not conversation_id:
         raise HTTPException(status_code=422, detail="conversation_id must not be blank")
-    if not payload.updates and not payload.revert_keys:
-        raise HTTPException(status_code=422, detail="At least one Agent Setting operation is required")
-    if payload.user_type_id is None and payload.revert_keys:
-        raise HTTPException(status_code=422, detail="Only User Type overrides can be reverted")
-    if set(payload.updates).intersection(payload.revert_keys):
-        raise HTTPException(status_code=422, detail="A setting cannot be updated and reverted together")
     if payload.user_type_id is not None and not database.get_user_type(payload.user_type_id):
         raise HTTPException(status_code=422, detail="User Type not found")
+    if payload.user_type_id is None and any(change.new_value is None for change in payload.changes):
+        raise HTTPException(status_code=422, detail="Global Agent Settings cannot be reverted")
 
-    from ai_config import validate_ai_config_value
-
-    validated: dict[str, str] = {}
-    for key, value in payload.updates.items():
-        config = database.get_ai_config(key)
-        if not config:
-            raise HTTPException(status_code=422, detail=f"Unknown Agent Setting: {key}")
-        try:
-            validated[key] = validate_ai_config_value(
-                key,
-                value,
-                str(config["value_type"]),
-                f"direct Admin Config value for {key}",
-            )
-        except HTTPException as exc:
-            raise HTTPException(status_code=422, detail=exc.detail) from exc
-
-    for key in payload.revert_keys:
-        if not database.get_ai_config(key):
-            raise HTTPException(status_code=422, detail=f"Unknown Agent Setting: {key}")
-
-    result = database.update_agent_settings_with_audit(
-        validated,
-        revert_keys=payload.revert_keys,
+    result = database.record_agent_settings_change_audit(
+        [change.model_dump() for change in payload.changes],
+        tool_name=payload.tool_name,
         user_type_id=payload.user_type_id,
         changed_by=payload.actor.pubkey or str(payload.actor.id),
         action_source="sage_conversation",
         conversation_id=conversation_id,
     )
-    rows = (
-        database.get_effective_ai_config(payload.user_type_id)
-        if payload.user_type_id is not None
-        else database.get_all_ai_config()
-    )
-    values = {str(row["key"]): str(row["value"]) for row in rows}
-    requested_keys = sorted(set(validated).union(payload.revert_keys))
     return InternalAdminConfigToolResponse(
-        tool="update_agent_settings",
-        data={
-            "outcome": "succeeded",
-            "validation": {"status": "valid"},
-            "saved_values": {key: values[key] for key in requested_keys},
-            "changed_names": result["changed_names"],
-            "reverted_keys": result["reverted_keys"],
-            "user_type_id": payload.user_type_id,
-            "affected_areas": ["agent_settings"],
-        },
+        tool="record_agent_settings_change",
+        data={"recorded": result["recorded"], "changed_names": result["changed_names"]},
         generated_at=datetime.now(timezone.utc).isoformat(),
     )
 

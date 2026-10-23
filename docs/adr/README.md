@@ -33,7 +33,7 @@ Reviewed on 2026-06-15 for the unified model-driven Tool loop hard cut:
 | 0023 Unified Model-Driven Tool Loop                                     | Still owns Tool boundaries; ADR-0029 supersedes typed planning and ADR-0028 supersedes Admin Config proposals.     |
 | 0024 Transparent Reasoning and Tool Trace Posture                       | Still owns live/persisted trace data, ephemeral Provider Continuity State privacy, and content-free Model Usage Observations; ADR-0034 supersedes identical Admin/User presentation. |
 | 0027 Separate Tool decisions from final answer delivery                 | Superseded by ADR-0029; retained as final-answer safety history.                                                    |
-| 0028 Sage owns direct Admin Config writes                               | Anchor decision for conversationally confirmed direct Admin Config writes.                                         |
+| 0028 Sage owns direct Admin Config writes                               | Anchor decision for conversationally confirmed direct Admin Config writes; ADR-0036 refines where Agent Settings are written. |
 | 0029 Native Tool calling with one Tool round                            | Native protocol and hard-cut decisions remain valid; its one-batch constraint is superseded by ADR-0030.           |
 | 0030 Bounded native Tool loop                                           | Anchor decision for model-driven native Tool continuation, provider continuity, silent-stall recovery, and at most six executed Tool batches. |
 | 0031 Default GLM reasoning effort to none                               | Explicit deployment-level reasoning setting; historical `none` default superseded by Flash / `low`.                         |
@@ -41,3 +41,4 @@ Reviewed on 2026-06-15 for the unified model-driven Tool loop hard cut:
 | 0033 Model-led autonomy and concise User responses                      | Anchor decision for generic consent, personal-decision, brevity, Tool-stopping, and model-turn separator behavior without semantic answer rewriting. |
 | 0034 Present Conversation Activity for its audience                     | Anchor decision for one retained trace contract with product-facing User Activity and diagnostic Admin Activity. |
 | 0035 Sage messages are the User Conversation record                    | Anchor decision for building User Conversation records from Sage messages and keying feedback by message ID. |
+| 0036 Sage applies Agent Settings writes in its own store                | Refines ADR-0028 for Agent Settings: Sage writes its own store and records the change in the control-plane Audit Log. |
