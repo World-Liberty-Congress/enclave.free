@@ -48,6 +48,7 @@ class CarryoverTests(unittest.TestCase):
             c.execute("INSERT INTO user_types(id,name) VALUES(7,'Organization member')")
             c.execute("INSERT INTO user_field_definitions(field_name,field_type,user_type_id) VALUES('country','text',7)")
             c.execute("INSERT INTO users(id,email) VALUES(99,'DO_NOT_CARRY_USER_HISTORY')")
+            c.execute("INSERT INTO admin_test_provenance(user_id,pubkey,provisioning_type_id) VALUES(99,'DO_NOT_CARRY_TEST_IDENTITY',7)")
             c.execute("INSERT INTO admins(pubkey) VALUES('DO_NOT_CARRY_ADMIN_IDENTITY')")
             c.execute("UPDATE deployment_config SET value='DO_NOT_CARRY_SOURCE_SECRET',is_secret=1 WHERE key='LLM_API_KEY'")
             for job, filename, current in (("current", "current.txt", 1), ("old", "missing.txt", 0)):
@@ -84,6 +85,7 @@ class CarryoverTests(unittest.TestCase):
             raw = archive.read("tables.json")
             self.assertNotIn(b"DO_NOT_CARRY", raw)
             self.assertNotIn("users", json.loads(raw))
+            self.assertNotIn("admin_test_provenance", json.loads(raw))
         output = self.root / "replay"
         result = carryover.replay(self.bundle, self.schema, output, self.destination())
         self.assertEqual(result["excluded_identity_and_history_rows"], 0)
@@ -103,6 +105,7 @@ class CarryoverTests(unittest.TestCase):
             self.assertEqual(content_artifacts.decrypt_bytes(encrypted.encode()), b"old organization text")
             self.assertEqual(c.execute("SELECT name FROM user_types WHERE id=7").fetchone()[0], "Organization member")
             self.assertEqual(c.execute("SELECT count(*) FROM admins").fetchone()[0], 0)
+            self.assertEqual(c.execute("SELECT count(*) FROM admin_test_provenance").fetchone()[0], 0)
             self.assertEqual(c.execute("PRAGMA foreign_key_check").fetchall(), [])
 
     def test_replay_rejects_existing_destination_history(self):

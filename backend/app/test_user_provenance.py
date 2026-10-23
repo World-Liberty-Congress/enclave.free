@@ -9,10 +9,11 @@ from itertools import chain
 
 import database
 import impersonation
-from nostr_keys import normalize_pubkey
 
 
 def _normalized_pubkey(value: str | None) -> str | None:
+    from nostr_keys import normalize_pubkey
+
     try:
         return normalize_pubkey(value) if value else None
     except ValueError:
