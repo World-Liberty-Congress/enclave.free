@@ -667,13 +667,6 @@
       "applyIntentUsePanel": "Skorzystaj z poniższego panelu oczekujących zmian i kliknij Zastosuj, aby potwierdzić te aktualizacje konfiguracji.",
       "applyIntentNoPending": "Nie ma oczekujących zmian w konfiguracji do zastosowania. Poproś najpierw asystenta o zaproponowanie zestawu zmian.",
       "startNewConversation": "Rozpocznij nową rozmowę z asystentem",
-      "reducedContextNoticeLabel": "Informacja o ograniczonym kontekście",
-      "sessionMemoryNoticeLabel": "Informacja o kompresji pamięci sesji",
-      "sessionMemoryNotice": "Starszy kontekst został podsumowany, aby kontynuować tę rozmowę.",
-      "reducedContextNotice": "Część kontekstu została ograniczona, aby zmieścić się w budżecie Dostawcy Modelu ({{sections}}). Odpowiedzi mogą być mniej kompletne, dopóki nie rozpoczniesz nowej rozmowy z asystentem.",
-      "reducedContextSections": {
-        "recentConversation": "historia niedawnych rozmów"
-      },
       "approvalCardTitle": "Zatwierdź zmiany w konfiguracji",
       "applying": "Zastosowywanie",
       "applied": "Zastosowano",

@@ -663,13 +663,6 @@
       "applyIntentUsePanel": "Use o painel de alterações pendentes abaixo e clique em Aplicar para confirmar estas atualizações de configuração.",
       "applyIntentNoPending": "Não há alterações de configuração pendentes para aplicar. Peça ao assistente para propor um conjunto de alterações primeiro.",
       "startNewConversation": "Iniciar nova conversa com o assistente",
-      "reducedContextNoticeLabel": "Aviso de contexto reduzido",
-      "sessionMemoryNoticeLabel": "Aviso de compactação de Memória de Sessão",
-      "sessionMemoryNotice": "O contexto mais antigo foi resumido para manter esta conversa ativa.",
-      "reducedContextNotice": "Parte do contexto foi reduzida para caber no orçamento do Provedor de Modelo ({{sections}}). As respostas podem ser menos completas até que você inicie uma nova conversa com o assistente.",
-      "reducedContextSections": {
-        "recentConversation": "histórico de conversas recentes"
-      },
       "approvalCardTitle": "Aprovar alterações de configuração",
       "applying": "Aplicando",
       "applied": "Aplicado",

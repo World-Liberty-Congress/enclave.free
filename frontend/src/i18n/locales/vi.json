@@ -659,13 +659,6 @@
       "applyIntentUsePanel": "Sử dụng bảng các thay đổi đang chờ xử lý bên dưới và nhấn Áp dụng để xác nhận các cập nhật cấu hình này.",
       "applyIntentNoPending": "Không có thay đổi cấu hình nào đang chờ xử lý để áp dụng. Hãy yêu cầu trợ lý đề xuất một bộ thay đổi trước.",
       "startNewConversation": "Bắt đầu cuộc hội thoại mới với trợ lý",
-      "reducedContextNoticeLabel": "Thông báo về việc giảm bớt ngữ cảnh",
-      "sessionMemoryNoticeLabel": "Thông báo về việc nén Bộ nhớ Phiên làm việc",
-      "sessionMemoryNotice": "Ngữ cảnh cũ đã được tóm tắt để duy trì cuộc hội thoại này.",
-      "reducedContextNotice": "Một số ngữ cảnh đã bị giảm bớt để phù hợp với ngân sách của Nhà cung cấp Mô hình ({{sections}}). Câu trả lời có thể kém đầy đủ hơn cho đến khi bạn bắt đầu một cuộc hội thoại mới với trợ lý.",
-      "reducedContextSections": {
-        "recentConversation": "lịch sử hội thoại gần đây"
-      },
       "approvalCardTitle": "Phê duyệt thay đổi cấu hình",
       "applying": "Đang áp dụng",
       "applied": "Đã áp dụng",

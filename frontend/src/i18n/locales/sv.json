@@ -657,13 +657,6 @@
       "applyIntentUsePanel": "Använd panelen för kommande ändringar nedan och klicka på Tillämpa för att bekräfta dessa konfigurationsuppdateringar.",
       "applyIntentNoPending": "Det finns inga kommande konfigurationsändringar att tillämpa. Be assistenten att föreslå en ändringssats först.",
       "startNewConversation": "Starta ny konversation med assistenten",
-      "reducedContextNoticeLabel": "Meddelande om reducerad kontext",
-      "sessionMemoryNoticeLabel": "Meddelande om komprimering av sessionsminne",
-      "sessionMemoryNotice": "Äldre kontext sammanfattades för att kunna fortsätta denna konversation.",
-      "reducedContextNotice": "Viss kontext har reducerats för att hålla sig inom budgeten för modellleverantören ({{sections}}). Svaren kan vara mindre kompletta tills du startar en ny konversation med assistenten.",
-      "reducedContextSections": {
-        "recentConversation": "senaste konversationshistorik"
-      },
       "approvalCardTitle": "Godkänn konfigurationsändringar",
       "applying": "Tillämpar",
       "applied": "Tillämpad",

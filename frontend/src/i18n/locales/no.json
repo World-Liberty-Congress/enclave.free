@@ -658,13 +658,6 @@
       "applyIntentUsePanel": "Bruk panelet for kommende endringer nedenfor og klikk på 'Bruk' for å bekrefte disse konfigurasjonsoppdateringene.",
       "applyIntentNoPending": "Det er ingen kommende konfigurasjonsendringer som skal brukes. Be assistenten om å foreslå et endringssett først.",
       "startNewConversation": "Start ny samtale med assistenten",
-      "reducedContextNoticeLabel": "Varsel om redusert kontekst",
-      "sessionMemoryNoticeLabel": "Varsel om komprimering av sesjonshukommelse",
-      "sessionMemoryNotice": "Eldre kontekst ble oppsummert for å holde samtalen i gang.",
-      "reducedContextNotice": "Noe kontekst ble redusert for å passe budsjettet til modellleverandøren ({{sections}}). Svarene kan være mindre fullstendige frem til du starter en ny samtale med assistenten.",
-      "reducedContextSections": {
-        "recentConversation": "nylig samtalshistorikk"
-      },
       "approvalCardTitle": "Godkjenn konfigurasjonsendringer",
       "applying": "Bruker",
       "applied": "Brukt",

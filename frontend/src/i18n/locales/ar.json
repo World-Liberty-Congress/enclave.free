@@ -683,13 +683,6 @@
       "applyIntentUsePanel": "استخدم لوحة التغييرات قيد الانتظار أدناه وانقر على تطبيق لتأكيد تحديثات الإعداد هذه.",
       "applyIntentNoPending": "لا توجد تغييرات إعداد قيد الانتظار للتطبيق. اطلب من المساعد اقتراح مجموعة تغييرات أولًا.",
       "startNewConversation": "بدء محادثة جديدة مع المساعد",
-      "reducedContextNoticeLabel": "إشعار السياق المخفّض",
-      "sessionMemoryNoticeLabel": "إشعار ضغط ذاكرة الجلسة",
-      "sessionMemoryNotice": "تم تلخيص السياق الأقدم لإبقاء هذه المحادثة مستمرة.",
-      "reducedContextNotice": "تم تقليل بعض السياق ليلائم ميزانية مزوّد النموذج ({{sections}}). قد تكون الإجابات أقل اكتمالًا حتى تبدأ محادثة جديدة مع المساعد.",
-      "reducedContextSections": {
-        "recentConversation": "سجل المحادثة الأخير"
-      },
       "approvalCardTitle": "الموافقة على تغييرات الإعداد",
       "applying": "جارٍ التطبيق",
       "applied": "تم التطبيق",

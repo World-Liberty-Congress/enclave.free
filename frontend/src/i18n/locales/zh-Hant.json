@@ -407,13 +407,6 @@
       "applyIntentUsePanel": "請使用下方的待處理變更面板，並點擊「套用」以確認這些設定更新。",
       "applyIntentNoPending": "目前沒有待套用的配置變更。請先要求助手提出一組變更方案。",
       "startNewConversation": "開始新的助手對話",
-      "reducedContextNoticeLabel": "上下文縮減通知",
-      "sessionMemoryNoticeLabel": "對話記憶壓縮通知",
-      "sessionMemoryNotice": "為了維持對話進行，較舊的上下文已進行摘要處理。",
-      "reducedContextNotice": "部分上下文已進行縮減，以符合模型供應商的額度限制 ({{sections}})。在您開始新的助手對話之前，回答內容可能會不夠完整。",
-      "reducedContextSections": {
-        "recentConversation": "最近的對話紀錄"
-      },
       "approvalCardTitle": "核准組態變更",
       "applying": "套用中",
       "applied": "已套用",

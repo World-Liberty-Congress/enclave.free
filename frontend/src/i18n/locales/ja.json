@@ -657,13 +657,6 @@
       "applyIntentUsePanel": "下の保留中の変更パネルを使用し、「適用」をクリックしてこれらの構成更新を確定してください。",
       "applyIntentNoPending": "適用する保留中の構成変更はありません。まずアシスタントに変更案の提示を依頼してください。",
       "startNewConversation": "新しいアシスタントとの会話を開始",
-      "reducedContextNoticeLabel": "コンテキスト削減のお知らせ",
-      "sessionMemoryNoticeLabel": "セッションメモリ圧縮のお知らせ",
-      "sessionMemoryNotice": "会話を継続するために、古いコンテキストが要約されました。",
-      "reducedContextNotice": "モデルプロバイダーの予算（{{sections}}）に収めるため、一部のコンテキストが削減されました。新しいアシスタントとの会話を開始するまで、回答が不完全になる場合があります。",
-      "reducedContextSections": {
-        "recentConversation": "直近の会話履歴"
-      },
       "approvalCardTitle": "設定変更を承認する",
       "applying": "適用中",
       "applied": "適用済み",

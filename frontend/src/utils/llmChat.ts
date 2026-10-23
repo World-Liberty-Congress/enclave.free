@@ -14,7 +14,6 @@ interface SendLlmChatOptions {
   conversationSurface?: 'admin-onboarding';
   sessionId?: string | null;
   jobIds?: string[];
-  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
   /**
    * Optional bearer token to authenticate AS a specific user (impersonation).
    * Sage prefers the Authorization bearer over the session cookie, so this scopes
@@ -29,10 +28,6 @@ interface SendLlmChatOptions {
   adminSignerDecryptedContext?: AdminSignerDecryptedContext | null;
 }
 
-type ConversationHistoryMessage = NonNullable<
-  SendLlmChatOptions['conversationHistory']
->[number];
-
 interface SendLlmChatStreamOptions extends SendLlmChatOptions {
   onEvent: (event: string, data: unknown) => void;
 }
@@ -43,7 +38,6 @@ async function buildUnifiedChatBody({
   conversationSurface,
   sessionId,
   jobIds,
-  conversationHistory,
   includeAdminSignerDecryptedContext,
   adminSignerDecryptedContext,
 }: SendLlmChatOptions): Promise<Record<string, unknown>> {
@@ -60,12 +54,6 @@ async function buildUnifiedChatBody({
   const constrainedJobIds = (jobIds || []).filter(Boolean);
   if (constrainedJobIds.length > 0) {
     body.job_ids = constrainedJobIds;
-  }
-  const sageOwnsAdminConfigHistory =
-    Boolean(sessionId) && tools.includes('admin-config');
-  const recentHistory = normalizedConversationHistory(conversationHistory);
-  if (!sageOwnsAdminConfigHistory && recentHistory.length > 0) {
-    body.conversation_history = recentHistory.slice(-8);
   }
 
   const clientDecryptedContext = await resolveAdminSignerDecryptedContext({
@@ -100,22 +88,6 @@ async function resolveAdminSignerDecryptedContext({
     console.warn('Failed to build Admin signer-decrypted context:', error);
     return null;
   }
-}
-
-function normalizedConversationHistory(
-  conversationHistory: SendLlmChatOptions['conversationHistory']
-): ConversationHistoryMessage[] {
-  return (conversationHistory || [])
-    .filter(
-      (message) =>
-        (message.role === 'user' || message.role === 'assistant') &&
-        typeof message.content === 'string' &&
-        message.content.trim()
-    )
-    .map((message) => ({
-      role: message.role,
-      content: message.content.slice(0, 2000),
-    }));
 }
 
 export async function sendLlmChatWithUnifiedTools(

@@ -29,11 +29,7 @@ import {
   sendLlmChatStreamWithUnifiedTools,
   sendLlmChatWithUnifiedTools,
 } from '../utils/llmChat';
-import {
-  registerAdminResilienceInstrumentationListener,
-  resetAdminResilienceInstrumentationListeners,
-  type AdminResilienceInstrumentationEvent,
-} from '../utils/adminResilienceInstrumentation';
+import { resetAdminResilienceInstrumentationListeners } from '../utils/adminResilienceInstrumentation';
 
 vi.mock('../utils/adminApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../utils/adminApi')>();
@@ -2338,104 +2334,7 @@ describe('ChatPage', () => {
     expect(sendLlmChatWithUnifiedTools).not.toHaveBeenCalled();
   });
 
-  it('compacts Session Memory for long authenticated admin chat turns', async () => {
-    const user = userEvent.setup();
-    const instrumentationEvents: AdminResilienceInstrumentationEvent[] = [];
-    registerAdminResilienceInstrumentationListener((event) => {
-      instrumentationEvents.push(event);
-    });
-    mockIsAdminAuthenticated.mockReturnValue(true);
-    mockAdminFetch.mockImplementation((endpoint: string) => {
-      if (endpoint === '/admin/deployment/config') {
-        return Promise.resolve(
-          Response.json({
-            llm: [],
-            embedding: [],
-            email: [],
-            storage: [],
-            security: [],
-            search: [],
-            domains: [],
-            ssl: [],
-            general: [],
-          })
-        );
-      }
-      return Promise.resolve(Response.json({}));
-    });
-    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockImplementation(
-      async ({ onEvent }) => {
-        onEvent('assistant_message_started', {
-          message_id: `msg-${Math.random()}`,
-          session_id: 'session-1',
-        });
-        onEvent('answer_delta', {
-          message_id: 'msg-assistant',
-          delta: 'Acknowledged.',
-        });
-        onEvent('done', {
-          message_id: 'msg-assistant',
-          session_id: 'session-1',
-        });
-      }
-    );
-
-    render(<ChatPage />, { wrapper: ChatPageTestWrapper });
-
-    await waitForValidatedAdminConfig();
-
-    for (let index = 0; index < 17; index += 1) {
-      fireEvent.change(getComposerTextbox(), {
-        target: {
-          value: `Theme question ${index} about palette and typography.`,
-        },
-      });
-      await user.click(screen.getByRole('button', { name: 'Send message' }));
-      await waitFor(() => {
-        expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalledTimes(
-          index + 1
-        );
-      });
-    }
-
-    const streamCalls = vi.mocked(sendLlmChatStreamWithUnifiedTools).mock.calls;
-    const lastCall = streamCalls[streamCalls.length - 1]?.[0];
-    expect(lastCall?.conversationHistory?.[0]?.content).toContain(
-      'Theme question 12'
-    );
-    const lastHistory = lastCall?.conversationHistory;
-    expect(lastHistory?.[lastHistory.length - 1]?.content).toBe(
-      'Acknowledged.'
-    );
-
-    expect(
-      screen.getByRole('note', {
-        name: 'Session Memory compaction notice',
-      })
-    ).toHaveTextContent(
-      'Older context was summarized to keep this conversation going.'
-    );
-
-    const contextPlanEvents = instrumentationEvents.filter(
-      (event) => event.kind === 'admin_context_plan'
-    );
-    expect(contextPlanEvents.length).toBeGreaterThan(0);
-    const lastContextPlanEvent =
-      contextPlanEvents[contextPlanEvents.length - 1];
-    expect(lastContextPlanEvent).toMatchObject({
-      kind: 'admin_context_plan',
-      surface: 'admin_chat_page',
-      sessionMemory: {
-        compacted: true,
-        compactedMessageCount: expect.any(Number),
-      },
-    });
-    expect(JSON.stringify(lastContextPlanEvent)).not.toContain(
-      'Theme question 0'
-    );
-  }, 30_000);
-
-  it('surfaces a reduced-context notice for oversized admin chat Config history', async () => {
+  it('sends only the new message on admin chat Config turns without context notices', async () => {
     const user = userEvent.setup();
     mockIsAdminAuthenticated.mockReturnValue(true);
     mockAdminFetch.mockImplementation((endpoint: string) => {
@@ -2493,13 +2392,22 @@ describe('ChatPage', () => {
     });
     await user.click(screen.getByRole('button', { name: 'Send message' }));
 
-    const notice = await screen.findByRole('note', {
-      name: 'Reduced context notice',
+    await waitFor(() => {
+      expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalledTimes(2);
     });
-    expect(notice).toHaveTextContent(
-      /Some context was reduced to fit the Model Provider budget/
+    // Sage owns the Conversation history; the browser sends only the new message.
+    const streamCalls = vi.mocked(sendLlmChatStreamWithUnifiedTools).mock.calls;
+    for (const [request] of streamCalls) {
+      expect(request).not.toHaveProperty('conversationHistory');
+    }
+    expect(streamCalls[1][0]).toEqual(
+      expect.objectContaining({
+        content: 'Continue with config advice.',
+        sessionId: 'session-1',
+      })
     );
-    expect(notice).toHaveTextContent(/recent conversation history/);
-    expect(notice).not.toHaveTextContent('SAFE_PADDING');
+    expect(
+      screen.queryByText(/context was (reduced|summarized)/i)
+    ).not.toBeInTheDocument();
   });
 });

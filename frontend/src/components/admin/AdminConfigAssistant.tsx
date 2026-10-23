@@ -33,15 +33,7 @@ import { readTraceDelta } from '../chat/SageStreamEventAdapter';
 import { ToolSelector, type Tool } from '../chat/ToolSelector';
 import { redactSecrets } from '../../utils/secretRedaction';
 import { refreshAdminConfigRedactionMetadata } from '../../utils/adminConfigContext';
-import {
-  planAdminPromptBudget,
-  formatAdminReducedContextNotice,
-} from '../../utils/promptBudget';
-import { compactAdminSessionMemory } from '../../utils/sessionMemoryCompaction';
-import {
-  recordAdminContextPlanInstrumentation,
-  recordProviderFailureInstrumentation,
-} from '../../utils/adminResilienceInstrumentation';
+import { recordProviderFailureInstrumentation } from '../../utils/adminResilienceInstrumentation';
 import { mergeTraceDeltas } from '../../utils/conversationTraceDeltas';
 import {
   sendLlmChatStreamWithUnifiedTools,
@@ -163,9 +155,6 @@ export function AdminConfigAssistant({
   const [error, setError] = useState<string | null>(null);
   const [recoveryError, setRecoveryError] =
     useState<ClassifiedProviderError | null>(null);
-  const [reducedContextNotice, setReducedContextNotice] = useState<
-    string | null
-  >(null);
   const [snapshotInfo, setSnapshotInfo] = useState<{
     generatedAtIso: string;
   } | null>(null);
@@ -296,7 +285,6 @@ export function AdminConfigAssistant({
     );
     setError(null);
     setRecoveryError(null);
-    setReducedContextNotice(null);
     setShareSecrets(false);
     secretsForRedactionRef.current = [];
   }, [isOnboarding, t]);
@@ -313,49 +301,10 @@ export function AdminConfigAssistant({
       setIsLoading(true);
       setError(null);
       setRecoveryError(null);
-      setReducedContextNotice(null);
 
       try {
-        let boundedConversationHistory = messages.map(
-          ({ role, content: turnContent }) => ({
-            role,
-            content: turnContent,
-          })
-        );
         if (!hasConfigTool) {
           setSnapshotInfo(null);
-          setReducedContextNotice(null);
-        } else {
-          const sessionMemoryPlan = compactAdminSessionMemory({
-            conversationHistory: boundedConversationHistory,
-          });
-          boundedConversationHistory = sessionMemoryPlan.conversationHistory;
-
-          const promptPlan = planAdminPromptBudget({
-            conversationHistory: boundedConversationHistory,
-          });
-          boundedConversationHistory = promptPlan.conversationHistory;
-          setReducedContextNotice(
-            formatAdminReducedContextNotice(promptPlan.reducedSections, {
-              sectionLabels: {
-                'recent-conversation': t(
-                  'admin.configAssistant.reducedContextSections.recentConversation',
-                  'recent conversation history'
-                ),
-              },
-              formatNotice: (sectionLabels) =>
-                t(
-                  'admin.configAssistant.reducedContextNotice',
-                  'Some context was reduced to fit the Model Provider budget ({{sections}}). Answers may be less complete until you start a new assistant conversation.',
-                  { sections: sectionLabels.join(', ') }
-                ),
-            })
-          );
-          recordAdminContextPlanInstrumentation({
-            surface: 'admin_config_assistant',
-            sessionMemoryPlan,
-            promptPlan,
-          });
         }
 
         let streamed = false;
@@ -385,7 +334,6 @@ export function AdminConfigAssistant({
             tools: selectedTools,
             conversationSurface: isOnboarding ? 'admin-onboarding' : undefined,
             sessionId: conversationSessionId,
-            conversationHistory: boundedConversationHistory,
             includeAdminSignerDecryptedContext:
               selectedTools.includes('db-query'),
             onEvent: (event, payload) => {
@@ -550,7 +498,6 @@ export function AdminConfigAssistant({
             tools: selectedTools,
             conversationSurface: isOnboarding ? 'admin-onboarding' : undefined,
             sessionId: conversationSessionId,
-            conversationHistory: boundedConversationHistory,
             includeAdminSignerDecryptedContext:
               selectedTools.includes('db-query'),
           });
@@ -610,7 +557,6 @@ export function AdminConfigAssistant({
       conversationSessionId,
       hasConfigTool,
       isOnboarding,
-      messages,
       selectedTools,
       shareSecrets,
       t,
@@ -829,19 +775,6 @@ export function AdminConfigAssistant({
                   </span>
                 </div>
               </div>
-            </div>
-          )}
-
-          {reducedContextNotice && (
-            <div
-              role="note"
-              aria-label={t(
-                'admin.configAssistant.reducedContextNoticeLabel',
-                'Reduced context notice'
-              )}
-              className="text-sm text-warning bg-warning/10 border border-warning/25 rounded-xl px-3 py-2"
-            >
-              {reducedContextNotice}
             </div>
           )}
 

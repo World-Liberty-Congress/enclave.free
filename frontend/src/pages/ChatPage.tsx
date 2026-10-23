@@ -82,15 +82,7 @@ import {
   formatClassifiedProviderError,
   shouldOfferNewAssistantConversation,
 } from '../utils/providerErrors';
-import { compactAdminSessionMemory } from '../utils/sessionMemoryCompaction';
-import {
-  formatAdminReducedContextNotice,
-  planAdminPromptBudget,
-} from '../utils/promptBudget';
-import {
-  recordAdminContextPlanInstrumentation,
-  recordProviderFailureInstrumentation,
-} from '../utils/adminResilienceInstrumentation';
+import { recordProviderFailureInstrumentation } from '../utils/adminResilienceInstrumentation';
 import { refreshAdminConfigRedactionMetadata } from '../utils/adminConfigContext';
 import { resolveUserConversationSessionDefaults } from '../utils/sessionDefaults';
 
@@ -471,12 +463,6 @@ export function ChatPage() {
     buttonLabel?: string;
     successMessage?: string;
   }>({});
-  const [reducedContextNotice, setReducedContextNotice] = useState<
-    string | null
-  >(null);
-  const [sessionMemoryNotice, setSessionMemoryNotice] = useState<string | null>(
-    null
-  );
   const [conversationHistory, setConversationHistory] = useState<
     ConversationHistorySummary[]
   >([]);
@@ -980,8 +966,6 @@ export function ChatPage() {
           userConversationRef.current?.hydrate(view.id, view.turns);
         }
         setActiveConversationTitle(view.title ?? conversation.title);
-        setSessionMemoryNotice(null);
-        setReducedContextNotice(null);
         setRenameDraft(null);
         setRenameStatus('idle');
         setRenameError(null);
@@ -1088,8 +1072,6 @@ export function ChatPage() {
         } else {
           userConversationRef.current?.reset();
         }
-        setSessionMemoryNotice(null);
-        setReducedContextNotice(null);
         setActiveConversationTitle(null);
       }
       setDeleteDraft(null);
@@ -1129,63 +1111,14 @@ export function ChatPage() {
 
     try {
       const backendTools = actorScopedSelectedTools;
-      let conversationHistory = messages.map(
-        ({ role, content: turnContent }) => ({
-          role,
-          content: turnContent,
-        })
-      );
       let secretsForThisRequest = secretsForRedaction;
-      if (hasConfigTool) {
-        const sessionMemoryPlan = compactAdminSessionMemory({
-          conversationHistory,
+      if (hasConfigTool && shareSecrets) {
+        const metadata = await refreshAdminConfigRedactionMetadata({
+          shareSecrets: true,
+          fetchJson,
         });
-        setSessionMemoryNotice(
-          sessionMemoryPlan.compacted
-            ? t(
-                'admin.configAssistant.sessionMemoryNotice',
-                'Older context was summarized to keep this conversation going.'
-              )
-            : null
-        );
-
-        if (shareSecrets) {
-          const metadata = await refreshAdminConfigRedactionMetadata({
-            shareSecrets: true,
-            fetchJson,
-          });
-          secretsForThisRequest = metadata.secretValues;
-          setSecretsForRedaction(metadata.secretValues);
-        }
-
-        const promptPlan = planAdminPromptBudget({
-          conversationHistory: sessionMemoryPlan.conversationHistory,
-        });
-        conversationHistory = promptPlan.conversationHistory;
-        setReducedContextNotice(
-          formatAdminReducedContextNotice(promptPlan.reducedSections, {
-            sectionLabels: {
-              'recent-conversation': t(
-                'admin.configAssistant.reducedContextSections.recentConversation',
-                'recent conversation history'
-              ),
-            },
-            formatNotice: (sectionLabels) =>
-              t(
-                'admin.configAssistant.reducedContextNotice',
-                'Some context was reduced to fit the Model Provider budget ({{sections}}). Answers may be less complete until you start a new assistant conversation.',
-                { sections: sectionLabels.join(', ') }
-              ),
-          })
-        );
-        recordAdminContextPlanInstrumentation({
-          surface: 'admin_chat_page',
-          sessionMemoryPlan,
-          promptPlan,
-        });
-      } else {
-        setReducedContextNotice(null);
-        setSessionMemoryNotice(null);
+        secretsForThisRequest = metadata.secretValues;
+        setSecretsForRedaction(metadata.secretValues);
       }
 
       let response: Response;
@@ -1209,7 +1142,6 @@ export function ChatPage() {
             tools: backendTools,
             sessionId: conversationSessionId,
             jobIds: selectedDocuments,
-            conversationHistory,
             includeAdminSignerDecryptedContext:
               isAdmin && backendTools.includes('db-query'),
             onEvent: (event, payload) => {
@@ -1339,7 +1271,6 @@ export function ChatPage() {
           tools: backendTools,
           sessionId: conversationSessionId,
           jobIds: selectedDocuments,
-          conversationHistory,
           includeAdminSignerDecryptedContext:
             isAdmin && backendTools.includes('db-query'),
         });
@@ -1410,8 +1341,6 @@ export function ChatPage() {
     } else {
       userConversationRef.current?.reset();
     }
-    setSessionMemoryNotice(null);
-    setReducedContextNotice(null);
     setShareSecrets(false);
     setSecretsForRedaction([]);
     setActiveConversationTitle(null);
@@ -1872,34 +1801,6 @@ export function ChatPage() {
           >
             {t('admin.configAssistant.startNewConversation')}
           </button>
-        )}
-      {isAdmin &&
-        selectedTools.includes(CONFIG_TOOL_ID) &&
-        sessionMemoryNotice && (
-          <div
-            role="note"
-            aria-label={t(
-              'admin.configAssistant.sessionMemoryNoticeLabel',
-              'Session Memory compaction notice'
-            )}
-            className="rounded-xl border border-border bg-surface-raised px-3 py-2 text-sm text-text-secondary"
-          >
-            {sessionMemoryNotice}
-          </div>
-        )}
-      {isAdmin &&
-        selectedTools.includes(CONFIG_TOOL_ID) &&
-        reducedContextNotice && (
-          <div
-            role="note"
-            aria-label={t(
-              'admin.configAssistant.reducedContextNoticeLabel',
-              'Reduced context notice'
-            )}
-            className="rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-sm text-warning"
-          >
-            {reducedContextNotice}
-          </div>
         )}
     </div>
   );

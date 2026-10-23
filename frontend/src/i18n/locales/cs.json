@@ -669,13 +669,6 @@
       "applyIntentUsePanel": "Použijte panel čekajících změn níže a klikněte na Použít pro potvrzení těchto aktualizací konfigurace.",
       "applyIntentNoPending": "Nejsou k dispozici žádné čekající změny konfigurace k aplikaci. Nejprve požádejte asistenta o návrh sady změn.",
       "startNewConversation": "Zahájit nový konverzaci asistenta",
-      "reducedContextNoticeLabel": "Upozornění na snížený kontext",
-      "sessionMemoryNoticeLabel": "Upozornění na kompresi paměti relace",
-      "sessionMemoryNotice": "Starší kontext byl shrnut, aby konverzace pokračovala.",
-      "reducedContextNotice": "Některý kontext byl snížen, aby se vešel do rozpočtu poskytovatele modelu ({{sections}}). Odpovědi mohou být méně úplné, dokud nezačnete novou konverzaci asistenta.",
-      "reducedContextSections": {
-        "recentConversation": "historie nedávných konverzací"
-      },
       "approvalCardTitle": "Schválit změny konfigurace",
       "applying": "Používá se",
       "applied": "Použito",
