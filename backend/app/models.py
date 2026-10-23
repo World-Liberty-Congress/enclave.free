@@ -1121,8 +1121,14 @@ class SessionLogToolCall(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     guarded: bool = False
 
+
+# Transcript message IDs: Sage message UUIDs, browser turn IDs, or legacy-<index>.
+SESSION_LOG_MESSAGE_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+
+
 class SessionLogTurn(BaseModel):
     """One turn of a captured transcript (admin-supplied on save)."""
+    message_id: Optional[str] = Field(default=None, pattern=SESSION_LOG_MESSAGE_ID_PATTERN)
     role: str = Field(..., max_length=32)        # 'user' | 'assistant' | 'system'
     content: str
     ts: Optional[str] = None
@@ -1166,15 +1172,23 @@ class SessionLogListResponse(BaseModel):
     session_logs: list[SessionLogMetadata]
 
 
-class SessionLogTurnFeedback(BaseModel):
-    """Per-turn feedback. The comment is returned as NIP-04 ciphertext."""
-    turn_index: int
+class SessionLogMessageFeedback(BaseModel):
+    """Feedback on one assistant message. The comment is returned as NIP-04
+    ciphertext. turn_index is the message's current position, or None when the
+    transcript no longer contains it."""
+    message_id: str
+    turn_index: Optional[int] = None
     rating: str                                  # 'up' | 'down'
     comment_ciphertext: Optional[str] = None
     comment_ephemeral_pubkey: Optional[str] = None
     created_by: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+class SessionLogTranscriptMessage(BaseModel):
+    message_id: str
+    role: str
 
 
 class SessionLogDetail(SessionLogMetadata):
@@ -1186,11 +1200,13 @@ class SessionLogDetail(SessionLogMetadata):
     transcript_ciphertext: Optional[str] = None
     transcript_ephemeral_pubkey: Optional[str] = None
     encrypted_to_pubkey: Optional[str] = None
-    feedback: list[SessionLogTurnFeedback] = []
+    # Plaintext message order of the transcript; feedback names these IDs.
+    transcript_messages: list[SessionLogTranscriptMessage] = []
+    feedback: list[SessionLogMessageFeedback] = []
 
 
-class SessionTurnFeedbackRequest(BaseModel):
-    """Set a turn's thumbs up/down with an optional qualitative comment."""
+class SessionMessageFeedbackRequest(BaseModel):
+    """Set a message's thumbs up/down with an optional qualitative comment."""
     rating: str = Field(..., pattern="^(up|down)$")
     comment: Optional[str] = Field(default=None, max_length=5000)
 

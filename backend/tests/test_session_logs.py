@@ -58,6 +58,69 @@ class SessionLogsTest(unittest.TestCase):
         with self.database.get_cursor() as cursor:
             cursor.execute("DELETE FROM admins")
 
+    def decrypt_transcript(self, log_id: str) -> list[dict]:
+        detail = self.session_logs.get_session_log(log_id)
+        plaintext = self.encryption.nip04_decrypt(
+            detail["transcript_ciphertext"],
+            detail["transcript_ephemeral_pubkey"],
+            self.admin_private_key,
+        )
+        return json.loads(plaintext)["turns"]
+
+    def message_ids(self, log_id: str, role: str | None = None) -> list[str]:
+        detail = self.session_logs.get_session_log(log_id)
+        return [
+            message["message_id"]
+            for message in detail["transcript_messages"]
+            if role is None or message["role"] == role
+        ]
+
+    @staticmethod
+    def sage_history(exchanges: int, *, prefix: str = "m") -> list[dict]:
+        history = []
+        for number in range(1, exchanges + 1):
+            history.append({
+                "message_id": f"{prefix}-{number}-q",
+                "role": "user",
+                "content": f"Question {number}",
+            })
+            history.append({
+                "message_id": f"{prefix}-{number}-a",
+                "role": "assistant",
+                "content": f"Answer {number}",
+            })
+        return history
+
+    def record(
+        self,
+        messages: list[dict],
+        *,
+        user_id: int,
+        session: str = "sage-session",
+        through: int | None = None,
+    ) -> dict:
+        """Record as Sage would; by default the newest message's Sage sequence
+        number is the history length."""
+        return self.session_logs.record_user_conversation(
+            sage_session_id=session,
+            subject_user_id=user_id,
+            messages=messages,
+            through_sequence_id=len(messages) if through is None else through,
+            title="User Conversation",
+        )
+
+    def attach_legacy_transcript_file(self, log_id: str) -> Path:
+        """Simulate a record written by a release that also kept an encrypted file."""
+        path = Path(self.tmp.name) / "session_logs" / f"{log_id}.json"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text("legacy-ciphertext", encoding="utf-8")
+        with self.database.get_cursor() as cursor:
+            cursor.execute(
+                "UPDATE session_logs SET transcript_path = ? WHERE log_id = ?",
+                (str(path), log_id),
+            )
+        return path
+
     @staticmethod
     def model_usage_trace() -> dict:
         return {
@@ -201,10 +264,11 @@ class SessionLogsTest(unittest.TestCase):
         )
         self.clear_admins()
 
+        assistant_id = self.message_ids(feedback_log["log_id"], "assistant")[0]
         with self.assertRaises(ValueError):
-            self.session_logs.set_turn_feedback(
+            self.session_logs.set_message_feedback(
                 feedback_log["log_id"],
-                1,
+                assistant_id,
                 "up",
                 comment="This plaintext note must not be stored without an admin key.",
             )
@@ -301,10 +365,11 @@ class SessionLogsTest(unittest.TestCase):
             created_by="admin",
         )
 
+        user_message_id = self.message_ids(log["log_id"], "user")[0]
         with self.assertRaises(ValueError):
-            self.session_logs.set_turn_feedback(
+            self.session_logs.set_message_feedback(
                 log["log_id"],
-                0,
+                user_message_id,
                 "down",
                 comment="This should not be ratable because it was the user turn.",
                 created_by="admin",
@@ -327,14 +392,16 @@ class SessionLogsTest(unittest.TestCase):
             created_by="admin",
         )
 
-        feedback = self.session_logs.set_turn_feedback(
+        assistant_id = self.message_ids(log["log_id"], "assistant")[0]
+        feedback = self.session_logs.set_message_feedback(
             log["log_id"],
-            1,
+            assistant_id,
             "down",
             comment=comment_sentinel,
             created_by="admin",
         )
 
+        self.assertEqual(feedback["message_id"], assistant_id)
         self.assertEqual(feedback["turn_index"], 1)
         self.assertEqual(feedback["rating"], "down")
         self.assertIsNotNone(feedback["comment_ciphertext"])
@@ -357,7 +424,7 @@ class SessionLogsTest(unittest.TestCase):
         )
         self.assertEqual(json.loads(decrypted_transcript)["turns"][1]["content"], transcript_sentinel)
 
-    def test_feedback_rejects_missing_turn_indexes(self) -> None:
+    def test_feedback_rejects_unknown_message_ids(self) -> None:
         log = self.session_logs.create_session_log(title="Synthetic User test")
         self.session_logs.save_transcript(
             log["log_id"],
@@ -368,10 +435,10 @@ class SessionLogsTest(unittest.TestCase):
             created_by="admin",
         )
 
-        for turn_index in (-1, 2, 999):
-            with self.subTest(turn_index=turn_index):
+        for message_id in ("1", "legacy-1", "not-in-this-transcript"):
+            with self.subTest(message_id=message_id):
                 with self.assertRaises(ValueError):
-                    self.session_logs.set_turn_feedback(log["log_id"], turn_index, "up")
+                    self.session_logs.set_message_feedback(log["log_id"], message_id, "up")
 
     def test_session_log_export_returns_zip_and_audits_copied_export(self) -> None:
         transcript_sentinel = "export transcript plaintext sentinel"
@@ -389,9 +456,10 @@ class SessionLogsTest(unittest.TestCase):
             ],
             created_by="admin-pubkey",
         )
-        self.session_logs.set_turn_feedback(
+        assistant_id = self.message_ids(log["log_id"], "assistant")[0]
+        self.session_logs.set_message_feedback(
             log["log_id"],
-            1,
+            assistant_id,
             "up",
             comment=comment_sentinel,
             created_by="admin-pubkey",
@@ -418,8 +486,13 @@ class SessionLogsTest(unittest.TestCase):
         self.assertTrue(metadata["copied_export"])
         self.assertIsNotNone(metadata["transcript_ephemeral_pubkey"])
         self.assertEqual(metadata["encrypted_to_pubkey"], self.admin_pubkey)
+        self.assertEqual(feedback[0]["message_id"], assistant_id)
         self.assertEqual(feedback[0]["turn_index"], 1)
         self.assertEqual(feedback[0]["rating"], "up")
+        self.assertEqual(
+            [message["role"] for message in metadata["transcript_messages"]],
+            ["user", "assistant"],
+        )
         self.assertNotIn(comment_sentinel, json.dumps(feedback))
         self.assertNotIn(transcript_sentinel, ciphertext)
         exported_transcript = json.loads(
@@ -475,6 +548,7 @@ class SessionLogsTest(unittest.TestCase):
             ],
             created_by="admin",
         )
+        self.attach_legacy_transcript_file(log["log_id"])
 
         with patch.object(self.session_logs.os, "remove", side_effect=OSError("locked")):
             with self.assertRaises(OSError):
@@ -496,13 +570,298 @@ class SessionLogsTest(unittest.TestCase):
             ],
             created_by="admin",
         )
-        files = self.transcript_files()
-        self.assertEqual(len(files), 1)
+        self.assertEqual(self.transcript_files(), [])
+        legacy_file = self.attach_legacy_transcript_file(log["log_id"])
 
         self.assertTrue(self.session_logs.delete_session_log(log["log_id"]))
 
         self.assertIsNone(self.session_logs.get_session_log_metadata(log["log_id"]))
-        self.assertFalse(files[0].exists())
+        self.assertFalse(legacy_file.exists())
+
+    def test_save_transcript_keeps_supplied_message_ids_and_fills_missing_ones(self) -> None:
+        log = self.session_logs.create_session_log(title="Message IDs")
+        self.session_logs.save_transcript(
+            log["log_id"],
+            [
+                {"message_id": "user-1", "role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi"},
+            ],
+        )
+
+        ids = self.message_ids(log["log_id"])
+        self.assertEqual(ids[0], "user-1")
+        self.assertRegex(ids[1], r"^[0-9a-f]{32}$")
+        self.assertEqual(
+            [turn["message_id"] for turn in self.decrypt_transcript(log["log_id"])],
+            ids,
+        )
+
+        for turns in (
+            [{"message_id": "same", "role": "user", "content": "a"},
+             {"message_id": "same", "role": "assistant", "content": "b"}],
+            [{"message_id": "../escape", "role": "user", "content": "a"}],
+        ):
+            with self.subTest(turns=turns):
+                with self.assertRaises(ValueError):
+                    self.session_logs.save_transcript(log["log_id"], turns)
+        self.assertEqual(self.message_ids(log["log_id"])[0], "user-1")
+
+    def test_long_user_conversation_records_every_message(self) -> None:
+        user_id = self.database.create_user()
+        history = self.sage_history(50)
+
+        for exchange in range(1, 51):
+            saved = self.record(history[: exchange * 2], user_id=user_id)
+
+        self.assertEqual(saved["turn_count"], 100)
+        self.assertEqual(saved["source"], "user")
+        turns = self.decrypt_transcript(saved["log_id"])
+        self.assertEqual(len(turns), 100)
+        self.assertEqual(turns[0]["content"], "Question 1")
+        self.assertEqual(turns[-1]["content"], "Answer 50")
+        self.assertEqual(turns[1]["message_id"], "m-1-a")
+        with self.database.get_cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM session_logs")
+            self.assertEqual(cursor.fetchone()[0], 1)
+
+    def test_feedback_stays_on_its_answer_as_the_conversation_grows(self) -> None:
+        user_id = self.database.create_user()
+        history = self.sage_history(55)
+        log = self.record(history[:2], user_id=user_id)
+        self.session_logs.set_message_feedback(
+            log["log_id"], "m-1-a", "down", comment="Missed the deadline question."
+        )
+
+        for exchange in range(2, 56):
+            self.record(history[: exchange * 2], user_id=user_id)
+
+        feedback = self.session_logs.get_session_log(log["log_id"])["feedback"]
+        self.assertEqual(len(feedback), 1)
+        self.assertEqual(feedback[0]["message_id"], "m-1-a")
+        self.assertEqual(feedback[0]["turn_index"], 1)
+        self.assertEqual(feedback[0]["rating"], "down")
+        turns = self.decrypt_transcript(log["log_id"])
+        self.assertEqual(turns[feedback[0]["turn_index"]]["content"], "Answer 1")
+
+        self.session_logs.set_message_feedback(log["log_id"], "m-30-a", "up")
+        by_message = {
+            item["message_id"]: item
+            for item in self.session_logs.get_session_log(log["log_id"])["feedback"]
+        }
+        self.assertEqual(by_message["m-1-a"]["rating"], "down")
+        self.assertEqual(by_message["m-30-a"]["turn_index"], 59)
+
+    def test_repeated_and_out_of_order_updates_never_shrink_the_record(self) -> None:
+        user_id = self.database.create_user()
+        history = self.sage_history(3)
+        self.record(history[:4], user_id=user_id)
+        latest = self.record(history, user_id=user_id)
+        ciphertext = self.session_logs.get_session_log(latest["log_id"])["transcript_ciphertext"]
+
+        repeated = self.record(history, user_id=user_id)
+        late = self.record(history[:4], user_id=user_id)
+        later_than_late = self.record(history[:2], user_id=user_id)
+
+        for result in (repeated, late, later_than_late):
+            self.assertEqual(result["log_id"], latest["log_id"])
+            self.assertEqual(result["turn_count"], 6)
+        detail = self.session_logs.get_session_log(latest["log_id"])
+        self.assertEqual(detail["transcript_ciphertext"], ciphertext)
+
+    def test_a_stale_writer_cannot_replace_a_newer_record(self) -> None:
+        user_id = self.database.create_user()
+        history = self.sage_history(3)
+        log = self.record(history[:2], user_id=user_id)
+        self.record(history, user_id=user_id)
+
+        written = self.session_logs._write_transcript(
+            log["log_id"],
+            history[:4],
+            through_sequence_id=4,
+            expected_version=(2, 2),
+        )
+
+        self.assertFalse(written)
+        self.assertEqual(self.session_logs.get_session_log_metadata(log["log_id"])["turn_count"], 6)
+
+    def test_concurrent_record_update_retries_against_the_latest_record(self) -> None:
+        user_id = self.database.create_user()
+        history = self.sage_history(3)
+        log = self.record(history[:2], user_id=user_id)
+        original_write = self.session_logs._write_transcript
+        interleaved = []
+
+        def write_after_competitor(*args, **kwargs):
+            if not interleaved:
+                interleaved.append(True)
+                original_write(log["log_id"], history[:4], through_sequence_id=4)
+            return original_write(*args, **kwargs)
+
+        with patch.object(self.session_logs, "_write_transcript", side_effect=write_after_competitor):
+            saved = self.record(history, user_id=user_id)
+
+        self.assertEqual(saved["turn_count"], 6)
+        self.assertEqual(self.message_ids(log["log_id"])[-1], "m-3-a")
+
+    def test_rebuilt_history_replaces_the_record_and_reports_unmatched_feedback(self) -> None:
+        user_id = self.database.create_user()
+        log = self.record(self.sage_history(2), user_id=user_id)
+        self.session_logs.set_message_feedback(log["log_id"], "m-2-a", "down")
+
+        # Sage memory for the Conversation was deleted and the user kept chatting;
+        # Sage numbers the new messages after every earlier one.
+        rebuilt = self.record(self.sage_history(1, prefix="after"), user_id=user_id, through=100)
+
+        self.assertEqual(rebuilt["log_id"], log["log_id"])
+        self.assertEqual(rebuilt["turn_count"], 2)
+        self.assertEqual(self.message_ids(log["log_id"]), ["after-1-q", "after-1-a"])
+        feedback = self.session_logs.get_session_log(log["log_id"])["feedback"]
+        self.assertEqual(feedback[0]["message_id"], "m-2-a")
+        self.assertIsNone(feedback[0]["turn_index"])
+
+        # An update read before the deletion arrives late; the record keeps the
+        # newer history.
+        late = self.record(self.sage_history(2), user_id=user_id)
+        self.assertEqual(late["turn_count"], 2)
+        self.assertEqual(self.message_ids(log["log_id"]), ["after-1-q", "after-1-a"])
+
+    def test_same_newest_message_with_more_history_is_newer(self) -> None:
+        # Sage can commit messages out of sequence order, so a read may see the
+        # newest message before an earlier one; the fuller read still wins.
+        user_id = self.database.create_user()
+        history = self.sage_history(2)
+        self.record(history[:2] + history[3:], user_id=user_id, through=4)
+        saved = self.record(history, user_id=user_id, through=4)
+        self.assertEqual(saved["turn_count"], 4)
+
+    def test_user_conversation_record_requires_message_ids_and_an_admin(self) -> None:
+        user_id = self.database.create_user()
+        with self.assertRaises(ValueError):
+            self.record([{"role": "user", "content": "No ID"}], user_id=user_id)
+        with self.assertRaises(ValueError):
+            self.record([], user_id=user_id)
+
+        self.clear_admins()
+        with self.assertRaises(ValueError):
+            self.record(self.sage_history(1), user_id=user_id)
+        with self.database.get_cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM session_logs")
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+    def test_legacy_record_and_feedback_upgrade_to_message_ids(self) -> None:
+        user_id = self.database.create_user()
+        log = self.session_logs.create_session_log(
+            source="user",
+            subject_user_id=user_id,
+            sage_session_id="legacy-session",
+        )
+        self.session_logs.save_transcript(
+            log["log_id"],
+            [
+                {"role": "user", "content": "Old question"},
+                {"role": "assistant", "content": "Old answer"},
+            ],
+        )
+        # Rewind to the previous release's shape: metadata without message IDs
+        # and feedback keyed by position.
+        with self.database.get_cursor() as cursor:
+            cursor.execute(
+                "UPDATE session_logs SET turn_metadata_json = ? WHERE log_id = ?",
+                (
+                    json.dumps([
+                        {"turn_index": 0, "role": "user"},
+                        {"turn_index": 1, "role": "assistant"},
+                    ]),
+                    log["log_id"],
+                ),
+            )
+            cursor.execute("DROP TABLE session_log_feedback")
+            cursor.execute("""
+                CREATE TABLE session_log_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    log_id TEXT NOT NULL,
+                    turn_index INTEGER NOT NULL,
+                    rating TEXT NOT NULL CHECK(rating IN ('up', 'down')),
+                    comment_ciphertext TEXT,
+                    comment_ephemeral_pubkey TEXT,
+                    created_by TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(log_id, turn_index),
+                    FOREIGN KEY (log_id) REFERENCES session_logs(log_id) ON DELETE CASCADE
+                )
+            """)
+            cursor.execute(
+                "INSERT INTO session_log_feedback (log_id, turn_index, rating) VALUES (?, 1, 'up')",
+                (log["log_id"],),
+            )
+
+        self.database._migrate_session_log_feedback_message_ids()
+        self.database._migrate_session_log_feedback_message_ids()
+
+        detail = self.session_logs.get_session_log(log["log_id"])
+        self.assertEqual(
+            detail["transcript_messages"],
+            [
+                {"message_id": "legacy-0", "role": "user"},
+                {"message_id": "legacy-1", "role": "assistant"},
+            ],
+        )
+        self.assertEqual(detail["feedback"][0]["message_id"], "legacy-1")
+        self.assertEqual(detail["feedback"][0]["turn_index"], 1)
+        self.session_logs.set_message_feedback(log["log_id"], "legacy-1", "down")
+        self.assertEqual(self.session_logs.list_feedback(log["log_id"])[0]["rating"], "down")
+
+        upgraded = self.record(
+            self.sage_history(2),
+            user_id=user_id,
+            session="legacy-session",
+        )
+
+        self.assertEqual(upgraded["log_id"], log["log_id"])
+        self.assertEqual(upgraded["turn_count"], 4)
+        self.assertEqual(self.message_ids(log["log_id"])[0], "m-1-q")
+        feedback = self.session_logs.list_feedback(log["log_id"])
+        self.assertEqual(feedback[0]["message_id"], "legacy-1")
+        self.assertIsNone(feedback[0]["turn_index"])
+
+    def test_interrupted_feedback_migration_leaves_the_old_table_intact(self) -> None:
+        log = self.session_logs.create_session_log(title="Interrupted migration")
+        with self.database.get_cursor() as cursor:
+            cursor.execute("DROP TABLE session_log_feedback")
+            cursor.execute("""
+                CREATE TABLE session_log_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    log_id TEXT NOT NULL,
+                    turn_index INTEGER NOT NULL,
+                    rating TEXT NOT NULL CHECK(rating IN ('up', 'down')),
+                    comment_ciphertext TEXT,
+                    comment_ephemeral_pubkey TEXT,
+                    created_by TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(log_id, turn_index),
+                    FOREIGN KEY (log_id) REFERENCES session_logs(log_id) ON DELETE CASCADE
+                )
+            """)
+            cursor.execute(
+                "INSERT INTO session_log_feedback (log_id, turn_index, rating) VALUES (?, 3, 'up')",
+                (log["log_id"],),
+            )
+
+        with patch.object(self.database, "_SESSION_LOG_FEEDBACK_TABLE_SQL", "CREATE TABLE broken ("):
+            with self.assertRaises(self.database.sqlite3.Error):
+                self.database._migrate_session_log_feedback_message_ids()
+
+        connection = self.database.get_connection()
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        self.assertNotIn("session_log_feedback_old", tables)
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(session_log_feedback)")}
+        self.assertIn("turn_index", columns)
+
+        self.database._migrate_session_log_feedback_message_ids()
+        rows = connection.execute("SELECT log_id, message_id, rating FROM session_log_feedback").fetchall()
+        self.assertEqual([tuple(row) for row in rows], [(log["log_id"], "legacy-3", "up")])
 
 
 if __name__ == "__main__":

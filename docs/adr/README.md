@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory records accepted product and architecture decisions for the Enclave Free Prototype. ADR-0023 defines Conversation Tool ownership and Tool Set boundaries, ADR-0029 owns the native Tool-call hard cut, ADR-0030 owns the bounded native Tool loop, ADR-0031 owns the explicit GLM reasoning-effort default, ADR-0032 owns shared User Conversation behavior for Test User Sessions, ADR-0033 owns model-led autonomy and concise User responses, ADR-0034 owns audience-aware Conversation Activity presentation, and ADR-0028 owns direct Admin Config write behavior.
+This directory records accepted product and architecture decisions for the Enclave Free Prototype. ADR-0023 defines Conversation Tool ownership and Tool Set boundaries, ADR-0029 owns the native Tool-call hard cut, ADR-0030 owns the bounded native Tool loop, ADR-0031 owns the explicit GLM reasoning-effort default, ADR-0032 owns shared User Conversation behavior for Test User Sessions, ADR-0033 owns model-led autonomy and concise User responses, ADR-0034 owns audience-aware Conversation Activity presentation, ADR-0035 owns the User Conversation record and message-keyed feedback, and ADR-0028 owns direct Admin Config write behavior.
 
 ## Review Ledger
 
@@ -40,3 +40,4 @@ Reviewed on 2026-06-15 for the unified model-driven Tool loop hard cut:
 | 0032 Test User Sessions reuse the User Conversation module              | Anchor decision for one shared User Conversation execution and UI module with thin logged-in and Admin test harness adapters. |
 | 0033 Model-led autonomy and concise User responses                      | Anchor decision for generic consent, personal-decision, brevity, Tool-stopping, and model-turn separator behavior without semantic answer rewriting. |
 | 0034 Present Conversation Activity for its audience                     | Anchor decision for one retained trace contract with product-facing User Activity and diagnostic Admin Activity. |
+| 0035 Sage messages are the User Conversation record                    | Anchor decision for building User Conversation records from Sage messages and keying feedback by message ID. |

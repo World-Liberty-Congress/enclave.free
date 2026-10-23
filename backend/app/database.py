@@ -58,6 +58,22 @@ AUDIT_HASH_FORMAT_JSON_V2 = "json_v2"
 DEPLOYMENT_SECRET_PREFIX = "enc::v1::"
 DEPLOYMENT_SECRET_NONCE_BYTES = 12
 
+_SESSION_LOG_FEEDBACK_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS session_log_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        log_id TEXT NOT NULL,
+        message_id TEXT NOT NULL,
+        rating TEXT NOT NULL CHECK(rating IN ('up', 'down')),
+        comment_ciphertext TEXT,
+        comment_ephemeral_pubkey TEXT,
+        created_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(log_id, message_id),
+        FOREIGN KEY (log_id) REFERENCES session_logs(log_id) ON DELETE CASCADE
+    )
+"""
+
 
 def get_connection():
     """Get or create SQLite connection"""
@@ -603,9 +619,11 @@ def init_schema():
     # Captured chat transcripts for admin review / refinement. `source` keeps this
     # general so we are not boxed into admin-only testing: 'admin_test' = an admin
     # chatting as a user persona; 'user' = a real user's session logged for review.
-    # Transcript content is NIP-04 encrypted to the admin pubkey AT REST. New
-    # writes store ciphertext in SQLite so Database Explorer can show the saved
-    # encrypted record directly; transcript_path remains for legacy exports.
+    # Transcript content is NIP-04 encrypted to the admin pubkey AT REST. Writes
+    # store ciphertext in SQLite so Database Explorer can show the saved encrypted
+    # record directly; transcript_path only points at files from older releases.
+    # A 'user' record holds Sage's complete retained user/assistant history, so
+    # turn_count is the number of recorded messages (see session_logs.py).
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS session_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -622,6 +640,7 @@ def init_schema():
             encrypted_to_pubkey TEXT,
             turn_metadata_json TEXT,
             turn_count INTEGER NOT NULL DEFAULT 0,
+            sage_through_sequence_id INTEGER,
             status TEXT NOT NULL DEFAULT 'active'
                 CHECK(status IN ('active', 'completed', 'archived')),
             created_by TEXT,
@@ -647,24 +666,12 @@ def init_schema():
         WHERE sage_session_id IS NOT NULL AND subject_user_id IS NOT NULL
     """)
 
-    # Per-turn feedback on a logged session. The rating stays plaintext so it can
-    # be queried/aggregated; the optional qualitative comment is NIP-04 encrypted
-    # to the admin pubkey because it may quote sensitive transcript content.
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS session_log_feedback (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            log_id TEXT NOT NULL,
-            turn_index INTEGER NOT NULL,
-            rating TEXT NOT NULL CHECK(rating IN ('up', 'down')),
-            comment_ciphertext TEXT,
-            comment_ephemeral_pubkey TEXT,
-            created_by TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(log_id, turn_index),
-            FOREIGN KEY (log_id) REFERENCES session_logs(log_id) ON DELETE CASCADE
-        )
-    """)
+    # Feedback on one assistant message of a logged session, keyed by the
+    # transcript message ID so it stays on that answer as the record grows. The
+    # rating stays plaintext so it can be queried/aggregated; the optional
+    # qualitative comment is NIP-04 encrypted to the admin pubkey because it may
+    # quote sensitive transcript content.
+    cursor.execute(_SESSION_LOG_FEEDBACK_TABLE_SQL)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_session_log_feedback_log ON session_log_feedback(log_id)")
 
     conn.commit()
@@ -689,6 +696,8 @@ def init_schema():
     _migrate_add_session_log_turn_metadata()  # Store safe turn role metadata for feedback validation
     _migrate_add_session_log_transcript_ciphertext()  # Store encrypted beta logs in SQLite
     _migrate_add_session_log_source_sage_session_index()  # Optimize and enforce Sage session reuse
+    _migrate_add_session_log_sage_through_sequence()  # Order Sage updates to a User Conversation record
+    _migrate_session_log_feedback_message_ids()  # Key review feedback by message ID, not position
 
     # Initialize ingest job tables
     from ingest_db import init_ingest_schema
@@ -1302,6 +1311,70 @@ def _migrate_add_session_log_source_sage_session_index() -> None:
     conn.commit()
     logger.info("Migration: Added session log Sage session reuse indexes")
     cursor.close()
+
+
+def _migrate_add_session_log_sage_through_sequence() -> None:
+    """Record which Sage message a User Conversation record was built through."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(session_logs)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if "sage_through_sequence_id" not in columns:
+        cursor.execute("ALTER TABLE session_logs ADD COLUMN sage_through_sequence_id INTEGER")
+        conn.commit()
+        logger.info("Migration: Added 'sage_through_sequence_id' column to session_logs table")
+    cursor.close()
+
+
+def _migrate_session_log_feedback_message_ids() -> None:
+    """Rebuild session_log_feedback keyed by transcript message ID.
+
+    Feedback used to name a position in the transcript, which pointed at a
+    different answer whenever the transcript changed. Existing transcripts carry
+    no message IDs, so session_logs.legacy_message_id(turn_index) names their
+    messages; existing feedback gets the same ID and stays on the position it was
+    saved for until Sage next replaces that record with its full history.
+    The rebuild is one transaction, so an interrupted run leaves the old table.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(session_log_feedback)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "message_id" in columns:
+        cursor.close()
+        return
+
+    conn.commit()
+    try:
+        cursor.execute("BEGIN IMMEDIATE")
+        cursor.execute("ALTER TABLE session_log_feedback RENAME TO session_log_feedback_old")
+        cursor.execute(_SESSION_LOG_FEEDBACK_TABLE_SQL)
+        cursor.execute("""
+            INSERT INTO session_log_feedback (
+                id, log_id, message_id, rating, comment_ciphertext,
+                comment_ephemeral_pubkey, created_by, created_at, updated_at
+            )
+            SELECT
+                id, log_id, 'legacy-' || turn_index, rating, comment_ciphertext,
+                comment_ephemeral_pubkey, created_by, created_at, updated_at
+            FROM session_log_feedback_old
+            WHERE log_id IN (SELECT log_id FROM session_logs)
+        """)
+        migrated = cursor.rowcount
+        cursor.execute("DROP TABLE session_log_feedback_old")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_session_log_feedback_log ON session_log_feedback(log_id)"
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+    logger.info(
+        "Migration: Keyed session_log_feedback by message ID (%d existing rows)",
+        migrated,
+    )
 
 
 def _dedupe_session_log_source_sage_session_subject(cursor: sqlite3.Cursor) -> None:

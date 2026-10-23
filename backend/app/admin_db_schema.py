@@ -12,11 +12,14 @@ TABLE_DESCRIPTIONS = {
     "user_field_definitions": "Onboarding field definitions; NULL user_type_id means a global field.",
     "user_field_values": "User answers to onboarding fields; join field_id to user_field_definitions.id.",
     "session_logs": (
-        "Recorded conversation snapshots. source='user' is real user activity; "
-        "source='admin_test' is Admin testing. subject_user_id joins users.id. "
-        "turn_count includes both user and assistant turns. Transcript content is encrypted."
+        "Recorded conversations. source='user' is real user activity and holds every retained "
+        "message of one conversation; source='admin_test' is Admin testing. subject_user_id joins "
+        "users.id. turn_count counts recorded user and assistant messages. Transcript content is encrypted."
     ),
-    "session_log_feedback": "Per-turn review feedback; log_id joins session_logs.log_id, not session_logs.id.",
+    "session_log_feedback": (
+        "Review feedback on one assistant message, named by message_id; "
+        "log_id joins session_logs.log_id, not session_logs.id."
+    ),
 }
 
 TOP_USERS_SQL = """SELECT u.id AS user_id,
@@ -99,8 +102,9 @@ def describe_admin_database(table_name: str | None = None) -> dict:
                 "Approval and account creation dates are not usage metrics."
             ),
             "coverage": (
-                "Counts cover retained session_logs snapshots, not necessarily every live Sage message "
-                "or historical/deleted conversation. A log is a conversation snapshot, not one message. "
+                "Counts cover retained session_logs records; each source='user' log holds every retained "
+                "message of its conversation, while deleted conversations or logs are not counted. "
+                "A log is one conversation, not one message. "
                 "updated_at is the last log update, not an exact per-message timestamp. "
                 "Do not divide turn_count by two to claim exact user-message counts. "
                 "A time filter on log timestamps selects conversations, not messages in that interval."

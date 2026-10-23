@@ -21,7 +21,7 @@ import {
   recordSessionLogPlaintextExport,
   requestImpersonationToken,
   saveTranscript,
-  setTurnFeedback,
+  setMessageFeedback,
 } from '../../../utils/sessionLogsApi';
 
 vi.mock('../../../utils/llmChat', () => ({
@@ -40,7 +40,7 @@ vi.mock('../../../utils/sessionLogsApi', () => ({
   recordSessionLogPlaintextExport: vi.fn(),
   requestImpersonationToken: vi.fn(),
   saveTranscript: vi.fn(),
-  setTurnFeedback: vi.fn(),
+  setMessageFeedback: vi.fn(),
 }));
 
 const mockSendLlmChatStreamWithUnifiedTools = vi.mocked(
@@ -59,7 +59,7 @@ const mockRecordSessionLogPlaintextExport = vi.mocked(
 );
 const mockRequestImpersonationToken = vi.mocked(requestImpersonationToken);
 const mockSaveTranscript = vi.mocked(saveTranscript);
-const mockSetTurnFeedback = vi.mocked(setTurnFeedback);
+const mockSetMessageFeedback = vi.mocked(setMessageFeedback);
 
 type StreamChatOptions = Parameters<
   typeof sendLlmChatStreamWithUnifiedTools
@@ -109,7 +109,7 @@ describe('TestAsUserView', () => {
     mockRecordSessionLogPlaintextExport.mockReset();
     mockRequestImpersonationToken.mockReset();
     mockSaveTranscript.mockReset();
-    mockSetTurnFeedback.mockReset();
+    mockSetMessageFeedback.mockReset();
 
     mockListSessionLogs.mockResolvedValue([]);
     mockListUserTypes.mockResolvedValue([
@@ -602,7 +602,7 @@ describe('TestAsUserView', () => {
       expect.objectContaining({
         role: 'assistant',
         content: 'Completed answer',
-        ts: 'msg-1',
+        message_id: 'msg-1',
         trace: completedTrace,
         tools_used: completedTools,
       }),
@@ -700,7 +700,7 @@ describe('TestAsUserView', () => {
       expect.objectContaining({
         role: 'assistant',
         content: 'Fallback completed answer',
-        ts: 'fallback-assistant',
+        message_id: 'fallback-assistant',
       }),
     ]);
   });
@@ -931,7 +931,7 @@ describe('TestAsUserView', () => {
           expect.objectContaining({
             role: 'assistant',
             content: 'I found vetted resources.',
-            ts: 'msg-1',
+            message_id: 'msg-1',
             tools_used: [
               expect.objectContaining({
                 tool_id: 'curated-resources',
