@@ -73,7 +73,7 @@ async function fixture(text = 'A private retained message.') {
       },
     ],
     through_id: 1,
-    next_after_id: null,
+    next_after_id: null as number | null,
     eligible_logs: 1,
     time_basis: 'message_ts',
     consistency: 'live_id_window',
@@ -394,4 +394,101 @@ it('reports unreadable feedback projections encrypted for another Admin instead 
   if (result.status !== 'ok') throw new Error(result.code);
   expect(result.records[0]).toMatchObject({ status: 'unreadable', text: null });
   expect(result.coverage.unreadable_records).toBe(1);
+});
+
+it('compares microsecond interval boundaries without rounding to milliseconds', async () => {
+  const projection = await fixture();
+  projection.logs[0].transcript.ciphertext = await nip04.encrypt(
+    senderKey,
+    pubkey,
+    JSON.stringify({
+      turns: [
+        {
+          message_id: 'before',
+          role: 'user',
+          content: 'too early',
+          ts: '2026-10-20T10:00:00.000000Z',
+        },
+        {
+          message_id: 'inside',
+          role: 'user',
+          content: 'exact match',
+          ts: '2026-10-20T10:00:00.000001Z',
+        },
+        {
+          message_id: 'after',
+          role: 'user',
+          content: 'exclusive end',
+          ts: '2026-10-20T10:00:00.000002Z',
+        },
+      ],
+    })
+  );
+  const result = await handler().handle(
+    event({
+      select: 'transcript',
+      start: '2026-10-20T10:00:00.000001Z',
+      end: '2026-10-20T10:00:00.000002Z',
+    })
+  );
+  if (result.status !== 'ok') throw new Error(result.code);
+  expect(result.records[0]).toMatchObject({
+    message_id: 'inside',
+    text: 'exact match',
+  });
+  expect(result.coverage.complete).toBe(true);
+});
+
+it('returns a content-free unreadable record for an unsupported role and continues', async () => {
+  const projection = await fixture();
+  projection.logs[0].transcript.ciphertext = await nip04.encrypt(
+    senderKey,
+    pubkey,
+    JSON.stringify({
+      turns: [
+        { message_id: 'unsupported', role: 'system', content: 'DO NOT EXPOSE' },
+        { message_id: 'readable', role: 'user', content: 'Still readable' },
+      ],
+    })
+  );
+  const lookup = handler();
+  const first = await lookup.handle(event({ select: 'transcript' }));
+  if (first.status !== 'ok') throw new Error(first.code);
+  expect(first.records[0]).toMatchObject({
+    status: 'unreadable',
+    text: null,
+    excerpt: false,
+    continuation: false,
+  });
+  const second = await lookup.handle(
+    event({ select: 'transcript', cursor: first.next_page })
+  );
+  if (second.status !== 'ok') throw new Error(second.code);
+  expect(second.records[0].text).toBe('Still readable');
+});
+
+it('continues after a candidate disappears between metadata selection and ciphertext fetch', async () => {
+  const projection = await fixture();
+  projection.through_id = 2;
+  projection.next_after_id = 1;
+  projection.eligible_logs = 2;
+  const surviving = {
+    ...projection.logs[0],
+    id: 2,
+    conversation_id: 'review-2',
+  };
+  projection.logs.splice(0);
+  const lookup = handler();
+  const first = await lookup.handle(event({ select: 'transcript' }));
+  if (first.status !== 'ok') throw new Error(first.code);
+  expect(first.coverage).toMatchObject({ complete: false, missing_logs: 1 });
+  expect(first.next_page).toBeTruthy();
+  projection.logs.push(surviving);
+  projection.next_after_id = null;
+  const next = await lookup.handle(
+    event({ select: 'transcript', cursor: first.next_page })
+  );
+  if (next.status !== 'ok') throw new Error(next.code);
+  expect(next.records[0].conversation_id).toBe('review-2');
+  expect(next.coverage.complete).toBe(true);
 });

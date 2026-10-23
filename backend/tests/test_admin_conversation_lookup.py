@@ -118,3 +118,20 @@ class ConversationProjectionTest(unittest.TestCase):
         plaintext = encryption.nip04_decrypt(log['transcript']['ciphertext'],log['transcript']['ephemeral_pubkey'],private_key)
         self.assertEqual(json.loads(plaintext),{'turns':messages})
         self.assertNotIn('Production envelope fixture',response.text)
+
+    def test_concurrent_candidate_deletion_returns_a_continuation_even_for_the_last_row(self):
+        import session_logs
+        read_retained = session_logs.get_session_log
+        def delete_before_read(log_id):
+            session_logs.delete_session_log(log_id)
+            return read_retained(log_id)
+        # Inject the race at the retained-store IO boundary after candidate SQL.
+        with patch.object(session_logs, 'get_session_log', side_effect=delete_before_read):
+            response = self.client.post('/admin/conversation-lookup/projection',json={})
+        self.assertEqual(response.status_code,200,response.text)
+        body = response.json()
+        self.assertEqual(body['logs'],[])
+        self.assertIsNotNone(body['next_after_id'])
+        next_page = self.client.post('/admin/conversation-lookup/projection',json={'after_id':body['next_after_id'],'through_id':body['through_id']}).json()
+        self.assertEqual(next_page['logs'],[])
+        self.assertIsNone(next_page['next_after_id'])

@@ -116,6 +116,13 @@ const utc = (v: unknown): v is string =>
   Number.isFinite(Date.parse(v)) &&
   new Date(v).toISOString().slice(0, 10) === v.slice(0, 10);
 
+// All accepted timestamps are UTC. Canonical fractional digits preserve the
+// store's microseconds, which Date.parse would truncate to milliseconds.
+function instant(value: string): string {
+  const fraction = /\.(\d+)(?:Z|\+00:00)$/.exec(value)?.[1] ?? '';
+  return `${value.slice(0, 19)}.${fraction.padEnd(6, '0')}Z`;
+}
+
 export function parseConversationLookupRequest(
   raw: unknown,
   nonce: string
@@ -172,7 +179,7 @@ export function parseConversationLookupRequest(
         new Set(a.user_ids).size !== a.user_ids.length)) ||
     (a.start !== undefined && !utc(a.start)) ||
     (a.end !== undefined && !utc(a.end)) ||
-    (utc(a.start) && utc(a.end) && Date.parse(a.start) >= Date.parse(a.end)) ||
+    (utc(a.start) && utc(a.end) && instant(a.start) >= instant(a.end)) ||
     (a.feedback !== undefined &&
       !['any', 'up', 'down', 'none'].includes(String(a.feedback))) ||
     (a.source !== undefined &&
@@ -354,6 +361,12 @@ export function createConversationLookupHandler(options: {
           ];
           state.coverage.missing_logs++;
           finishedLog = true;
+        } else if (projection.next_after_id !== null) {
+          // A selected row may disappear between metadata and ciphertext reads.
+          // Advance past it instead of turning a partial window into completion.
+          state.after = projection.next_after_id;
+          state.coverage.missing_logs++;
+          state.coverage.visited_logs++;
         } else state.coverage.complete = true;
       } else {
         const fingerprint = await awaitLive(digest(log));
@@ -410,8 +423,8 @@ export function createConversationLookupHandler(options: {
           }[] = [];
           const inTime = (timestamp: string | null) =>
             timestamp === null ||
-            ((!args.start || Date.parse(timestamp) >= Date.parse(args.start)) &&
-              (!args.end || Date.parse(timestamp) < Date.parse(args.end)));
+            ((!args.start || instant(timestamp) >= instant(args.start)) &&
+              (!args.end || instant(timestamp) < instant(args.end)));
           for (let i = 0; i < messages.length; i++) {
             const message = messages[i];
             if (message.message_id != null && !messageId(message.message_id)) {
@@ -445,8 +458,10 @@ export function createConversationLookupHandler(options: {
               text:
                 typeof message.content === 'string' ? message.content : null,
             };
-            if (record.text === null || record.role === null)
+            if (record.text === null || record.role === null) {
               record.status = 'unreadable';
+              record.text = null;
+            }
             selected.push({ record });
           }
           if (

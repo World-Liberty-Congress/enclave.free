@@ -126,7 +126,7 @@ def project(selection: Projection) -> dict[str, Any]:
                 record.update(transcript=None, feedback=[], status='oversized')
             projected.append(record)
     return {'logs': projected, 'through_id': through, 'eligible_logs': eligible,
-            'next_after_id': rows[0]['id'] if len(rows) > 1 else None,
+            'next_after_id': rows[0]['id'] if len(rows) > 1 or (rows and not projected) else None,
             'time_basis': 'message_ts', 'consistency': 'live_id_window'}
 
 
