@@ -863,6 +863,52 @@ class SessionLogsTest(unittest.TestCase):
         rows = connection.execute("SELECT log_id, message_id, rating FROM session_log_feedback").fetchall()
         self.assertEqual([tuple(row) for row in rows], [(log["log_id"], "legacy-3", "up")])
 
+    def test_feedback_migration_names_messages_by_their_recorded_ids(self) -> None:
+        # A rollback stores feedback by position again; redeploying must put each
+        # rating back on the message recorded at that position.
+        user_id = self.database.create_user()
+        log = self.record(self.sage_history(3), user_id=user_id)
+        legacy = self.session_logs.create_session_log(title="Snapshot without IDs")
+        self.session_logs.save_transcript(
+            legacy["log_id"],
+            [{"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}],
+        )
+        with self.database.get_cursor() as cursor:
+            cursor.execute(
+                "UPDATE session_logs SET turn_metadata_json = ? WHERE log_id = ?",
+                (json.dumps([{"turn_index": 0, "role": "user"}, {"turn_index": 1, "role": "assistant"}]),
+                 legacy["log_id"]),
+            )
+            cursor.execute("DROP TABLE session_log_feedback")
+            cursor.execute("""
+                CREATE TABLE session_log_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    log_id TEXT NOT NULL,
+                    turn_index INTEGER NOT NULL,
+                    rating TEXT NOT NULL CHECK(rating IN ('up', 'down')),
+                    comment_ciphertext TEXT,
+                    comment_ephemeral_pubkey TEXT,
+                    created_by TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(log_id, turn_index),
+                    FOREIGN KEY (log_id) REFERENCES session_logs(log_id) ON DELETE CASCADE
+                )
+            """)
+            cursor.executemany(
+                "INSERT INTO session_log_feedback (log_id, turn_index, rating) VALUES (?, ?, ?)",
+                [(log["log_id"], 1, "down"), (log["log_id"], 5, "up"), (legacy["log_id"], 1, "up")],
+            )
+
+        self.database._migrate_session_log_feedback_message_ids()
+
+        recorded = {(f["message_id"], f["turn_index"]) for f in self.session_logs.list_feedback(log["log_id"])}
+        self.assertEqual(recorded, {("m-1-a", 1), ("m-3-a", 5)})
+        self.assertEqual(
+            [(f["message_id"], f["turn_index"]) for f in self.session_logs.list_feedback(legacy["log_id"])],
+            [("legacy-1", 1)],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

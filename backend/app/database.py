@@ -1330,10 +1330,11 @@ def _migrate_session_log_feedback_message_ids() -> None:
     """Rebuild session_log_feedback keyed by transcript message ID.
 
     Feedback used to name a position in the transcript, which pointed at a
-    different answer whenever the transcript changed. Existing transcripts carry
-    no message IDs, so session_logs.legacy_message_id(turn_index) names their
-    messages; existing feedback gets the same ID and stays on the position it was
-    saved for until Sage next replaces that record with its full history.
+    different answer whenever the transcript changed. Each existing row gets the
+    ID of the message at its position: the stored message ID when the transcript
+    has one (a record written by this release before a rollback), otherwise
+    session_logs.legacy_message_id(turn_index), which stays on the position it
+    was saved for until Sage next replaces that record with its full history.
     The rebuild is one transaction, so an interrupted run leaves the old table.
     """
     conn = get_connection()
@@ -1350,17 +1351,31 @@ def _migrate_session_log_feedback_message_ids() -> None:
         cursor.execute("ALTER TABLE session_log_feedback RENAME TO session_log_feedback_old")
         cursor.execute(_SESSION_LOG_FEEDBACK_TABLE_SQL)
         cursor.execute("""
-            INSERT INTO session_log_feedback (
-                id, log_id, message_id, rating, comment_ciphertext,
-                comment_ephemeral_pubkey, created_by, created_at, updated_at
-            )
-            SELECT
-                id, log_id, 'legacy-' || turn_index, rating, comment_ciphertext,
-                comment_ephemeral_pubkey, created_by, created_at, updated_at
-            FROM session_log_feedback_old
-            WHERE log_id IN (SELECT log_id FROM session_logs)
+            SELECT f.*, l.turn_metadata_json
+            FROM session_log_feedback_old AS f
+            JOIN session_logs AS l ON l.log_id = f.log_id
+            ORDER BY f.id
         """)
-        migrated = cursor.rowcount
+        rows = cursor.fetchall()
+        for row in rows:
+            cursor.execute(
+                """INSERT INTO session_log_feedback (
+                    id, log_id, message_id, rating, comment_ciphertext,
+                    comment_ephemeral_pubkey, created_by, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    row["id"],
+                    row["log_id"],
+                    _message_id_at(row["turn_metadata_json"], row["turn_index"]),
+                    row["rating"],
+                    row["comment_ciphertext"],
+                    row["comment_ephemeral_pubkey"],
+                    row["created_by"],
+                    row["created_at"],
+                    row["updated_at"],
+                ),
+            )
+        migrated = len(rows)
         cursor.execute("DROP TABLE session_log_feedback_old")
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_session_log_feedback_log ON session_log_feedback(log_id)"
@@ -1375,6 +1390,16 @@ def _migrate_session_log_feedback_message_ids() -> None:
         "Migration: Keyed session_log_feedback by message ID (%d existing rows)",
         migrated,
     )
+
+
+def _message_id_at(turn_metadata_json: str | None, turn_index: int) -> str:
+    """The message ID recorded at a transcript position, or its legacy name."""
+    try:
+        metadata = json.loads(turn_metadata_json or "[]")
+        message_id = metadata[turn_index].get("message_id") if 0 <= turn_index < len(metadata) else None
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        message_id = None
+    return str(message_id) if message_id else f"legacy-{turn_index}"
 
 
 def _dedupe_session_log_source_sage_session_subject(cursor: sqlite3.Cursor) -> None:
