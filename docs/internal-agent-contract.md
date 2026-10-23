@@ -538,7 +538,7 @@ readiness questions should use it first.
 | `POST /internal/agent/admin-config/instance-settings`    | `read_instance_settings`    | Instance branding, public behavior, visual identity, and other Instance Settings                                      |
 | `POST /internal/agent/admin-config/deployment-settings`  | `read_deployment_settings`  | Deployment Settings with secret values masked by default                                                              |
 | `POST /internal/agent/admin-config/deployment-readiness` | `read_deployment_readiness` | Desired/generated/running deployment readiness, stale runtime posture, restart-required status, and validation status |
-| `POST /internal/agent/admin-config/agent-settings`       | `read_agent_settings`       | Agent Settings, prompt sections, runtime parameters, defaults, and effective per-user-type values when requested      |
+| `POST /internal/agent/admin-config/agent-settings`       | `read_agent_settings`       | Fallback only: Sage reads its own Agent Settings store and uses this endpoint only when it runs without that state   |
 | `POST /internal/agent/admin-config/user-types`           | `read_user_types`           | User Types and Onboarding Questions                                                                                   |
 | `POST /internal/agent/admin-config/document-access`      | `read_document_access`      | Global and per-user-type Document Access/defaults                                                                     |
 | `POST /internal/agent/admin-config/onboarding-status`    | `read_onboarding_status`    | Instance initiation and guided onboarding bootstrap status                                                            |
@@ -557,8 +557,9 @@ All seven endpoints use the same request body:
 ```
 
 No Admin Config Tool request accepts a free-form user query, `mode`,
-`requested_scopes`, raw prompt text, or secret value reveal flag. If a future Tool
-needs filters, add them as explicit typed fields on that Tool's request contract.
+`requested_scopes`, raw prompt text, or secret value reveal flag. These read
+endpoints return the complete area to Sage. Narrowing for the model happens in
+Sage's read views below, through explicit typed Tool arguments.
 
 Common response shape:
 
@@ -588,60 +589,126 @@ Field contract:
   `explicit_secret` only for the explicit Admin-only `read_deployment_secret`
   Tool
 
-Tool-specific `data` contracts:
+Control-plane `data` contracts. These are complete, internal shapes that Sage
+reads; the model receives the read views described next, not these payloads.
 
-- `read_instance_settings` returns:
-  - `settings`: object containing the current non-secret Instance Settings values
-    keyed by config name
-  - `explicitly_set_keys`: array of setting keys intentionally set by the
-    operator, when available
-  - `fields`: array of field descriptors with `key`, `label`, `value`,
-    `source`, `editable`, and optional `supported_values`
-- `read_deployment_settings` returns:
-  - `settings`: object keyed by Deployment Setting name. Each value includes
-    `value` for non-secret settings, `configured` for secret settings,
-    `secret`, `requires_restart`, `source`, and optional `generated_value`
-  - `categories`: object grouping setting keys by deployment category, such as
-    Model Provider, Email, Runtime, CORS, rate limiting, and storage
-  - `warnings`: non-fatal read or validation notes specific to deployment
-    settings
-- `read_deployment_readiness` returns:
-  - `status`: `ready`, `warnings`, or `blocked`
-  - `summary`: object with integer `blockers`, `warnings`, `ready`, and `total`
-    counts
-  - `items`: array of readiness items. Each item includes `key`, `label`,
-    `source`, `severity`, `status`, `summary`, `next_action`, and
-    `conversation_blocking`
-- `read_agent_settings` returns:
-  - `global`: object containing global Agent Settings, prompt sections,
-    parameters, defaults, and trace visibility settings such as
-    `admin_trace_visibility` and `user_trace_visibility`
-  - `per_user_type`: array of effective override objects keyed by
-    `user_type_id`, each with `user_type_name`, `overrides`, and
-    `effective_values`
-  - `limits`: object describing any fan-out or prompt-budget reductions applied
-- `read_user_types` returns:
-  - `user_types`: array of user type objects with `id`, `name`, `description`,
-    `icon`, `display_order`, and onboarding field definitions
-  - `onboarding_questions`: array grouped by user type. Each question includes
-    `id`, `user_type_id`, `name`, `label`, `field_type`, `required`,
-    `placeholder`, `options`, and `include_in_chat`
-  - `limits`: object describing any fan-out reductions applied
-- `read_document_access` returns:
-  - `global_default_document_ids`: array of Document Library `job_id` values
-    active by default when no per-user-type override applies
-  - `per_user_type`: array keyed by `user_type_id`, with
-    `available_document_ids`, `default_document_ids`, and override metadata
-  - `documents`: array of document summaries with `job_id`, `filename`,
-    `status`, and access/default flags
-- `read_onboarding_status` returns:
-  - `initialized`: boolean indicating whether the instance has completed admin
-    bootstrap
-  - `admin_exists`: boolean indicating whether the singleton admin exists
-  - `required_steps`: array of setup step objects with `key`, `label`, `status`,
-    `summary`, and `next_action`
-  - `guided_questions`: array of remaining guided onboarding question metadata,
-    if any
+- `instance-settings` returns `settings` (non-secret Instance Settings keyed by
+  name), `explicitly_set_keys`, and `fields` (one descriptor per setting with
+  `key`, `label`, `value`, `source`, `editable`, and optional
+  `supported_values`).
+- `deployment-settings` returns `settings` keyed by Deployment Setting name.
+  Each value includes `value` (secrets masked), `configured`, `secret`,
+  `requires_restart`, `source`, `category`, `description`, and `updated_at`.
+  `categories` groups the keys by category.
+- `deployment-readiness` returns `status` (`ready`, `warnings`, or `blocked`),
+  `summary` (`blockers`, `warnings`, `ready`, `total`), and `items`. Each item
+  includes `key`, `label`, `source`, `severity`, `status`, `summary`,
+  `next_action`, and `conversation_blocking`.
+- `agent-settings` returns `global` (`prompt_sections`, `parameters`, and
+  `defaults`, each keyed by setting) and `per_user_type`. Each entry has
+  `user_type_id`, `user_type_name`, `overrides`, and `effective_values`.
+- `user-types` returns `user_types`, each with `id`, `name`, `description`,
+  `icon`, `display_order`, `created_at`, and `onboarding_fields`. The fields
+  include the global Onboarding Questions every User Type sees. It also returns
+  the flattened `onboarding_questions` list and `limits`.
+- `document-access` returns `global` (`available_document_ids`,
+  `default_document_ids`, and effective `documents`), the same global
+  `documents` list, and `per_user_type`. Each entry has `user_type_id`,
+  `user_type_name`, ID lists, and that User Type's effective `documents`. Every
+  document row includes `job_id`, `filename`, `status`, `is_available`,
+  `is_default_active`, `display_order`, and override metadata.
+- `onboarding-status` returns `instance`, `guided_bootstrap`, and
+  `user_types_setup`. It also embeds the `user-types` lists.
+
+#### Model-facing read views
+
+Sage shapes each read before the model sees it. The views are in
+`runtime/sage/crates/sage-core/src/admin_config_views.rs`. Each complete result,
+response envelope included, fits within 3,000 characters. That limit sits below
+Sage's 4,000-character per-result budget, so four reads can share one Tool batch
+untruncated.
+
+Paged views return:
+
+- `scope`: the filters that were applied. A resolved User Type appears as
+  `{id, name}`.
+- `summary`: counts for the whole scope, taken before any `document`, `access`,
+  `category`, or `keys` filter.
+- one list of rows.
+- `page`: `offset`, `returned`, `total_count`, `has_more`, and `next_offset`.
+  Pages fill to the budget. Passing `next_offset` back as `offset` continues the
+  list.
+
+Unscoped rows shorten long text to 160 characters and name the shortened fields
+in `truncated`. Naming a setting in `keys`, or a User Type in `user_type`,
+returns full text.
+
+`user_type` accepts a User Type name, matched case-insensitively, or an id. A
+JSON number is always an id. Text matches a name first and then a numeric id.
+`keys` accepts up to 20 keys of up to 64 characters each. Unsupported arguments return `invalid_arguments`, as do unknown User Types
+and categories, and a `keys` list where no key exists. The message names the
+valid choices so the model can correct the call. When only some requested keys
+exist, the view answers for those and lists the rest in `scope.unknown_keys`.
+
+- `read_instance_settings(keys?, offset?)` lists `settings`. Without `keys`,
+  each row is `{key, value, source}`, and `summary` counts settings and
+  Operator-set settings. `keys` returns full field descriptors, including
+  `label`, `editable`, and `supported_values`.
+- `read_deployment_settings(category?, keys?, offset?)` lists `settings`. Each
+  row is `{key, category, value, configured}`. `secret` and `requires_restart`
+  appear only when true. `summary` counts settings by category. `category`
+  filters the list. `keys` adds `secret`, `requires_restart`, `description`,
+  `source`, and `updated_at`. Secret values stay masked.
+- `read_deployment_readiness()` returns `status`, `summary`, and `items`. Each
+  item has `key`, `label`, `source`, `severity`, `status`, `summary`,
+  `next_action`, and `conversation_blocking`. The UI translation keys and
+  interpolation values are dropped.
+- `read_agent_settings(user_type?, keys?, offset?)` lists `settings`. Without
+  `user_type`, rows hold the global `{key, category, value_type, value,
+  description}`, plus `overridden_by` (User Type ids) when any User Type
+  overrides the setting. `summary.user_types_with_overrides` gives each
+  overriding User Type's override count. With `user_type`, rows hold that User
+  Type's effective values and their `source` (`global` or
+  `user_type_override`); overrides also carry `global_value`. `keys` returns
+  full values with `updated_at`. Overrides for keys that Sage no longer reads
+  are ignored.
+- `read_user_types(user_type?, offset?)` lists `user_types` without
+  `user_type`. Each one shows its `type_specific_questions` count, and `summary`
+  counts questions and names the global ones. With `user_type`, it returns the
+  full `user_type` record and lists `questions`: every Onboarding Question that
+  User Type sees, each with `scope` (`global` or `user_type`). Options are
+  capped at 25, with `options_total`. The User Type's description is shown up
+  to 1,000 characters.
+- `read_document_access(user_type?, document?, access?, offset?)` lists
+  `documents`. Without `user_type`, rows hold global `{job_id, filename,
+  status, is_available, is_default_active}` plus any `user_type_overrides`, and
+  `summary` counts Documents and lists the User Types with overrides. An entry
+  also reports `user_type_only_documents` when overrides cover Documents that
+  have no global row. With `user_type`, rows hold that User Type's effective
+  values and their `source`. `document` matches a `job_id` or filename text, and
+  its rows include `updated_at`. `access` is `available`, `unavailable`, or
+  `default_active`.
+- `read_onboarding_status()` returns `instance`, `guided_bootstrap`,
+  `user_types_setup`, and `onboarding_questions_setup.count`, without the
+  embedded User Type lists.
+
+A Document counts as available only when its access flag is on and ingestion
+has completed (`completed` or `completed_with_errors`). This matches the
+control plane's own available and default lists. `default_active` also requires
+the default flag. The `summary` counts and the `access` filter use these rules.
+Rows keep the raw `is_available` and `is_default_active` flags next to
+`status`, and `summary.not_ready` counts Documents that are not completed.
+
+`read_agent_settings` reads Sage's own Agent Settings store and the User Type
+list from `user-types`. It uses the `agent-settings` endpoint only when Sage runs
+without that state, as in isolated tests.
+
+`read_admin_setup_summary` still aggregates the complete control-plane data.
+Only counts and a bounded list of `missing` items reach the model. Each item
+carries its own `next_action`. Onboarding Questions are counted once, even
+though global questions repeat inside every User Type. Document Access reports
+`user_types_with_overrides` and `user_type_overrides` from real override
+rows.
 
 Deployment Setting secret values stay masked (`********` or equivalent). Secret
 metadata such as configured/unconfigured status may be returned. Raw secret
