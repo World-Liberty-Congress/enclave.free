@@ -657,13 +657,6 @@
       "applyIntentUsePanel": "Aşağıdaki bekleyen değişiklikler panelini kullanın ve bu yapılandırma güncellemelerini onaylamak için Uygula'ya tıklayın.",
       "applyIntentNoPending": "Uygulanacak bekleyen bir yapılandırma değişikliği yok. Önce asistanın bir değişiklik seti önermesini isteyin.",
       "startNewConversation": "Yeni asistan görüşmesi başlat",
-      "reducedContextNoticeLabel": "Azaltılmış bağlam bildirimi",
-      "sessionMemoryNoticeLabel": "Oturum Belleği sıkıştırma bildirimi",
-      "sessionMemoryNotice": "Bu görüşmeyi sürdürebilmek için eski bağlam özetlendi.",
-      "reducedContextNotice": "Model Sağlayıcı bütçesine ({{sections}}) uyması için bazı bağlamlar azaltıldı. Yeni bir asistan görüşmesi başlatana kadar yanıtlar daha eksik olabilir.",
-      "reducedContextSections": {
-        "recentConversation": "son görüşme geçmişi"
-      },
       "approvalCardTitle": "Yapılandırma değişikliklerini onayla",
       "applying": "Uygulanıyor",
       "applied": "Uygulandı",

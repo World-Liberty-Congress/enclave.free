@@ -26,19 +26,6 @@ vi.mock('../../utils/llmChat', () => ({
   sendLlmChatWithUnifiedTools: vi.fn(),
 }));
 
-vi.mock('../../utils/promptBudget', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../../utils/promptBudget')>();
-  return {
-    ...actual,
-    planAdminPromptBudget: vi.fn(actual.planAdminPromptBudget),
-  };
-});
-
-import {
-  DEFAULT_ADMIN_PROMPT_BUDGET_LIMITS,
-  planAdminPromptBudget,
-} from '../../utils/promptBudget';
 import {
   registerAdminResilienceInstrumentationListener,
   resetAdminResilienceInstrumentationListeners,
@@ -47,7 +34,6 @@ import {
 
 describe('AdminConfigAssistant', () => {
   const mockAdminFetch = vi.mocked(adminFetch);
-  const mockPlanAdminPromptBudget = vi.mocked(planAdminPromptBudget);
 
   async function enableConfigTool(user: ReturnType<typeof userEvent.setup>) {
     const configButton = screen.getByRole('button', { name: 'Config' });
@@ -337,7 +323,7 @@ describe('AdminConfigAssistant', () => {
     );
   });
 
-  it('passes previous admin assistant turns into follow-up chat requests', async () => {
+  it('continues follow-up turns in the Sage session without resending earlier turns', async () => {
     const user = userEvent.setup();
     vi.mocked(sendLlmChatStreamWithUnifiedTools)
       .mockImplementationOnce(async ({ onEvent }) => {
@@ -391,21 +377,17 @@ describe('AdminConfigAssistant', () => {
     await waitFor(() => {
       expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalledTimes(2);
     });
-    expect(
-      vi.mocked(sendLlmChatStreamWithUnifiedTools).mock.calls[1][0]
-    ).toEqual(
+    // Sage owns the Conversation history; the browser sends only the new message.
+    const followUpRequest = vi.mocked(sendLlmChatStreamWithUnifiedTools).mock
+      .calls[1][0];
+    expect(followUpRequest).toEqual(
       expect.objectContaining({
         content: 'your suggestions above',
-        conversationHistory: [
-          { role: 'user', content: 'Change more of the copy.' },
-          {
-            role: 'assistant',
-            content: 'I recommend updating Instance Name and Assistant Name.',
-          },
-        ],
         sessionId: 'session-1',
       })
     );
+    expect(followUpRequest).not.toHaveProperty('conversationHistory');
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
   it('renders live Trace Deltas from the admin assistant stream', async () => {
@@ -675,100 +657,14 @@ describe('AdminConfigAssistant', () => {
     );
   });
 
-  it('compacts Session Memory for long admin conversations before provider calls', async () => {
-    const user = userEvent.setup();
-    const instrumentationEvents: AdminResilienceInstrumentationEvent[] = [];
-    registerAdminResilienceInstrumentationListener((event) => {
-      instrumentationEvents.push(event);
-    });
-
-    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockImplementation(
-      async ({ onEvent }) => {
-        onEvent('assistant_message_started', {
-          message_id: `msg-${Math.random()}`,
-          session_id: 'session-1',
-        });
-        onEvent('answer_delta', {
-          message_id: 'msg-assistant',
-          delta: 'Acknowledged.',
-        });
-        onEvent('done', {
-          message_id: 'msg-assistant',
-          session_id: 'session-1',
-        });
-      }
-    );
-
-    render(
-      <ThemeProvider>
-        <AdminConfigAssistant />
-      </ThemeProvider>
-    );
-    await enableConfigTool(user);
-
-    for (let index = 0; index < 17; index += 1) {
-      await user.type(
-        screen.getByRole('textbox', {
-          name: 'Ask about admin configuration...',
-        }),
-        `Theme question ${index} about palette and typography.`
-      );
-      await user.click(screen.getByRole('button', { name: 'Send message' }));
-      await waitFor(() => {
-        expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalledTimes(
-          index + 1
-        );
-      });
-    }
-
-    const streamCalls = vi.mocked(sendLlmChatStreamWithUnifiedTools).mock.calls;
-    const lastCall = streamCalls[streamCalls.length - 1]?.[0];
-    expect(lastCall?.conversationHistory?.[0]?.content).toContain(
-      'Theme question 12'
-    );
-    const lastHistory = lastCall?.conversationHistory;
-    expect(lastHistory?.[lastHistory.length - 1]?.content).toBe(
-      'Acknowledged.'
-    );
-
-    expect(
-      screen.queryByRole('note', {
-        name: 'Session Memory compaction notice',
-      })
-    ).not.toBeInTheDocument();
-    const contextPlanEvents = instrumentationEvents.filter(
-      (event) => event.kind === 'admin_context_plan'
-    );
-    expect(contextPlanEvents[contextPlanEvents.length - 1]).toMatchObject({
-      kind: 'admin_context_plan',
-      surface: 'admin_config_assistant',
-      sessionMemory: {
-        compacted: true,
-        compactedMessageCount: expect.any(Number),
-      },
-    });
-  }, 30_000);
-
   it('skips client-side document context fetching (Sage-only path)', async () => {
     const user = userEvent.setup();
-    const instrumentationEvents: AdminResilienceInstrumentationEvent[] = [];
-    registerAdminResilienceInstrumentationListener((event) => {
-      instrumentationEvents.push(event);
-    });
 
     mockAdminFetch.mockImplementation((endpoint: string) => {
       if (endpoint === '/admin/deployment/health') {
         return Promise.resolve(Response.json({ ok: true }));
       }
       return Promise.resolve(Response.json({}));
-    });
-    mockPlanAdminPromptBudget.mockReturnValueOnce({
-      conversationHistory: [],
-      includedSections: [],
-      reducedSections: [],
-      omittedSections: [],
-      estimatedChars: 50,
-      warningNote: null,
     });
 
     vi.mocked(sendLlmChatStreamWithUnifiedTools).mockImplementationOnce(
@@ -798,116 +694,7 @@ describe('AdminConfigAssistant', () => {
       expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalled();
     });
 
-    expect(mockPlanAdminPromptBudget).toHaveBeenCalledWith(
-      expect.objectContaining({
-        conversationHistory: expect.any(Array),
-      })
-    );
-  });
-
-  it('bounds long conversation history for provider calls using real prompt planning', async () => {
-    const user = userEvent.setup();
-    const longTurnBody = `TURN-PAD-${'H'.repeat(3_000)}`;
-
-    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockImplementation(
-      async ({ onEvent }) => {
-        onEvent('assistant_message_started', {
-          message_id: `msg-${Math.random()}`,
-          session_id: 'session-1',
-        });
-        onEvent('answer_delta', {
-          message_id: 'msg-assistant',
-          delta: longTurnBody,
-        });
-        onEvent('done', {
-          message_id: 'msg-assistant',
-          session_id: 'session-1',
-        });
-      }
-    );
-
-    render(
-      <ThemeProvider>
-        <AdminConfigAssistant />
-      </ThemeProvider>
-    );
-    await enableConfigTool(user);
-
-    for (let index = 0; index < 5; index += 1) {
-      await user.type(
-        screen.getByRole('textbox', {
-          name: 'Ask about admin configuration...',
-        }),
-        `Turn ${index} question about theme.`
-      );
-      await user.click(screen.getByRole('button', { name: 'Send message' }));
-      await waitFor(() => {
-        expect(sendLlmChatStreamWithUnifiedTools).toHaveBeenCalledTimes(
-          index + 1
-        );
-      });
-    }
-
-    const streamCalls = vi.mocked(sendLlmChatStreamWithUnifiedTools).mock.calls;
-    const lastCall = streamCalls[streamCalls.length - 1]?.[0];
-    expect(lastCall?.conversationHistory).toHaveLength(8);
-    expect(lastCall?.conversationHistory?.[0]?.content).toContain('Turn 0');
-    expect(
-      lastCall?.conversationHistory?.every(
-        (turn) =>
-          turn.content.length <=
-          DEFAULT_ADMIN_PROMPT_BUDGET_LIMITS.conversationCharsPerTurn
-      )
-    ).toBe(true);
-    expect(lastCall?.conversationHistory?.join('')).not.toContain(
-      'H'.repeat(2_500)
-    );
-
-    const notice = await screen.findByRole('note', {
-      name: 'Reduced context notice',
-    });
-    expect(notice).toHaveTextContent(/recent conversation history/);
-  });
-
-  it('shows a reduced-context notice when prompt planning trims context', async () => {
-    const user = userEvent.setup();
-    mockPlanAdminPromptBudget.mockReturnValueOnce({
-      conversationHistory: [],
-      includedSections: ['recent-conversation'],
-      reducedSections: ['recent-conversation'],
-      omittedSections: [],
-      estimatedChars: 500,
-      warningNote:
-        'PROMPT BUDGET NOTE\n- recent-conversation was reduced to fit the provider budget',
-    });
-    vi.mocked(sendLlmChatStreamWithUnifiedTools).mockImplementationOnce(
-      async ({ onEvent }) => {
-        onEvent('assistant_message_started', {
-          message_id: 'msg-1',
-          session_id: 'session-1',
-        });
-        onEvent('done', { message_id: 'msg-1', session_id: 'session-1' });
-      }
-    );
-
-    render(
-      <ThemeProvider>
-        <AdminConfigAssistant />
-      </ThemeProvider>
-    );
-    await enableConfigTool(user);
-
-    await user.type(
-      screen.getByRole('textbox', { name: 'Ask about admin configuration...' }),
-      'Review deployment config.'
-    );
-    await user.click(screen.getByRole('button', { name: 'Send message' }));
-
-    const notice = await screen.findByRole('note', {
-      name: 'Reduced context notice',
-    });
-    expect(notice).toHaveTextContent(/recent conversation history/);
-    expect(notice).not.toHaveTextContent('PROMPT BUDGET NOTE');
+    expect(mockAdminFetch).not.toHaveBeenCalled();
   });
 
   it('does not prefetch scoped deployment config or reveal secrets on send', async () => {

@@ -120,7 +120,7 @@ Activity shows the Tool name, outcome, and changed names. Trace arguments and re
 
 ## Resilience
 
-Session Memory compaction, prompt budgeting, Tool-output limits, provider-error classification, and Start New Conversation recovery continue to work on both Admin surfaces.
+Tool-output limits, provider-error classification, and Start New Conversation recovery continue to work on both Admin surfaces. Sage builds model context from its stored messages for the Conversation; the browser sends only the new message and does not summarize, trim, or resend earlier turns (see ADR-0035).
 
 A Tool argument correction for the same confirmed intent may be retried without asking again. If the intended scope changes materially, Sage should ask for fresh confirmation. Both decisions remain model judgment, not runtime-enforced state.
 

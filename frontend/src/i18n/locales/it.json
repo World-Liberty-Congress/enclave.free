@@ -664,13 +664,6 @@
       "applyIntentUsePanel": "Usa il pannello delle modifiche in sospeso qui sotto e clicca su Applica per confermare questi aggiornamenti di configurazione.",
       "applyIntentNoPending": "Non ci sono modifiche di configurazione in sospeso da applicare. Chiedi prima all'assistente di proporre un set di modifiche.",
       "startNewConversation": "Inizia una nuova conversazione con l'assistente",
-      "reducedContextNoticeLabel": "Avviso contesto ridotto",
-      "sessionMemoryNoticeLabel": "Avviso compattazione Session Memory",
-      "sessionMemoryNotice": "Il contesto precedente è stato riassunto per permettere il proseguimento di questa conversazione.",
-      "reducedContextNotice": "Parte del contesto è stata ridotta per rispettare il budget del Model Provider ({{sections}}). Le risposte potrebbero essere meno complete finché non inizierai una nuova conversazione con l'assistente.",
-      "reducedContextSections": {
-        "recentConversation": "cronologia conversazione recente"
-      },
       "approvalCardTitle": "Approva le modifiche alla configurazione",
       "applying": "Applicazione in corso",
       "applied": "Applicato",

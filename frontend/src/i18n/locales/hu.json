@@ -657,13 +657,6 @@
       "applyIntentUsePanel": "Használja az alatta lévő függőben lévő módosítások panelját, és kattintson a Módosításokra a konfigurációs frissítések megerősítéséhez.",
       "applyIntentNoPending": "Nincsenek függőben lévő konfigurációs módosítások alkalmazáshoz. Kérje az asszisztenset, hogy előbb javasoljon egy módosítási készletet.",
       "startNewConversation": "Új asszisztens beszélgetés indítása",
-      "reducedContextNoticeLabel": "Csökkentett kontextus figyelmeztetés",
-      "sessionMemoryNoticeLabel": "Session Memory tömörítés figyelmeztetés",
-      "sessionMemoryNotice": "A korábbi kontextust összefoglaltuk, hogy ez a beszélgetés folytatódhasson.",
-      "reducedContextNotice": "Néhány kontextust csökkentettünk, hogy megfeleljen a Model Provider keretnek ({{sections}}). A válaszok addig kevésbé teljes lehetnek, amíg új asszisztens beszélgetést nem indít.",
-      "reducedContextSections": {
-        "recentConversation": "a legutóbbi beszélgetés előzményei"
-      },
       "approvalCardTitle": "Konfigurációs változtatások jóváhagyása",
       "applying": "Alkalmazás alatt",
       "applied": "Alkalmazva",

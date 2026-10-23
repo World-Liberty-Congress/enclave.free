@@ -406,13 +406,6 @@
       "applyIntentUsePanel": "Gunakan panel perubahan tertunda di bawah dan klik Terapkan untuk mengonfirmasi pembaruan konfigurasi ini.",
       "applyIntentNoPending": "Tidak ada perubahan konfigurasi tertunda untuk diterapkan. Mintalah asisten untuk mengusulkan set perubahan terlebih dahulu.",
       "startNewConversation": "Mulai percakapan asisten baru",
-      "reducedContextNoticeLabel": "Pemberitahuan konteks berkurang",
-      "sessionMemoryNoticeLabel": "Pemberitahuan pemadatan Memori Sesi",
-      "sessionMemoryNotice": "Konteks lama telah diringkas agar percakapan ini dapat terus berlanjut.",
-      "reducedContextNotice": "Beberapa konteks dikurangi agar sesuai dengan anggaran Model Provider ({{sections}}). Jawaban mungkin kurang lengkap sampai Anda memulai percakapan asisten baru.",
-      "reducedContextSections": {
-        "recentConversation": "riwayat percakapan terbaru"
-      },
       "approvalCardTitle": "Setujui perubahan konfigurasi",
       "applying": "Menerapkan",
       "applied": "Berhasil diterapkan",

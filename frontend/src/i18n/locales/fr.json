@@ -668,13 +668,6 @@
       "applyIntentUsePanel": "Utilisez le panneau des modifications en attente ci-dessous et cliquez sur Appliquer pour confirmer ces mises à jour de configuration.",
       "applyIntentNoPending": "Il n'y a aucune modification de configuration en attente à appliquer. Demandez d'abord à l'assistant de proposer un ensemble de modifications.",
       "startNewConversation": "Démarrer une nouvelle conversation avec l'assistant",
-      "reducedContextNoticeLabel": "Avis de contexte réduit",
-      "sessionMemoryNoticeLabel": "Avis de compactage de la mémoire de session",
-      "sessionMemoryNotice": "Le contexte plus ancien a été résumé pour poursuivre cette conversation.",
-      "reducedContextNotice": "Une partie du contexte a été réduite pour respecter le budget du Model Provider ({{sections}}). Les réponses peuvent être moins complètes jusqu'à ce que vous démarriez une nouvelle conversation avec l'assistant.",
-      "reducedContextSections": {
-        "recentConversation": "historique récent de la conversation"
-      },
       "approvalCardTitle": "Approuver les modifications de configuration",
       "applying": "Application en cours",
       "applied": "Appliqué",

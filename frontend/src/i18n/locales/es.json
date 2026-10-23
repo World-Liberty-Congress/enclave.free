@@ -674,13 +674,6 @@
       "applyErrorLabel": "Error al aplicar la configuración",
       "applyIntentUsePanel": "Usa la tarjeta de aprobación de abajo y haz clic en Aprobar para confirmar estas actualizaciones de configuración.",
       "applyIntentNoPending": "No hay cambios de configuración pendientes por aplicar. Pide primero al asistente que proponga un conjunto de cambios.",
-      "sessionMemoryNotice": "El contexto anterior se resumió para mantener esta conversación.",
-      "sessionMemoryNoticeLabel": "Aviso de compactación de la memoria de sesión",
-      "reducedContextNotice": "Se redujo parte del contexto para ajustarse al presupuesto del proveedor del modelo ({{sections}}). Las respuestas pueden ser menos completas hasta que inicies una nueva conversación con el asistente.",
-      "reducedContextNoticeLabel": "Aviso de contexto reducido",
-      "reducedContextSections": {
-        "recentConversation": "historial de conversación reciente"
-      },
       "onboardingWelcome": "Bienvenido — vamos a configurar tu espacio. Responde tantas de estas como quieras en un solo mensaje (numéralas y omite lo que no tengas claro):\n\n1. **Nombre** — ¿cómo llamamos a este espacio? (aparece en el encabezado y en la pestaña del navegador)\n2. **Descripción** — una oración sobre para qué sirve (una nota privada, no visible para los usuarios)\n3. **Nombre del asistente** — ¿cómo se debería llamar el asistente de IA?\n4. **Color de acento** — el color de resalte para botones y enlaces (un nombre como azul/verde azulado, o un hex como #3B82F6)\n5. **Tema** — ¿claro, oscuro o sistema (según el dispositivo)?\n6. **Idioma predeterminado** — p. ej. inglés o español (opcional)\n7. **Eslogan** — una línea breve para el encabezado (opcional)\n8. **Nuevos usuarios** — ¿dejarlos entrar de inmediato o aprobar a cada persona?\n9. **Tipos de usuario** — ¿qué clases de personas no administradoras usarán esto? (p. ej. Docente y Estudiante) — crearé cada uno por ti\n\nEjemplo: \"9. Docente y Estudiante\". Guardaré todo en un solo paso — y puedes cambiar a la configuración manual cuando quieras.",
       "collapseSidebar": "Contraer la barra lateral del asistente",
       "expandSidebar": "Abrir la barra lateral del asistente de administración",

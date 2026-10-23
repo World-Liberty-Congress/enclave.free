@@ -657,13 +657,6 @@
       "applyIntentUsePanel": "Brug panelet med afventende ændringer nedenfor og klik på Anvend for at bekræfte disse konfigurationsopdateringer.",
       "applyIntentNoPending": "Der er ingen afventende konfigurationsændringer, der skal anvendes. Bed assistenten om først at foreslå et ændringsæt.",
       "startNewConversation": "Start ny assistentsamtale",
-      "reducedContextNoticeLabel": "Meddelelse om reduceret kontekst",
-      "sessionMemoryNoticeLabel": "Meddelelse om komprimering af sessionshukommelse",
-      "sessionMemoryNotice": "Ældre kontekst blev opsummeret for at holde denne samtale kørende.",
-      "reducedContextNotice": "Noget kontekst blev reduceret for at overholde budgettet for Model Provider ({{sections}}). Svarene kan være mindre komplette, indtil du starter en ny assistentsamtale.",
-      "reducedContextSections": {
-        "recentConversation": "seneste samtalshistorik"
-      },
       "approvalCardTitle": "Godkend konfigurationsændringer",
       "applying": "Anvender",
       "applied": "Anvendt",

@@ -657,13 +657,6 @@
       "applyIntentUsePanel": "Verwenden Sie das untenstehende Panel für ausstehende Änderungen und klicken Sie auf Anwenden, um diese Konfigurationsaktualisierungen zu bestätigen.",
       "applyIntentNoPending": "Es gibt keine ausstehenden Konfigurationsänderungen zum Anwenden. Bitten Sie den Assistenten zuerst darum, einen Änderungssatz vorzuschlagen.",
       "startNewConversation": "Neue Assistenten-Konversation starten",
-      "reducedContextNoticeLabel": "Hinweis zu reduziertem Kontext",
-      "sessionMemoryNoticeLabel": "Hinweis zur Komprimierung des Sitzungsspeichers",
-      "sessionMemoryNotice": "Älterer Kontext wurde zusammengefasst, um diese Konversation fortzuführen.",
-      "reducedContextNotice": "Ein Teil des Kontexts wurde reduziert, um das Budget des Model-Providers einzuhalten ({{sections}}). Antworten sind möglicherweise unvollständig, bis Sie eine neue Assistenten-Konversation starten.",
-      "reducedContextSections": {
-        "recentConversation": "kürzliche Konversationshistorie"
-      },
       "approvalCardTitle": "Konfigurationsänderungen genehmigen",
       "applying": "Wird angewendet",
       "applied": "Angewendet",

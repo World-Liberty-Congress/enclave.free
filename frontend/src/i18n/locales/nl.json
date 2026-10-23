@@ -497,13 +497,6 @@
       "applyIntentUsePanel": "Gebruik het paneel met openstaande wijzigingen hieronder en klik op Toepassen om deze configuratie-updates te bevestigen.",
       "applyIntentNoPending": "Er zijn geen openstaande configuratiewijzigingen om toe te passen. Vraag de assistent eerst om een set wijzigingen voor te stellen.",
       "startNewConversation": "Nieuw gesprek met assistent starten",
-      "reducedContextNoticeLabel": "Melding verminderde context",
-      "sessionMemoryNoticeLabel": "Melding Session Memory-compressie",
-      "sessionMemoryNotice": "Oudere context is samengevat om dit gesprek voort te zetten.",
-      "reducedContextNotice": "Sommige context is verminderd om binnen het budget van de Model Provider te blijven ({{sections}}). Antwoorden kunnen minder volledig zijn totdat je een nieuw gesprek met de assistent start.",
-      "reducedContextSections": {
-        "recentConversation": "recente gesprekshistorie"
-      },
       "approvalCardTitle": "Configuratie-wijzigingen goedkeuren",
       "applying": "Toepassen",
       "applied": "Toegepast",

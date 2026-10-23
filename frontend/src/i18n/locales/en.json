@@ -304,13 +304,6 @@
       "applyIntentNoPending": "There are no pending configuration changes to apply. Ask the assistant to propose a change set first.",
       "inputPlaceholder": "Ask about admin configuration...",
       "startNewConversation": "Start new assistant conversation",
-      "reducedContextNoticeLabel": "Reduced context notice",
-      "sessionMemoryNoticeLabel": "Session Memory compaction notice",
-      "sessionMemoryNotice": "Older context was summarized to keep this conversation going.",
-      "reducedContextNotice": "Some context was reduced to fit the Model Provider budget ({{sections}}). Answers may be less complete until you start a new assistant conversation.",
-      "reducedContextSections": {
-        "recentConversation": "recent conversation history"
-      },
       "applySummary": {
         "appliedCounts": "Applied {{ok}}/{{total}} change(s).",
         "appliedCountsWithFailures": "Applied {{ok}}/{{total}} change(s), {{failed}} failed.",

@@ -414,13 +414,6 @@
       "applyIntentUsePanel": "使用下方的待处理更改面板并点击「应用」以确认这些配置更新。",
       "applyIntentNoPending": "没有可应用的待处理配置更改。请先让助手提出一组更改。",
       "startNewConversation": "开始新的助手对话",
-      "reducedContextNoticeLabel": "上下文缩减通知",
-      "sessionMemoryNoticeLabel": "会话记忆压缩通知",
-      "sessionMemoryNotice": "为使本次对话得以继续，较早的上下文已被摘要。",
-      "reducedContextNotice": "为适配模型提供方的预算（{{sections}}），部分上下文已被缩减。在你开始新的助手对话前，回答可能不够完整。",
-      "reducedContextSections": {
-        "recentConversation": "近期对话历史"
-      },
       "approvalCardTitle": "批准配置更改",
       "applying": "正在应用",
       "applied": "已应用",

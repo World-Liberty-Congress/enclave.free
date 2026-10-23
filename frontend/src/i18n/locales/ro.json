@@ -674,13 +674,6 @@
       "applyIntentUsePanel": "Folosiți panoul cu modificări în așteptare de mai jos și apăsați pe Aplică pentru a confirma aceste actualizări de configurare.",
       "applyIntentNoPending": "Nu există modificări de configurare în așteptare pentru a fi aplicate. Cere asistentului să propună mai întâi un set de modificări.",
       "startNewConversation": "Începe o nouă conversație cu asistentul",
-      "reducedContextNoticeLabel": "Notificare context redus",
-      "sessionMemoryNoticeLabel": "Notificare compactare Memorie Sesiune",
-      "sessionMemoryNotice": "Contextul mai vechi a fost rezumat pentru a menține această conversație activă.",
-      "reducedContextNotice": "Unele elemente de context au fost reduse pentru a se încadra în bugetul furnizorului de model ({{sections}}). Răspunsurile pot fi mai puțin complete până când nu începeți o nouă conversație cu asistentul.",
-      "reducedContextSections": {
-        "recentConversation": "istoric conversație recentă"
-      },
       "approvalCardTitle": "Aprobarea modificărilor de configurare",
       "applying": "Aplicare",
       "applied": "Aplicat",

@@ -528,100 +528,66 @@ describe('sendLlmChatWithUnifiedTools', () => {
     );
   });
 
-  it('sends recent conversation history with streamed admin chat turns', async () => {
-    const encoder = new TextEncoder();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('event: done\ndata: {"message_id":"msg_1"}\n\n')
-              );
-              controller.close();
-            },
-          }),
-          { headers: { 'Content-Type': 'text/event-stream' } }
-        )
-      )
-    );
+  it.each([
+    ['a first Admin turn', null],
+    ['a continuing Admin turn', 'session-123'],
+  ])(
+    'sends only the new message on %s because Sage owns the Conversation history',
+    async (_label, sessionId) => {
+      const encoder = new TextEncoder();
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValueOnce(
+            new Response(
+              new ReadableStream({
+                start(controller) {
+                  controller.enqueue(
+                    encoder.encode(
+                      'event: done\ndata: {"message_id":"msg_1"}\n\n'
+                    )
+                  );
+                  controller.close();
+                },
+              }),
+              { headers: { 'Content-Type': 'text/event-stream' } }
+            )
+          )
+          .mockResolvedValueOnce(Response.json({ message: 'ok' }))
+      );
 
-    await sendLlmChatStreamWithUnifiedTools({
-      content: 'your suggestions above',
-      tools: ['admin-config'],
-      conversationHistory: [
-        { role: 'user', content: 'Change more of the copy.' },
-        {
-          role: 'assistant',
-          content:
-            'I recommend updating Instance Name, Assistant Name, and Reachout Title.',
-        },
-      ],
-      onEvent: vi.fn(),
-    });
+      await sendLlmChatStreamWithUnifiedTools({
+        content: 'your suggestions above',
+        tools: ['admin-config'],
+        conversationSurface: 'admin-onboarding',
+        sessionId,
+        onEvent: vi.fn(),
+      });
+      await sendLlmChatWithUnifiedTools({
+        content: 'your suggestions above',
+        tools: ['admin-config'],
+        conversationSurface: 'admin-onboarding',
+        sessionId,
+      });
 
-    const [, options] = vi.mocked(fetch).mock.calls[0];
-    expect(JSON.parse(String(options?.body))).toEqual({
-      message: 'your suggestions above',
-      tools: ['admin-config'],
-      conversation_history: [
-        { role: 'user', content: 'Change more of the copy.' },
-        {
-          role: 'assistant',
-          content:
-            'I recommend updating Instance Name, Assistant Name, and Reachout Title.',
-        },
-      ],
-    });
-  });
-
-  it('omits duplicated client history once Sage owns the admin-config session', async () => {
-    const encoder = new TextEncoder();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('event: done\ndata: {"message_id":"msg_1"}\n\n')
-              );
-              controller.close();
-            },
-          }),
-          { headers: { 'Content-Type': 'text/event-stream' } }
-        )
-      )
-    );
-
-    await sendLlmChatStreamWithUnifiedTools({
-      content: 'continue',
-      tools: ['admin-config'],
-      sessionId: 'session-123',
-      conversationHistory: [
-        { role: 'user', content: 'Change more of the copy.' },
-        {
-          role: 'assistant',
-          content:
-            'Here is the change.\n```json\n{"version":1,"requests":[]}\n```',
-        },
-        {
-          role: 'assistant',
-          content:
-            'Applied 1/1 change(s). Config validation: valid. Restart required: no.',
-        },
-      ],
-      onEvent: vi.fn(),
-    });
-
-    const [, options] = vi.mocked(fetch).mock.calls[0];
-    expect(JSON.parse(String(options?.body))).toEqual({
-      message: 'continue',
-      tools: ['admin-config'],
-      session_id: 'session-123',
-    });
-  });
+      const calls = vi.mocked(fetch).mock.calls;
+      expect(calls.map(([url]) => String(url))).toEqual([
+        '/api/llm/chat/stream',
+        '/api/llm/chat',
+      ]);
+      for (const [, options] of calls) {
+        const body = JSON.parse(String(options?.body));
+        expect(body).toEqual({
+          message: 'your suggestions above',
+          tools: ['admin-config'],
+          conversation_surface: 'admin-onboarding',
+          ...(sessionId ? { session_id: sessionId } : {}),
+        });
+        expect(body).not.toHaveProperty('conversation_history');
+      }
+    }
+  );
 
   it('streams database questions as Sage-owned tool turns without client-executing /admin/tools/execute', async () => {
     vi.mocked(adminFetch).mockResolvedValue(

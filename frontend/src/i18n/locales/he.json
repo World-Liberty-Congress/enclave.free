@@ -662,13 +662,6 @@
       "applyIntentUsePanel": "השתמש בפאנל השינויים הממתינים למטה ולחץ על Apply כדי לאשר עדכוני הגדרות אלו.",
       "applyIntentNoPending": "אין שינויי הגדרות ממתינים ליישום. בקש מהעוזר להציע סט שינויים תחילה.",
       "startNewConversation": "התחל שיחה חדשה עם העוזר",
-      "reducedContextNoticeLabel": "הודעה על הקטנת הקשר (context)",
-      "sessionMemoryNoticeLabel": "הודעה על דחיסת זיכרון הפעלה (Session Memory)",
-      "sessionMemoryNotice": "הקשר ישן יותר תומצת כדי להמשיך בשיחה זו.",
-      "reducedContextNotice": "חלק מההקשר הופחת כדי להתאים למכסת ספק המודל ({{sections}}). התשובות עשויות להיות פחות מלאות עד שתתחיל שיחה חדשה עם העושר.",
-      "reducedContextSections": {
-        "recentConversation": "היסטוריית שיחה אחרונה"
-      },
       "approvalCardTitle": "אישור שינויי קונפיגורציה",
       "applying": "מחיל",
       "applied": "הוחל",

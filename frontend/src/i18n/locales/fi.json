@@ -657,13 +657,6 @@
       "applyIntentUsePanel": "Käytä alla olevaa muutospaneelia ja napsauta Soveta vahvistaaksesi nämä konfiguraatiopäivitykset.",
       "applyIntentNoPending": "Sovitettavia konfiguraatiomuutoksia ei ole. Pyydä assistenttia ehdottamaan muutossarjaa ensin.",
       "startNewConversation": "Aloita uusi keskustelu assistentin kanssa",
-      "reducedContextNoticeLabel": "Ilmoitus supistetusta kontekstista",
-      "sessionMemoryNoticeLabel": "Ilmoitus istunnon muistin tiivistämisestä",
-      "sessionMemoryNotice": "Vanhempi konteksti tiivistettiin, jotta tämä keskustelu voi jatkua.",
-      "reducedContextNotice": "Osa kontekstista supistettiin, jotta se mahtuu mallintarjoajan budjettiin ({{sections}}). Vastaukset voivat olla vähemmän kattavia, kunnes aloitat uuden keskustelun assistentin kanssa.",
-      "reducedContextSections": {
-        "recentConversation": "viimeisimmät keskusteluhistoriat"
-      },
       "approvalCardTitle": "Hyväksy konfiguraatiomuutokset",
       "applying": "Levytetään",
       "applied": "Levytetty",
