@@ -715,6 +715,9 @@ def init_schema():
     _migrate_add_session_log_sage_through_sequence()  # Order Sage updates to a User Conversation record
     _migrate_session_log_feedback_message_ids()  # Key review feedback by message ID, not position
 
+    from test_user_provenance import initialize as initialize_test_user_provenance
+    initialize_test_user_provenance()
+
     # Initialize ingest job tables
     from ingest_db import init_ingest_schema
     init_ingest_schema()
@@ -6018,3 +6021,57 @@ def seed_country_regions() -> None:
                 row,
             )
     logger.info("Country/region map seeded")
+
+
+def _audit_time_microseconds(value: object) -> int | None:
+    """Normalize retained ISO timestamps exactly; legacy naive values are UTC."""
+    if not isinstance(value, str) or len(value) > 64:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        delta = parsed.astimezone(timezone.utc) - datetime(1970, 1, 1, tzinfo=timezone.utc)
+        return ((delta.days * 86400 + delta.seconds) * 1_000_000) + delta.microseconds
+    except (ValueError, OverflowError):
+        return None
+
+
+def query_audit_insights(*, limit: int, after: tuple[int, int] | None = None,
+                         snapshot: int | None = None, start_time: str | None = None,
+                         end_time: str | None = None, actor_id: str | None = None,
+                         action_source: str | None = None,
+                         config_key: str | None = None) -> tuple[list[dict], int, int]:
+    """Read a stable retained-audit page; IDs disambiguate equal timestamps."""
+    with get_cursor() as cursor:
+        # SQLite's julianday() rounds submillisecond timestamps. The same exact
+        # integer representation must drive interval filtering and pagination.
+        cursor.connection.create_function("enclave_audit_time_us", 1, _audit_time_microseconds,
+                                          deterministic=True)
+        sort_time = "COALESCE(enclave_audit_time_us(changed_at), -9223372036854775808)"
+        if snapshot is None:
+            cursor.execute("SELECT COALESCE(MAX(id), 0) FROM config_audit_log")
+            snapshot = int(cursor.fetchone()[0])
+        clauses, params = ["id <= ?"], [snapshot]
+        for column, value in (("changed_by", actor_id), ("action_source", action_source), ("config_key", config_key)):
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                params.append(value)
+        for operator, value in ((">=", start_time), ("<", end_time)):
+            if value is not None:
+                clauses.append(f"enclave_audit_time_us(changed_at) {operator} enclave_audit_time_us(?)")
+                params.append(value)
+        where = " AND ".join(clauses)
+        cursor.execute(f"SELECT COUNT(*) FROM config_audit_log WHERE {where}", params)
+        matched = int(cursor.fetchone()[0])
+        if after is not None:
+            clauses.append(f"({sort_time} < ? OR ({sort_time} = ? AND id < ?))")
+            params.extend([after[0], after[0], after[1]])
+        where = " AND ".join(clauses)
+        cursor.execute(f"""
+            SELECT id, table_name, config_key, old_value, new_value, changed_by,
+                   action_source, changed_at, {sort_time} AS sort_time
+            FROM config_audit_log WHERE {where}
+            ORDER BY sort_time DESC, id DESC LIMIT ?
+        """, [*params, limit])
+        return [dict(row) for row in cursor.fetchall()], matched, snapshot

@@ -31,6 +31,7 @@ TABLES = (
 )
 EXCLUDED = {
     "admins", "instance_state", "users", "user_field_values", "user_memories",
+    "admin_test_provenance",
     "session_logs", "session_log_feedback", "session_log_cutoffs", "config_audit_log", "inference_verification_records",
     "deletion_tombstones", "retention_run_records", "sqlite_sequence",
 }

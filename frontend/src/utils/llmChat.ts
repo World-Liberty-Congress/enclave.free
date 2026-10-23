@@ -9,6 +9,10 @@ import {
   isAdminAuthStorageEvent,
 } from './adminUserLookup';
 import { hasNip04Support } from './encryption';
+import {
+  createConversationLookupHandler,
+  parseConversationLookupRequest,
+} from './adminConversationLookup';
 
 interface SendLlmChatOptions {
   content: string;
@@ -99,7 +103,13 @@ export async function sendLlmChatStreamWithUnifiedTools({
     !options.authToken &&
     options.tools.includes('db-query') &&
     hasNip04Support();
-  if (enabled) body.user_lookup = { version: 1, nonce };
+  if (enabled) {
+    body.user_lookup = { version: 1, nonce };
+    body.conversation_lookup = { version: 1, nonce };
+  }
+  const conversations = enabled
+    ? createConversationLookupHandler({ nonce, signal: controller.signal })
+    : null;
   const lookup = enabled
     ? createUserLookupHandler({
         nonce,
@@ -138,9 +148,16 @@ export async function sendLlmChatStreamWithUnifiedTools({
     await readSseResponse(
       response,
       (event, data) => {
-        if (event === 'user_lookup_request') {
-          if (!lookup) throw new Error('Unexpected browser lookup request');
-          const request = parseLookupRequest(data, nonce);
+        if (
+          event === 'user_lookup_request' ||
+          event === 'conversation_lookup_request'
+        ) {
+          const conversation = event === 'conversation_lookup_request';
+          const handler = conversation ? conversations : lookup;
+          if (!handler) throw new Error('Unexpected browser lookup request');
+          const request = conversation
+            ? parseConversationLookupRequest(data, nonce)
+            : parseLookupRequest(data, nonce);
           const encoded = JSON.stringify(request);
           const prior = calls.get(request.call_id);
           if (prior) {
@@ -152,10 +169,10 @@ export async function sendLlmChatStreamWithUnifiedTools({
             throw new Error('Browser lookup limit reached');
           calls.set(request.call_id, encoded);
           const task = (async () => {
-            const result = await lookup.handle(request);
+            const result = await handler.handle(request);
             controller.signal.throwIfAborted();
             const reply = await fetch(
-              `${API_BASE}/llm/chat/user-lookup-result`,
+              `${API_BASE}/llm/chat/${conversation ? 'conversation' : 'user'}-lookup-result`,
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -204,6 +221,7 @@ export async function sendLlmChatStreamWithUnifiedTools({
   } finally {
     controller.abort();
     lookup?.dispose();
+    conversations?.dispose();
     calls.clear();
     options.signal?.removeEventListener('abort', abort);
     window.removeEventListener('enclave:admin-auth-cleared', abort);

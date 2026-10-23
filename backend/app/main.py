@@ -21,6 +21,9 @@ import html
 import ipaddress
 from urllib.parse import urlparse
 from user_lookup import router as user_lookup_router
+from audit_insights import router as audit_insights_router
+from usage_insights import router as usage_insights_router
+from conversation_lookup import router as conversation_lookup_router
 from fastapi import FastAPI, HTTPException, Query, Depends, Request, BackgroundTasks, Response, Header, Cookie
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -312,6 +315,9 @@ app.include_router(deployment_config_internal_router)
 app.include_router(key_migration_router)
 app.include_router(internal_agent_router)
 app.include_router(user_lookup_router)
+app.include_router(audit_insights_router)
+app.include_router(usage_insights_router)
+app.include_router(conversation_lookup_router)
 app.include_router(lifecycle.router)
 
 
@@ -2071,6 +2077,8 @@ async def provision_test_user_admin(
     from the admin pubkey + persona, so it transparently belongs to this admin
     and impersonation can mint a real, scoped session for it.
     """
+    from test_user_provenance import record_provisioning
+
     admin_pubkey = admin.get("pubkey")
     if user_type_id is not None and not database.get_user_type(user_type_id):
         raise HTTPException(status_code=404, detail="User type not found")
@@ -2089,6 +2097,7 @@ async def provision_test_user_admin(
         # Backfill / correct the derived subkey (e.g. for users created before this).
         if (existing.get("pubkey") or "") != derived_pubkey:
             database.set_user_pubkey(existing["id"], derived_pubkey)
+        record_provisioning(existing["id"], admin_pubkey, user_type_id)
         return TestUserProvisionResponse(
             user_id=existing["id"], user_type_id=user_type_id, created=False
         )
@@ -2102,6 +2111,7 @@ async def provision_test_user_admin(
     except ValueError as exc:
         # create_user encrypts to the admin pubkey; fail closed if none exists.
         raise HTTPException(status_code=409, detail=str(exc))
+    record_provisioning(user_id, admin_pubkey, user_type_id)
     database.update_user_approval(user_id, True)
     return TestUserProvisionResponse(
         user_id=user_id, user_type_id=user_type_id, created=True

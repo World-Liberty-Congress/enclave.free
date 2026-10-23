@@ -80,7 +80,7 @@ type ScanState = {
   coverage: Coverage;
   matched: number;
 };
-class LookupFailure extends Error {
+export class LookupFailure extends Error {
   constructor(readonly code: string) {
     super(code);
   }
@@ -265,6 +265,112 @@ function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
+/** Shared authenticated signer call. Operation validators remain separate. */
+export function createAdminSignerCall(
+  request: Pick<
+    LookupRequest,
+    'expires_at' | 'admin_pubkey' | 'session_fingerprint'
+  >,
+  signal: AbortSignal,
+  dispose: () => void,
+  sessionPath = '/admin/user-lookup/session'
+) {
+  const controller = new AbortController();
+  const stop = () => controller.abort();
+  signal.addEventListener('abort', stop, { once: true });
+  if (signal.aborted) stop();
+  const timer = setTimeout(stop, Math.max(0, request.expires_at - Date.now()));
+  const check = () => {
+    if (Date.now() >= request.expires_at) throw new LookupFailure('expired');
+    if (controller.signal.aborted) throw new LookupFailure('cancelled');
+  };
+  async function awaitLive<T>(promise: Promise<T>): Promise<T> {
+    check();
+    const value = await raceAbort(promise, controller.signal);
+    check();
+    return value;
+  }
+  let lastSessionCheck = 0;
+  let sessionCheck: Promise<void> | undefined;
+  let authFailure: LookupFailure | undefined;
+  const validateSession = async (force = false) => {
+    check();
+    if (!force && Date.now() - lastSessionCheck < 1000) return;
+    if (!sessionCheck) {
+      sessionCheck = (async () => {
+        const response = await awaitLive(
+          fetch(`${API_BASE}${sessionPath}`, {
+            credentials: 'include',
+            cache: 'no-store',
+            signal: controller.signal,
+          })
+        );
+        if (!response.ok) throw new LookupFailure('session_changed');
+        const session = await awaitLive(response.json());
+        if (
+          session.pubkey !== request.admin_pubkey ||
+          session.session_fingerprint !== request.session_fingerprint
+        )
+          throw new LookupFailure('session_changed');
+        lastSessionCheck = Date.now();
+      })().finally(() => {
+        sessionCheck = undefined;
+      });
+    }
+    await sessionCheck;
+    check();
+  };
+  const guard = async (forceSession = false) => {
+    check();
+    if (!hasNip04Support() || !window.nostr?.getPublicKey)
+      throw new LookupFailure('no_signer');
+    const signer = window.nostr;
+    await validateSession(forceSession);
+    let key: string;
+    try {
+      key = await awaitLive(signer.getPublicKey());
+    } catch (error) {
+      check();
+      if (error instanceof LookupFailure) throw error;
+      throw new LookupFailure('signer_denied');
+    }
+    check();
+    if (window.nostr !== signer || key !== request.admin_pubkey)
+      throw new LookupFailure('key_mismatch');
+  };
+  // The signer can leave a permission dialog open indefinitely. Refresh only
+  // the credential in the background, never initiate another signer prompt.
+  const sessionMonitor = setInterval(() => {
+    void validateSession(true).catch(() => {
+      authFailure = new LookupFailure('session_changed');
+      dispose();
+    });
+  }, 1000);
+
+  return {
+    check,
+    guard,
+    awaitLive,
+    controller,
+    errorCode: (error: unknown) =>
+      authFailure?.code ??
+      (Date.now() >= request.expires_at
+        ? 'expired'
+        : error instanceof LookupFailure
+          ? error.code
+          : controller.signal.aborted
+            ? 'cancelled'
+            : error instanceof Error && error.message === 'signer_denied'
+              ? 'signer_denied'
+              : 'projection_failed'),
+    finish: () => {
+      clearTimeout(timer);
+      clearInterval(sessionMonitor);
+      signal.removeEventListener('abort', stop);
+    },
+  };
+}
+
 export function createUserLookupHandler(options: {
   nonce: string;
   signal: AbortSignal;
@@ -304,80 +410,8 @@ export function createUserLookupHandler(options: {
       return { status: 'error', code: 'session_changed' };
     }
     binding = identity;
-    const controller = new AbortController();
-    const stop = () => controller.abort();
-    lifetime.signal.addEventListener('abort', stop, { once: true });
-    if (lifetime.signal.aborted) stop();
-    const timer = setTimeout(
-      stop,
-      Math.max(0, request.expires_at - Date.now())
-    );
-    const check = () => {
-      if (Date.now() >= request.expires_at) throw new LookupFailure('expired');
-      if (controller.signal.aborted) throw new LookupFailure('cancelled');
-    };
-    async function awaitLive<T>(promise: Promise<T>): Promise<T> {
-      check();
-      const value = await raceAbort(promise, controller.signal);
-      check();
-      return value;
-    }
-    let lastSessionCheck = 0;
-    let sessionCheck: Promise<void> | undefined;
-    let authFailure: LookupFailure | undefined;
-    const validateSession = async (force = false) => {
-      check();
-      if (!force && Date.now() - lastSessionCheck < 1000) return;
-      if (!sessionCheck) {
-        sessionCheck = (async () => {
-          const response = await awaitLive(
-            fetch(`${API_BASE}/admin/user-lookup/session`, {
-              credentials: 'include',
-              cache: 'no-store',
-              signal: controller.signal,
-            })
-          );
-          if (!response.ok) throw new LookupFailure('session_changed');
-          const session = await awaitLive(response.json());
-          if (
-            session.pubkey !== request.admin_pubkey ||
-            session.session_fingerprint !== request.session_fingerprint
-          )
-            throw new LookupFailure('session_changed');
-          lastSessionCheck = Date.now();
-        })().finally(() => {
-          sessionCheck = undefined;
-        });
-      }
-      await sessionCheck;
-      check();
-    };
-    const guard = async (forceSession = false) => {
-      check();
-      if (!hasNip04Support() || !window.nostr?.getPublicKey)
-        throw new LookupFailure('no_signer');
-      const signer = window.nostr;
-      await validateSession(forceSession);
-      let key: string;
-      try {
-        key = await awaitLive(signer.getPublicKey());
-      } catch (error) {
-        check();
-        if (error instanceof LookupFailure) throw error;
-        throw new LookupFailure('signer_denied');
-      }
-      check();
-      if (window.nostr !== signer || key !== request.admin_pubkey)
-        throw new LookupFailure('key_mismatch');
-    };
-    // The signer can leave a permission dialog open indefinitely. Refresh only
-    // the credential in the background, never initiate another signer prompt.
-    const sessionMonitor = setInterval(() => {
-      void validateSession(true).catch(() => {
-        authFailure = new LookupFailure('session_changed');
-        dispose();
-      });
-    }, 1000);
+    const { check, guard, awaitLive, controller, errorCode, finish } =
+      createAdminSignerCall(request, lifetime.signal, dispose);
     const projection = async (
       body: Record<string, unknown>
     ): Promise<Projection> => {
@@ -597,17 +631,7 @@ export function createUserLookupHandler(options: {
       }
       return packed;
     } catch (error) {
-      const code =
-        authFailure?.code ??
-        (Date.now() >= request.expires_at
-          ? 'expired'
-          : error instanceof LookupFailure
-            ? error.code
-            : controller.signal.aborted
-              ? 'cancelled'
-              : error instanceof Error && error.message === 'signer_denied'
-                ? 'signer_denied'
-                : 'projection_failed');
+      const code = errorCode(error);
       if (
         ['session_changed', 'key_mismatch', 'cancelled', 'expired'].includes(
           code
@@ -616,9 +640,7 @@ export function createUserLookupHandler(options: {
         dispose();
       return { status: 'error', code };
     } finally {
-      clearTimeout(timer);
-      clearInterval(sessionMonitor);
-      lifetime.signal.removeEventListener('abort', stop);
+      finish();
     }
   }
   return {

@@ -733,3 +733,114 @@ it('continues reading status while signer awaits and posts only the correlated b
     onEvent.mock.calls.some(([name]) => name === 'user_lookup_request')
   ).toBe(false);
 });
+
+it('dispatches Conversation Review through the shared stream without exposing plaintext in activity events', async () => {
+  const pubkey = 'a'.repeat(64);
+  window.nostr = {
+    signEvent: vi.fn(),
+    getPublicKey: async () => pubkey,
+    nip04: {
+      encrypt: vi.fn(),
+      decrypt: async () =>
+        JSON.stringify({
+          turns: [
+            {
+              message_id: 'm1',
+              role: 'user',
+              content: 'PRIVATE REVIEW TEXT',
+              ts: '2026-10-20T10:00:00Z',
+            },
+          ],
+        }),
+    },
+  } as NonNullable<Window['nostr']>;
+  let stream!: ReadableStreamDefaultController<Uint8Array>;
+  let sent: Record<string, unknown> | undefined;
+  let posted: Record<string, unknown> | undefined;
+  const encoder = new TextEncoder();
+  const onEvent = vi.fn();
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/stream')) {
+        sent = JSON.parse(String(init?.body));
+        const capability = sent!.conversation_lookup as
+          | { nonce: string }
+          | undefined;
+        return new Response(
+          new ReadableStream({
+            start(c) {
+              stream = c;
+              const request = {
+                version: 1,
+                conversation_id: 'admin-chat',
+                turn_id: 'turn',
+                call_id: crypto.randomUUID(),
+                nonce: capability?.nonce,
+                admin_pubkey: pubkey,
+                session_fingerprint: 'b'.repeat(64),
+                expires_at: Date.now() + 120000,
+                operation: 'read_conversations',
+                args: { select: 'transcript' },
+              };
+              c.enqueue(
+                encoder.encode(
+                  `event: conversation_lookup_request\ndata: ${JSON.stringify(request)}\n\n`
+                )
+              );
+              // Capability absence is the pre-implementation failure; do not hang.
+              if (!capability) c.close();
+            },
+          })
+        );
+      }
+      if (url.endsWith('/session'))
+        return Response.json({ pubkey, session_fingerprint: 'b'.repeat(64) });
+      if (url.endsWith('/projection'))
+        return Response.json({
+          logs: [
+            {
+              id: 1,
+              conversation_id: 'review-1',
+              user_id: 5,
+              encrypted_to_pubkey: pubkey,
+              status: 'ok',
+              transcript: {
+                ciphertext: 'encrypted',
+                ephemeral_pubkey: 'c'.repeat(64),
+              },
+              feedback: [],
+            },
+          ],
+          through_id: 1,
+          eligible_logs: 1,
+          next_after_id: null,
+          time_basis: 'message_ts',
+        });
+      if (url.endsWith('/conversation-lookup-result')) {
+        posted = JSON.parse(String(init?.body));
+        stream.enqueue(encoder.encode('event: done\ndata: {}\n\n'));
+        stream.close();
+        return Response.json({ status: 'ok' });
+      }
+      throw new Error('Unexpected route');
+    })
+  );
+  await sendLlmChatStreamWithUnifiedTools({
+    content: 'Review conversations',
+    tools: ['db-query'],
+    adminUserLookup: true,
+    onEvent,
+  });
+  expect(sent).toHaveProperty('conversation_lookup.version', 1);
+  expect(posted).toHaveProperty('result.records.0.text', 'PRIVATE REVIEW TEXT');
+  expect(JSON.stringify(onEvent.mock.calls)).not.toContain(
+    'PRIVATE REVIEW TEXT'
+  );
+  expect(
+    onEvent.mock.calls.some(
+      ([event]) => event === 'conversation_lookup_request'
+    )
+  ).toBe(false);
+});
