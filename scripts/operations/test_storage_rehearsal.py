@@ -115,7 +115,7 @@ class StorageRehearsal(unittest.TestCase):
                 calls = []
                 containers = []
                 for name in ("core-backend", "sage", "postgres", "qdrant", "frontend", "backend"):
-                    containers.append({"Id": name, "Image": name + "-image", "State": {"Running": True}, "Config": {"Env": ["FAKE_SECRET=private-data-canary"], "Labels": {"com.docker.compose.service": name}}, "Mounts": [{"Type": "bind", "Source": str(source)}]})
+                    containers.append({"Id": name, "Image": name + "-image", "State": {"Running": True}, "Config": {"Env": ["FAKE_SECRET=private-data-canary"], "Labels": {"com.docker.compose.service": name}}, "Mounts": [] if name == "frontend" else [{"Type": "bind", "Source": str(source)}]})
                 real_run = backup.run
                 running = {c["Id"] for c in containers}
                 def runner(args, **kwargs):
@@ -151,6 +151,17 @@ class StorageRehearsal(unittest.TestCase):
                 self.assertEqual(running, {c["Id"] for c in containers})
                 manifest = json.loads((target / str(root / "state" / "recovery" / "runtime.json").lstrip("/")).read_text())
                 self.assertEqual(set(manifest["images"]), {c["Image"] for c in containers})
+                # Repeated nightly runs reuse the encrypted checkpoint and bound
+                # local history even though final remote tags differ from local tags.
+                with patch.object(backup, "inspect_project", return_value=containers), patch.object(backup, "run", side_effect=runner):
+                    for attempt in range(3):
+                        config.write_text(f"FAKE_SECRET=private-data-canary-{attempt}")
+                        backup.backup("fixture", [config], root / "state")
+                local = json.loads(real_run(["restic", "--repo", str(root / "state" / "checkpoint"), "snapshots", "--json"]))
+                self.assertEqual(len(local), 3)
+                remote = json.loads(real_run(["restic", "snapshots", "--json"]))
+                self.assertEqual(len(remote), 4)
+                self.assertTrue(all(s["tags"] == ["enclave:fixture"] for s in remote))
                 # Repository blobs must not contain the plaintext private-data canary.
                 for p in (root / "encrypted-repository" / "data").rglob("*"):
                     if p.is_file():

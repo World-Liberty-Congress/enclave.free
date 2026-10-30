@@ -8,9 +8,14 @@ Requires=docker.service
 Type=oneshot
 User=root
 UMask=0077
+# The marker must survive a failed service so API traffic stays in maintenance
+# until recovery is verified. /run itself is cleared on a host reboot.
+RuntimeDirectory=enclave-backup
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
 EnvironmentFile=/etc/enclave-backup/production-backup.env
 # Install the reviewed operations tool here; enable only after acceptance.
-ExecStart=/usr/bin/python3 /usr/local/lib/enclave-operations/backup.py backup --project liberator --config-path /etc/enclave/production.env --config-path /etc/caddy/Caddyfile --config-path /var/lib/caddy --config-path /etc/enclave-backup/production-backup.env --config-path /etc/enclave-backup/restic-password.key
+ExecStart=/usr/bin/python3 /usr/local/lib/enclave-operations/backup.py backup --project liberator --maintenance-file /run/enclave-backup/maintenance --config-path /etc/enclave/production.env --config-path /etc/caddy/Caddyfile --config-path /var/lib/caddy --config-path /etc/enclave-backup/production-backup.env --config-path /etc/enclave-backup/restic-password.key --config-path /etc/systemd/journald.conf.d/enclave-retention.conf
 # Runs only after backup and application recovery have both returned success.
 ExecStartPost=/usr/bin/python3 /usr/local/lib/enclave-operations/backup.py retention-apply --project liberator
 TimeoutStartSec=infinity

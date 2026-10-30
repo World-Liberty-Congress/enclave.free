@@ -1,7 +1,13 @@
 # Apply after docker-compose.infra.yml and docker-compose.app.yml.
 # This release deliberately retains the accepted Liberator presentation.
+x-production-logging: &production-logging
+  driver: journald
+  options:
+    tag: 'liberator/{{.Name}}'
+
 services:
   core-backend:
+    logging: *production-logging
     image: ${LIBERATOR_IMAGE_PREFIX:-liberator}/backend:${LIBERATOR_RELEASE:?Set a unique release tag}
     build:
       labels:
@@ -30,6 +36,7 @@ services:
       SMTP_PASS: ${SMTP_PASS:?Set organization SMTP password}
       SMTP_FROM: ${SMTP_FROM:?Set a verified organization sender}
   sage:
+    logging: *production-logging
     image: ${LIBERATOR_IMAGE_PREFIX:-liberator}/sage:${LIBERATOR_RELEASE:?Set a unique release tag}
     build:
       labels:
@@ -45,6 +52,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:?Set the production HTTPS origin}
       CORS_ORIGINS: ${FRONTEND_URL:?Set the production HTTPS origin}
   frontend:
+    logging: *production-logging
     image: ${LIBERATOR_IMAGE_PREFIX:-liberator}/frontend:${LIBERATOR_RELEASE:?Set a unique release tag}
     build:
       args:
@@ -54,25 +62,32 @@ services:
         org.opencontainers.image.revision: ${LIBERATOR_REVISION:?Set the full Enclave commit}
     restart: unless-stopped
   postgres:
+    logging: *production-logging
     image: pgvector/pgvector@sha256:be400b50812ab2cc908ed78593fda2e51e3b45fe774fa637f1c7b16e68531d95
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a fresh URL-safe database password}
     restart: unless-stopped
   qdrant:
+    logging: *production-logging
     image: qdrant/qdrant@sha256:89d9d35757eb57c62973c193c96b5b50ca73bbaff7fa282ef81f7fd155a3747d
     restart: unless-stopped
   tinfoil-proxy:
+    logging: *production-logging
     image: ghcr.io/tinfoilsh/tinfoil-proxy@sha256:bd9d6f4dbf82e8d734b2d9dbc60ec79d3c8698b51ab7773ccc937b6d372e1a91
     restart: unless-stopped
   maple-proxy:
+    logging: *production-logging
     image: ghcr.io/opensecretcloud/maple-proxy@sha256:cdde1f73418cd92794963cda32c2b50c5b2548eb78aab6060026d76a391af73a
     profiles: !reset []
   backend:
+    logging: *production-logging
     image: nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     restart: unless-stopped
   valkey:
+    logging: *production-logging
     image: valkey/valkey@sha256:77643d152547b446fc15cbafaff22004545663fcd40c6b28038ad283837baa75
     restart: unless-stopped
   searxng:
+    logging: *production-logging
     image: searxng/searxng@sha256:a694c91f5e4f131058564c7b05e689e961aa662b8592197b8bb6f3c6dd69cd7c
     restart: unless-stopped
