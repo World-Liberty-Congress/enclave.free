@@ -1,7 +1,14 @@
 # SearXNG configuration for Enclave
 # https://docs.searxng.org/admin/settings/settings.html
 
-use_default_settings: true
+# Keep the upstream defaults for these engines, without silently enabling the
+# other default providers. These three were probed from the Liberator host.
+use_default_settings:
+  engines:
+    keep_only:
+      - bing
+      - seznam
+      - mwmbl
 
 general:
   instance_name: "Enclave Search"
@@ -28,24 +35,12 @@ ui:
   default_theme: simple
   results_on_new_tab: false
 
-# Enabled search engines
+# Independent providers are queried together so one blocked provider does not
+# leave the Agent without results. No search API subscription is required.
 engines:
-  - name: google
-    engine: google
-    shortcut: g
-    disabled: false
-
-  - name: duckduckgo
-    engine: duckduckgo
-    shortcut: ddg
-    disabled: false
-
   - name: bing
-    engine: bing
-    shortcut: b
     disabled: false
-
-  - name: wikipedia
-    engine: wikipedia
-    shortcut: w
+  - name: seznam
+    disabled: false
+  - name: mwmbl
     disabled: false

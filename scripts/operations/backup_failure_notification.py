@@ -14,7 +14,7 @@ import ssl
 import subprocess
 from datetime import datetime, timezone
 
-ALLOWED_UNITS = {"enclave-backup.service", "enclave-backup-notification-test.service"}
+ALLOWED_UNITS = {"enclave-backup.service", "enclave-backup-notification-test.service", "enclave-monitor.service"}
 
 
 def read_settings(path: Path) -> dict[str, str]:
@@ -46,25 +46,28 @@ def send_notification(unit: str, smtp: dict[str, str], recipient: str) -> dict:
     if not recipient or any(char in recipient for char in "\r\n"):
         raise ValueError("A valid backup alert recipient is required")
     test = unit == "enclave-backup-notification-test.service"
+    monitor = unit == "enclave-monitor.service"
     message = EmailMessage()
     message["From"] = smtp["SMTP_FROM"]
     message["To"] = recipient
     message["Message-ID"] = make_msgid(domain="mg.liberator.global")
     message["Subject"] = (
         "[Liberator TEST] Backup failure notification verified"
-        if test else "[Liberator] Backup failed — operator action required"
+        if test else "[Liberator] Operational checks failed — operator action required"
+        if monitor else "[Liberator] Backup failed — operator action required"
     )
     message["X-Mailgun-Track"] = "no"
     message["X-Mailgun-Track-Clicks"] = "no"
     message["X-Mailgun-Track-Opens"] = "no"
     message.set_content(
         ("This is an intentional notification test. This test did not run the production backup or stop application services.\n\n"
-         if test else "The scheduled encrypted backup or its recovery/retention step failed.\n\n")
+         if test else "Backup freshness, API, search, or maintenance checks need attention.\n\n"
+         if monitor else "The scheduled encrypted backup or its recovery/retention step failed.\n\n")
         + "Check the production server before treating this backup as successful.\n"
         + "\n".join(f"{key}: {value}" for key, value in sorted(summary.items()))
         + "\n\nOn the server, inspect:\n"
-        + "systemctl status enclave-backup.service\n"
-        + "journalctl -u enclave-backup.service\n"
+        + f"systemctl status {unit}\n"
+        + f"journalctl -u {unit}\n"
         + "docker ps\n\n"
         + "Confirm the application has recovered and verify the latest successful encrypted snapshot.\n"
         + "This message contains no logs, credentials, prompts, or document content.\n"
@@ -86,6 +89,15 @@ def send_notification(unit: str, smtp: dict[str, str], recipient: str) -> dict:
     }
 
 
+def recent_monitor_notification(path: Path, now: datetime) -> bool:
+    try:
+        receipt = json.loads(path.read_text())
+        sent = datetime.fromisoformat(receipt["checked_at"])
+        return receipt.get("smtp_accepted") is True and 0 <= (now - sent).total_seconds() < 6 * 3600
+    except (OSError, ValueError, TypeError, KeyError):
+        return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("unit", choices=sorted(ALLOWED_UNITS))
@@ -94,6 +106,12 @@ def main() -> None:
     args = parser.parse_args()
     os.umask(0o077)
     try:
+        if args.unit == "enclave-monitor.service" and recent_monitor_notification(
+            args.receipt_dir / (args.unit + ".json"), datetime.now(timezone.utc),
+        ):
+            failure_summary(args.unit)
+            print(json.dumps({"unit": args.unit, "status": "already notified within six hours"}))
+            return
         receipt = send_notification(args.unit, read_settings(args.production_env), os.environ.get("BACKUP_ALERT_RECIPIENT", ""))
     except Exception:
         # SMTP failures and source settings can include secrets; keep exception details out of the journal.

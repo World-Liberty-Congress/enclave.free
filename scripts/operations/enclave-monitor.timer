@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Liberator operations every five minutes
+
+[Timer]
+OnBootSec=3m
+OnUnitInactiveSec=5m
+Unit=enclave-monitor.service
+
+[Install]
+WantedBy=timers.target

@@ -2,6 +2,8 @@ import importlib.util
 from pathlib import Path
 import subprocess
 import unittest
+from datetime import datetime, timezone, timedelta
+import tempfile
 from unittest.mock import patch, MagicMock
 
 spec = importlib.util.spec_from_file_location("notifier", Path(__file__).with_name("backup_failure_notification.py"))
@@ -10,6 +12,25 @@ spec.loader.exec_module(notifier)
 
 
 class BackupFailureNotificationTests(unittest.TestCase):
+    def test_monitor_notifications_are_deduplicated_only_after_successful_delivery(self):
+        now = datetime.now(timezone.utc)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "receipt.json"
+            for age, accepted, expected in [(1, True, True), (7, True, False), (1, False, False)]:
+                path.write_text(notifier.json.dumps({"checked_at": (now - timedelta(hours=age)).isoformat(), "smtp_accepted": accepted}))
+                self.assertEqual(notifier.recent_monitor_notification(path, now), expected)
+
+    def test_monitor_failure_uses_operational_subject(self):
+        result = subprocess.CompletedProcess([], 0, "Id=enclave-monitor.service\nActiveState=failed\nResult=exit-code\n")
+        settings = {"SMTP_HOST": "smtp.example.test", "SMTP_PORT": "2525", "SMTP_USER": "user", "SMTP_PASS": "test-secret", "SMTP_FROM": "sender@example.test"}
+        with patch.object(notifier.subprocess, "run", return_value=result), patch.object(notifier.smtplib, "SMTP") as smtp:
+            smtp.return_value.__enter__.return_value.send_message.return_value = {}
+            notifier.send_notification("enclave-monitor.service", settings, "alerts@example.test")
+        message = smtp.return_value.__enter__.return_value.send_message.call_args.args[0]
+        self.assertIn("Operational checks failed", message["Subject"])
+        self.assertIn("journalctl -u enclave-monitor.service", message.get_content())
+        self.assertNotIn("test-secret", message.as_string())
+
     def test_healthy_backup_does_not_send_email(self):
         result = subprocess.CompletedProcess([], 0, "Id=enclave-backup.service\nActiveState=inactive\nResult=success\n")
         with patch.object(notifier.subprocess, "run", return_value=result), patch.object(notifier.smtplib, "SMTP") as smtp:

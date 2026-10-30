@@ -69,6 +69,8 @@ services:
       - enclave-net
 
   sage:
+    # enclave_web drains active requests for at most 90 seconds after SIGTERM.
+    stop_grace_period: 120s
     build:
       context: ./runtime/sage
       dockerfile: Dockerfile
