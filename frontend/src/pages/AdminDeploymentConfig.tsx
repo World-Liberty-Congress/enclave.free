@@ -4030,7 +4030,10 @@ export function AdminDeploymentConfig() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-medium text-text break-all">
-                            {tombstone.conversation_id}
+                            {tombstone.lifecycle_data_class ===
+                            'sage_user_runtime'
+                              ? `${t('adminUserManager.columns.user')} ${tombstone.conversation_id.replace(/^user:/, '')}`
+                              : tombstone.conversation_id}
                           </span>
                           <span className="text-[10px] uppercase tracking-wide bg-surface-overlay text-text-secondary px-2 py-1 rounded">
                             {formatLifecycleStatus(tombstone.status)}

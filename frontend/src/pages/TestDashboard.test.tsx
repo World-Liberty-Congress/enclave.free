@@ -46,6 +46,47 @@ describe('TestDashboard', () => {
     document.documentElement.classList.remove('dark')
   })
 
+  it.each([
+    ['partial_failure', 'Account removed. Conversation and memory cleanup is incomplete.'],
+    ['succeeded', 'User deleted. Covered Conversation and memory cleanup is complete.'],
+  ])('shows %s after User deletion', async (status, message) => {
+    const user = userEvent.setup()
+    let removed = false
+    vi.stubGlobal('fetch', vi.fn((url: string, options?: RequestInit) => {
+      if (options?.method === 'DELETE') {
+        removed = true
+        return Promise.resolve(Response.json({ success: true, deletion: { status } }))
+      }
+      if (url.includes('/admin/users')) {
+        return Promise.resolve(Response.json({ users: removed ? [] : [{ id: 42, pubkey: 'synthetic-user', approved: true, fields: {} }] }))
+      }
+      return Promise.resolve(Response.json({ settings: {} }))
+    }))
+    renderDashboard()
+    await user.type(screen.getByPlaceholderText('Paste admin session token...'), 'synthetic-token')
+    await user.click(screen.getByRole('button', { name: /14.User Management/ }))
+    await user.click(screen.getByRole('button', { name: 'Fetch All Users' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(message))
+    if (status === 'partial_failure') expect(screen.getByRole('status')).toHaveTextContent('Retry it in Admin Deployment')
+  })
+
+  it('displays a failed User deletion and keeps the User visible', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', vi.fn((url: string, options?: RequestInit) => {
+      if (options?.method === 'DELETE') return Promise.resolve(Response.json({ detail: 'Forbidden' }, { status: 403 }))
+      if (url.includes('/admin/users')) return Promise.resolve(Response.json({ users: [{ id: 42, pubkey: 'synthetic-user', approved: true, fields: {} }] }))
+      return Promise.resolve(Response.json({ settings: {} }))
+    }))
+    renderDashboard()
+    await user.type(screen.getByPlaceholderText('Paste admin session token...'), 'synthetic-token')
+    await user.click(screen.getByRole('button', { name: /14.User Management/ }))
+    await user.click(screen.getByRole('button', { name: 'Fetch All Users' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('User deletion failed.'))
+    expect(screen.getByRole('cell', { name: '42' })).toBeInTheDocument()
+  })
+
   it('checks health and renders the returned admin status output', async () => {
     const user = userEvent.setup()
     const fetchMock = vi.fn((url: string) => {

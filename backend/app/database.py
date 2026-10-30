@@ -1802,51 +1802,63 @@ def create_deletion_tombstone(
     workflow: str,
     deletion: dict,
 ) -> int:
+    with get_write_cursor() as cursor:
+        return _create_deletion_tombstone_tx(
+            cursor, lifecycle_data_class=lifecycle_data_class,
+            conversation_id=conversation_id, former_subject_ref=former_subject_ref,
+            status=status, source=source, workflow=workflow, deletion=deletion,
+        )
+
+
+def _create_deletion_tombstone_tx(
+    cursor, *, lifecycle_data_class: str, conversation_id: str,
+    former_subject_ref: str | None, status: str, source: str,
+    workflow: str, deletion: dict,
+) -> int:
     now = datetime.now(timezone.utc).isoformat()
     serialized_deletion = _json_dumps_for_lifecycle(deletion)
-    with get_write_cursor() as cursor:
-        cursor.execute(
-            """
-            INSERT OR IGNORE INTO deletion_tombstones (
-                lifecycle_data_class,
-                conversation_id,
-                former_subject_ref,
-                status,
-                source,
-                workflow,
-                deletion,
-                created_at,
-                updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                lifecycle_data_class,
-                conversation_id,
-                former_subject_ref,
-                status,
-                source,
-                workflow,
-                serialized_deletion,
-                now,
-                now,
-            ),
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO deletion_tombstones (
+            lifecycle_data_class,
+            conversation_id,
+            former_subject_ref,
+            status,
+            source,
+            workflow,
+            deletion,
+            created_at,
+            updated_at
         )
-        if cursor.rowcount:
-            return int(cursor.lastrowid)
-        cursor.execute(
-            """
-            SELECT id FROM deletion_tombstones
-            WHERE conversation_id = ? AND status = 'incomplete'
-            ORDER BY updated_at DESC, id DESC
-            LIMIT 1
-            """,
-            (conversation_id,),
-        )
-        row = cursor.fetchone()
-        if row is None:
-            raise RuntimeError("Failed to create or find deletion tombstone")
-        return int(row["id"])
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            lifecycle_data_class,
+            conversation_id,
+            former_subject_ref,
+            status,
+            source,
+            workflow,
+            serialized_deletion,
+            now,
+            now,
+        ),
+    )
+    if cursor.rowcount:
+        return int(cursor.lastrowid)
+    cursor.execute(
+        """
+        SELECT id FROM deletion_tombstones
+        WHERE conversation_id = ? AND status = 'incomplete'
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+        """,
+        (conversation_id,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        raise RuntimeError("Failed to create or find deletion tombstone")
+    return int(row["id"])
 
 
 def list_deletion_tombstones(*, status: str | None = None, limit: int = 100) -> list[dict]:
@@ -1954,7 +1966,7 @@ def update_deletion_tombstone_after_retry(
                 retry_count = retry_count + 1,
                 last_retry_at = ?,
                 updated_at = ?
-            WHERE id = ?
+            WHERE id = ? AND status = 'incomplete'
             """,
             (status, serialized_deletion, now, now, tombstone_id),
         )
@@ -3792,17 +3804,38 @@ def purge_user_memories_for_subject_user(subject_user_id: int) -> int:
 
 
 def delete_user_lifecycle(user_id: int) -> dict:
-    """Delete a User Profile and associated User Memory with lifecycle counts."""
-    with get_cursor() as cursor:
-        # Historical logs retain their own lifecycle after the User Profile is deleted.
+    """Commit local deletion and Sage cleanup intent together.
+
+    User targets use a class plus a non-UUID key in the existing target column.
+    Older builds preserve these records and refuse to retry the unknown class.
+    """
+    with get_write_cursor() as cursor:
+        cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+        exists = cursor.fetchone() is not None
+        cursor.execute(
+            "SELECT id FROM deletion_tombstones WHERE conversation_id = ? "
+            "AND lifecycle_data_class = 'sage_user_runtime' AND status = 'incomplete'",
+            (f"user:{user_id}",),
+        )
+        pending = cursor.fetchone()
+        tombstone_id = int(pending["id"]) if pending else None
+        if exists:
+            tombstone_id = _create_deletion_tombstone_tx(
+                cursor, lifecycle_data_class="sage_user_runtime",
+                conversation_id=f"user:{user_id}", former_subject_ref=f"deleted_user:{user_id}",
+                status="incomplete", source="user", workflow="delete_user",
+                deletion={"status": "pending", "retryable": True, "results": [],
+                          "counts": {"succeeded": 0, "skipped": 0, "failed": 0}},
+            )
+        # Historical encrypted logs retain their separate lifecycle.
         cursor.execute("UPDATE session_logs SET subject_user_id = NULL WHERE subject_user_id = ?", (user_id,))
         cursor.execute("DELETE FROM session_log_cutoffs WHERE subject_user_id = ?", (user_id,))
         purged_memories = _purge_user_memories_for_subject_user_tx(cursor, user_id)
         cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        user_deleted = cursor.rowcount > 0
         return {
-            "user_deleted": user_deleted,
+            "user_deleted": cursor.rowcount > 0,
             "user_memories_deleted": purged_memories,
+            "tombstone_id": tombstone_id,
         }
 
 

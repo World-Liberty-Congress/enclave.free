@@ -2789,102 +2789,37 @@ async def delete_user(
 ):
     """Delete a user (self or admin)."""
     _require_self_or_admin(user_id, requester)
-    existing_user = database.get_user(user_id)
-    session_memory_results = []
-    if not existing_user:
-        conversation_result = deletion_target_skipped(
-            target_kind="conversation",
-            target_id=str(user_id),
-            action="delete_conversations",
-            detail="Conversation session discovery is owned by Sage.",
+    local = database.delete_user_lifecycle(user_id)
+    results = []
+    for kind, action, count in (
+        ("user_profile", "delete_user_profile", int(local["user_deleted"])),
+        ("user_approval", "delete_user_approval", int(local["user_deleted"])),
+        ("user_memory", "delete_user_memory", local["user_memories_deleted"]),
+    ):
+        result = (deletion_target_succeeded if count else deletion_target_skipped)(
+            target_kind=kind, target_id=str(user_id), action=action,
+            detail="Deleted local User data." if count else "Local User data was already absent.",
         )
-        deletion = summarize_deletion_results([
-            deletion_target_skipped(
-                target_kind="user_profile",
-                target_id=str(user_id),
-                action="delete_user_profile",
-                detail="User Profile was already absent.",
-            ),
-            deletion_target_skipped(
-                target_kind="user_approval",
-                target_id=str(user_id),
-                action="delete_user_approval",
-                detail="User approval/access state was already absent.",
-            ),
-            deletion_target_skipped(
-                target_kind="user_memory",
-                target_id=str(user_id),
-                action="delete_user_memory",
-                detail="User Memory was already absent.",
-            ),
-            conversation_result,
-            *session_memory_results,
-        ])
-        _audit_user_data_deletion(
-            config_key=f"user:{user_id}:delete",
-            changed_by=_audit_actor_for_requester(requester),
-            workflow="delete_user",
-            target_id=str(user_id),
-            deletion=deletion,
-        )
-        return {
-            "success": True,
-            "message": "User already deleted",
-            "deletion": deletion,
-        }
-
-    lifecycle_delete = database.delete_user_lifecycle(user_id)
-    memory_count = lifecycle_delete["user_memories_deleted"]
-    if memory_count:
-        user_memory_result = deletion_target_succeeded(
-            target_kind="user_memory",
-            target_id=str(user_id),
-            action="delete_user_memory",
-            detail=f"Deleted {memory_count} Sage-owned User Memory records.",
-        )
-        user_memory_result["count"] = memory_count
+        result["count"] = count
+        results.append(result)
+    if local["tombstone_id"] is not None:
+        tombstone = database.get_deletion_tombstone(local["tombstone_id"])
+        remote = await lifecycle.complete_user_runtime_cleanup(tombstone)
+        results.extend(remote["results"])
     else:
-        user_memory_result = deletion_target_skipped(
-            target_kind="user_memory",
-            target_id=str(user_id),
-            action="delete_user_memory",
-            detail="No Sage-owned User Memory records were found for this User.",
-        )
-
-    conversation_result = deletion_target_skipped(
-        target_kind="conversation",
-        target_id=str(user_id),
-        action="delete_conversations",
-        detail="Conversation session discovery is owned by Sage.",
-    )
-
-    deletion = summarize_deletion_results([
-        deletion_target_succeeded(
-            target_kind="user_profile",
-            target_id=str(user_id),
-            action="delete_user_profile",
-            detail="Deleted User Profile and profile field values.",
-        ),
-        deletion_target_succeeded(
-            target_kind="user_approval",
-            target_id=str(user_id),
-            action="delete_user_approval",
-            detail="Deleted User approval/access state with the User Profile.",
-        ),
-        user_memory_result,
-        conversation_result,
-        *session_memory_results,
-    ])
+        results.append(deletion_target_skipped(
+            target_kind="user_runtime", target_id=str(user_id), action="delete_user_runtime",
+            detail="No pending Sage User cleanup intent.",
+        ))
+    deletion = summarize_deletion_results(results)
     _audit_user_data_deletion(
         config_key=f"user:{user_id}:delete",
-        changed_by=_audit_actor_for_requester(requester),
-        workflow="delete_user",
-        target_id=str(user_id),
-        deletion=deletion,
+        changed_by=_audit_actor_for_requester(requester), workflow="delete_user",
+        target_id=str(user_id), deletion=deletion,
     )
     return {
-        "success": bool(lifecycle_delete["user_deleted"]),
-        "message": "User deleted",
+        "success": True,
+        "message": "User deleted" if local["user_deleted"] else "User already deleted",
         "deletion": deletion,
     }
 

@@ -387,6 +387,7 @@ export function TestDashboard() {
   const [updateUserLoading, setUpdateUserLoading] = useState(false)
   const [updateUserResult, setUpdateUserResult] = useState<Record<string, unknown> | null>(null)
   const [deleteUserLoading, setDeleteUserLoading] = useState(false)
+  const [deleteUserMessage, setDeleteUserMessage] = useState<string | null>(null)
 
   // Module 15: Database Explorer state
   const [dbTables, setDbTables] = useState<TableInfo[] | null>(null)
@@ -1216,21 +1217,29 @@ export function TestDashboard() {
 
   const deleteUser = async (userId: number) => {
     setDeleteUserLoading(true)
+    setDeleteUserMessage(null)
     try {
       const authToken = adminToken.trim() || null
-      await fetch(`${API_BASE}/users/${userId}`, {
+      const response = await fetch(`${API_BASE}/users/${userId}`, {
         method: 'DELETE',
         headers: {
           ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
         },
         credentials: 'include',
       })
+      const body = await response.json()
+      if (!response.ok || body.success !== true) {
+        throw new Error('User deletion failed. Refresh the User list before retrying.')
+      }
+      setDeleteUserMessage(body.deletion?.status === 'succeeded'
+        ? 'User deleted. Covered Conversation and memory cleanup is complete.'
+        : 'Account removed. Conversation and memory cleanup is incomplete. Retry it in Admin Deployment → Data Lifecycle.')
       fetchAllUsers()
       if (singleUser?.id === userId) {
         setSingleUser(null)
       }
     } catch (e) {
-      // Handle error
+      setDeleteUserMessage(e instanceof Error ? e.message : 'Unable to confirm User deletion. Refresh before retrying.')
     } finally {
       setDeleteUserLoading(false)
     }
@@ -2839,6 +2848,7 @@ export function TestDashboard() {
               </div>
             </div>
           )}
+          {deleteUserMessage && <p role="status" className="mt-4 text-sm text-text-secondary">{deleteUserMessage}</p>}
           {updateUserResult && (
             <div className="mt-4">
               <CodeBlock>{JSON.stringify(updateUserResult, null, 2)}</CodeBlock>

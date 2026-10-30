@@ -256,6 +256,9 @@ export const staticCopyExemptions: StaticCopyExemption[] = [
     'Failed (check JSON syntax)',
     'HTTP',
     'Invalid pubkey',
+    'Account removed. Conversation and memory cleanup is incomplete. Retry it in Admin Deployment → Data Lifecycle.',
+    'Unable to confirm User deletion. Refresh before retrying.',
+    'User deleted. Covered Conversation and memory cleanup is complete.',
   ].map((text) => ({
     file: '../pages/TestDashboard.tsx',
     kind: 'text' as const,

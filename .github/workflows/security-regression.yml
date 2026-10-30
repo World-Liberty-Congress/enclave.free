@@ -73,6 +73,7 @@ jobs:
           npm test -- --run \
             src/components/chat/ChatMessage.test.tsx \
             src/pages/AdminDeploymentConfig.test.tsx \
+            src/pages/TestDashboard.test.tsx \
             src/pages/UserAuth.test.tsx \
             src/pages/VerifyMagicLink.test.tsx
 

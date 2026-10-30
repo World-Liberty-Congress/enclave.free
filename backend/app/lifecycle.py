@@ -1332,6 +1332,65 @@ def _sanitize_lifecycle_deletion(deletion: dict) -> dict:
     return sanitized
 
 
+async def delete_sage_user_runtime(user_id: int) -> dict:
+    """Validate the new private contract; never retain arbitrary remote metadata."""
+    try:
+        token = os.getenv("INTERNAL_AGENT_TOKEN", "")
+        if not token:
+            raise ValueError("Missing internal token")
+        sage_url = os.getenv("SAGE_WEB_URL", "http://sage:3000").rstrip("/")
+        response = await _get_sage_client().post(
+            f"{sage_url}/internal/lifecycle/users/{user_id}/delete",
+            headers={"X-Internal-Agent-Token": token},
+        )
+        response.raise_for_status()
+        body = response.json()
+        if not isinstance(body, dict):
+            raise ValueError("Invalid receipt")
+        deletion = body.get("deletion")
+        if (type(body.get("user_id")) is not int or body["user_id"] != user_id
+                or not isinstance(deletion, dict)
+                or deletion.get("status") != "succeeded"
+                or deletion.get("retryable") is not False
+                or any(type(body.get(key)) is not int or body[key] < 0
+                       for key in ("conversations_deleted", "identities_deleted"))):
+            raise ValueError("Invalid receipt")
+        result = deletion_target_succeeded(
+            target_kind="user_runtime", target_id=str(user_id),
+            action="delete_user_runtime", detail="Deleted Sage Conversations, memory, and User identity.",
+        )
+        result["count"] = body["conversations_deleted"]
+        return summarize_deletion_results([result])
+    except Exception as exc:
+        detail = "busy" if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 409 else categorize_error(exc)
+        return summarize_deletion_results([deletion_target_failed(
+            target_kind="user_runtime", target_id=str(user_id),
+            action="delete_user_runtime", detail=detail, retryable=True,
+        )])
+
+
+async def complete_user_runtime_cleanup(tombstone: dict) -> dict:
+    target = tombstone["conversation_id"]
+    if not target.startswith("user:") or not target[5:].isdigit():
+        raise ValueError("Invalid User cleanup target")
+    user_id = int(target[5:])
+    deletion = await delete_sage_user_runtime(user_id)
+    try:
+        updated = database.update_deletion_tombstone_after_retry(
+            tombstone["id"], status="completed" if deletion["status"] == "succeeded" else "incomplete",
+            deletion=deletion,
+        )
+        if updated is None:
+            raise RuntimeError("Missing cleanup intent")
+        # A late failed retry must not undo another retry's committed success.
+        return updated["deletion"]
+    except Exception:
+        return summarize_deletion_results([deletion_target_failed(
+            target_kind="user_runtime", target_id=str(user_id), action="delete_user_runtime",
+            detail="completion_persistence_failed", retryable=True,
+        )])
+
+
 async def post_sage_session_memory_delete(payload: dict) -> dict:
     global _warned_missing_internal_agent_token
     sage_url = os.getenv("SAGE_WEB_URL", "http://sage:3000").rstrip("/")
@@ -2250,7 +2309,7 @@ async def retry_admin_deletion_tombstone(
     tombstone = database.get_deletion_tombstone(tombstone_id)
     if not tombstone:
         raise HTTPException(status_code=404, detail="Deletion tombstone not found")
-    if tombstone["lifecycle_data_class"] != "sage_session_memory":
+    if tombstone["lifecycle_data_class"] not in {"sage_session_memory", "sage_user_runtime"}:
         raise HTTPException(status_code=400, detail="Unsupported deletion tombstone class")
     if tombstone["status"] == "completed":
         raise HTTPException(
@@ -2260,18 +2319,21 @@ async def retry_admin_deletion_tombstone(
                 "tombstone": tombstone,
             },
         )
-    deletion = await delete_session_memory_for_conversation({
-        "id": tombstone["conversation_id"],
-        "agent_runtime": "sage",
-        "owner_type": "tombstone",
-        "owner_id": tombstone.get("former_subject_ref"),
-    })
-    new_status = "completed" if deletion["status"] == "succeeded" else "incomplete"
-    updated = database.update_deletion_tombstone_after_retry(
-        tombstone_id,
-        status=new_status,
-        deletion=deletion,
-    )
+    if tombstone["lifecycle_data_class"] == "sage_user_runtime":
+        deletion = await complete_user_runtime_cleanup(tombstone)
+        updated = database.get_deletion_tombstone(tombstone_id)
+    else:
+        deletion = await delete_session_memory_for_conversation({
+            "id": tombstone["conversation_id"],
+            "agent_runtime": "sage",
+            "owner_type": "tombstone",
+            "owner_id": tombstone.get("former_subject_ref"),
+        })
+        updated = database.update_deletion_tombstone_after_retry(
+            tombstone_id,
+            status="completed" if deletion["status"] == "succeeded" else "incomplete",
+            deletion=deletion,
+        )
     if updated is None:
         raise HTTPException(status_code=404, detail="Deletion tombstone not found")
     _audit_deletion_tombstone_retry(
