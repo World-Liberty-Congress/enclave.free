@@ -90,7 +90,7 @@ from rate_limit_key import rate_limit_key as _stable_rate_limit_key
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("enclave.main")
