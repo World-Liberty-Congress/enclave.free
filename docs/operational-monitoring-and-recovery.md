@@ -18,7 +18,7 @@ notification environment files. Then run `systemctl daemon-reload` and
 The monitor runs about every five minutes and checks:
 
 - the newest complete `enclave:liberator` off-host snapshot is at most 30 hours old;
-- the public API health endpoint returns a healthy response;
+- the public API health endpoint returns a healthy response and the Sage runtime container is running and healthy;
 - a fixed public search query returns at least one web result;
 - an API maintenance marker has not remained for more than 15 minutes.
 
@@ -50,7 +50,8 @@ failures and treats no results with provider failures as a failed search.
 
 Sage's web entry point handles SIGTERM/SIGINT, stops accepting requests and
 allows active requests up to 90 seconds to finish. Compose gives it 120 seconds
-before forced termination. An exceeded drain deadline returns a failed exit
+before forced termination; scheduled backups use the same 120-second allowance
+for application writers before stopping storage. An exceeded drain deadline returns a failed exit
 instead of claiming a clean shutdown. Test the real process signal and request
 drain behavior in isolation; do not stop production solely to exercise this.
 

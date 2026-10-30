@@ -33,22 +33,39 @@ class MonitorTests(unittest.TestCase):
         return response
 
     def test_healthy_checks_inspect_offhost_complete_backup_api_and_search(self):
-        with patch.object(monitor, "command_json", side_effect=[self.snapshots(), {"ok": True}]) as commands, patch.object(monitor.urllib.request, "urlopen", return_value=self.response()):
+        with patch.object(monitor, "command_json", side_effect=[self.snapshots(), {"running": True, "health": "healthy"}, {"ok": True}]) as commands, patch.object(monitor.urllib.request, "urlopen", return_value=self.response()):
             self.assertEqual(monitor.check_failures(self.now), [])
         self.assertEqual(commands.call_args_list[0].args[0], ["restic", "--no-cache", "snapshots", "--json", "--tag", "enclave:liberator"])
-        self.assertEqual(commands.call_args_list[1].args[0][:3], ["docker", "exec", "enclave-searxng"])
+        self.assertEqual(commands.call_args_list[1].args[0][-1], "enclave-sage-web")
+        self.assertEqual(commands.call_args_list[2].args[0][:3], ["docker", "exec", "enclave-searxng"])
 
     def test_stale_backup_and_failing_search_are_detected_independently(self):
-        with patch.object(monitor, "command_json", side_effect=[self.snapshots(31 * 3600), {"ok": False}]), patch.object(monitor.urllib.request, "urlopen", return_value=self.response()):
+        with patch.object(monitor, "command_json", side_effect=[self.snapshots(31 * 3600), {"running": True, "health": "healthy"}, {"ok": False}]), patch.object(monitor.urllib.request, "urlopen", return_value=self.response()):
             self.assertEqual(monitor.check_failures(self.now), ["backup_stale", "search_unavailable"])
 
     def test_api_and_repository_errors_are_content_free(self):
         with patch.object(monitor, "command_json", side_effect=[RuntimeError("private repository credential"), {"ok": True}]), patch.object(monitor.urllib.request, "urlopen", side_effect=TimeoutError("private response")):
             self.assertEqual(monitor.check_failures(self.now), ["backup_repository_unavailable", "api_unhealthy"])
 
+    def test_sage_outage_is_detected_when_python_and_search_are_healthy(self):
+        for state in ({"running": False, "health": "unhealthy"},
+                      {"running": True, "health": "unhealthy"},
+                      {"running": True, "health": None}, RuntimeError("private Docker error")):
+            with self.subTest(state=state):
+                def command(args, timeout):
+                    if args[0] == "restic":
+                        return self.snapshots()
+                    if args[1] == "inspect":
+                        if isinstance(state, Exception):
+                            raise state
+                        return state
+                    return {"ok": True}
+                with patch.object(monitor, "command_json", side_effect=command), patch.object(monitor.urllib.request, "urlopen", return_value=self.response()):
+                    self.assertEqual(monitor.check_failures(self.now), ["api_unhealthy"])
+
     def test_partial_or_unrelated_snapshots_cannot_satisfy_freshness(self):
         candidate = [{"time": datetime.fromtimestamp(self.now, timezone.utc).isoformat(), "tags": ["enclave-candidate:liberator"]}]
-        with patch.object(monitor, "command_json", side_effect=[candidate, {"ok": True}]), patch.object(monitor.urllib.request, "urlopen", return_value=self.response()):
+        with patch.object(monitor, "command_json", side_effect=[candidate, {"running": True, "health": "healthy"}, {"ok": True}]), patch.object(monitor.urllib.request, "urlopen", return_value=self.response()):
             self.assertEqual(monitor.check_failures(self.now), ["backup_repository_unavailable"])
 
     def test_maintenance_skips_expected_api_and_search_failures_but_not_backup_age(self):

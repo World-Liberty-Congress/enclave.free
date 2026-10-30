@@ -22,6 +22,8 @@ try:
  print(json.dumps({'ok':ok}))
 except Exception:print(json.dumps({'ok':False}))
 """
+SAGE_HEALTH_FORMAT = ('{"running":{{json .State.Running}},"health":'
+                      '{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}}')
 
 
 def command_json(args: list[str], timeout: int) -> object:
@@ -50,7 +52,11 @@ def check_failures(now: float) -> list[str]:
     try:
         with urllib.request.urlopen("https://liberator.global/api/health", timeout=10) as response:
             if response.status != 200 or json.load(response).get("status") != "healthy":
-                failures.append("api_unhealthy")
+                raise ValueError("Public API is unhealthy")
+        # The public health route checks Python dependencies, not the Sage runtime.
+        sage = command_json(["docker", "inspect", "--format", SAGE_HEALTH_FORMAT, "enclave-sage-web"], 10)
+        if sage.get("running") is not True or sage.get("health") != "healthy":
+            raise ValueError("Sage is unhealthy")
     except Exception:
         failures.append("api_unhealthy")
     try:
