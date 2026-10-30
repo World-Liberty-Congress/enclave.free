@@ -273,6 +273,11 @@ class BackupTests(unittest.TestCase):
         self.assertEqual(set(stops[0][4:]), {"core-backend", "sage", "backend"})
         self.assertEqual(set(stops[1][4:]), {"postgres", "qdrant"})
 
+    def test_scheduled_backup_preserves_sage_shutdown_allowance(self):
+        self.capture()
+        sage_stop = next(a for a in self.calls if a[:2] == ["docker", "stop"] and "sage" in a[4:])
+        self.assertGreaterEqual(int(sage_stop[3]), 120, "Sage's 90-second drain must finish before Docker can kill it")
+
     def test_capture_and_upload_failures_recover_without_completing_backup(self):
         for phase in ("capture", "upload"):
             with self.subTest(phase=phase):

@@ -48,6 +48,8 @@ jobs:
             backend.tests.test_admin_db_query_endpoint \
             backend.tests.test_lifecycle_status \
             backend.tests.test_user_deletion_lifecycle
+      - name: Run backup and operational monitoring regressions
+        run: python -m unittest discover -s scripts/operations -p 'test_*.py'
 
   frontend-security-regression:
     name: Frontend security regression tests

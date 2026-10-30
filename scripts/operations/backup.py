@@ -219,9 +219,10 @@ def backup(project: str, config_paths: list[Path], state_dir: Path, maintenance_
                 writers = [c["Id"] for c in paused if c["State"]["Running"] and
                            c["Config"]["Labels"].get("com.docker.compose.service") in {"core-backend", "sage", "backend"}]
                 storage = [i for i in original_running if i not in writers]
-                for ids in (writers, storage):
+                # Sage needs its full 90-second request drain plus shutdown overhead.
+                for ids, stop_timeout in ((writers, "120"), (storage, "60")):
                     if ids:
-                        run(["docker", "stop", "--time", "60", *ids])
+                        run(["docker", "stop", "--time", stop_timeout, *ids])
                         check_interrupted()
                 current = json.loads(run(["docker", "inspect", *original_running]))
                 if any(c["State"]["Running"] for c in current):
