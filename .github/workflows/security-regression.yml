@@ -29,6 +29,7 @@ jobs:
       - name: Run backend security regression suite
         run: |
           python -m unittest \
+            backend.tests.test_logging_defaults \
             backend.tests.test_model_dependency_contract \
             backend.tests.test_magic_link_enumeration \
             backend.tests.test_magic_link_localization \
