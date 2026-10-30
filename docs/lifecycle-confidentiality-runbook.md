@@ -32,6 +32,43 @@ Audit Log detail compaction is irreversible in active product storage: old sensi
 
 See `docs/adr/0006-retention-and-deletion-are-operator-controlled-but-incomplete.md` for the overall lifecycle boundary, `docs/adr/0007-audit-log-is-a-product-boundary-but-coverage-is-partial.md` for why governance evidence is preserved while old sensitive detail may be compacted, and `CONTEXT.md` for domain terms such as Active Storage Lifecycle, Deployment Surface, Copied Export, Lifecycle Readiness, and Retention Run Record.
 
+## User deletion and repair
+
+Deleting a User commits removal of their local profile, approval/access state,
+and User Memory together with a Sage cleanup intent. `success: true` means the
+account is removed; `deletion.status` describes completion across storage.
+Sage removes every Conversation owned by that User, associated active memory,
+and their external identity in one PostgreSQL transaction. Zero matches is
+idempotent success. A failed or ambiguous remote result remains incomplete.
+
+If a turn is active, Sage returns retryable `busy`. Let that turn finish, then
+use **Admin Deployment → Data Lifecycle → deletion tombstones → Retry**.
+Repeating the User DELETE as an Admin also retries the same incomplete intent.
+The scheduled retention pass continues retrying Conversation-class intents;
+User-class repair is manual. No new scheduler or worker is required.
+
+This coordination assumes one Sage process. Turns, including streamed bodies
+and Admin continuation of User-owned Conversations, hold admission through their
+last write. User deletion marks the owner before attempting exclusive access;
+the mark remains until process exit, including after failures. New requests are
+rejected by Python once the profile is gone. A restart discards both the mark
+and all previously authenticated in-flight requests. Deployments with multiple
+Sage processes need shared coordination before relying on this guarantee.
+
+The existing tombstone target column stores `user:<id>` for class
+`sage_user_runtime`; actual Conversation targets remain UUIDs. No schema change
+is needed. Deploy Sage before the backend. An older backend preserves these
+intents but cannot repair them; return to the compatible backend to retry.
+Audit remains best effort; the transactional intent is the durable repair record.
+Completion is monotonic, so a late failed retry cannot reopen completed cleanup.
+
+The guarantee covers state discoverable through current Sage ownership rows.
+Historical orphan reconciliation is a separate operator task requiring deletion
+evidence. Absence from SQLite alone is insufficient after mismatched restores.
+Retained encrypted Session Logs are detached from the User and retain their own
+policy. Admin-owned copies, backups, exports, provider copies, and other
+Deployment Surfaces retain their separate policies.
+
 ## Scheduled Retention Automation
 
 Use external cron, deployment automation, or another trusted external scheduler as the v1 scheduler path. The product exposes a narrow machine endpoint so automation does not reuse a human Admin browser session:
