@@ -8,6 +8,8 @@ import { Button, Callout, TextField } from '../components/ui';
 import { API_BASE, STORAGE_KEYS } from '../types/onboarding';
 import { useInstanceConfig } from '../context/InstanceConfigContext';
 import { getExplicitLanguageChoice } from '../utils/languages';
+import { AuthRequestError, authRequestError } from '../utils/authRequestError';
+import { useRetryCooldown } from '../hooks/useRetryCooldown';
 
 type TabType = 'signup' | 'login';
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
@@ -131,6 +133,7 @@ export function UserAuth() {
   const [errors, setErrors] = useState<Partial<FormData>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submittedEmail, setSubmittedEmail] = useState<string>('');
+  const { remainingSeconds, startCooldown } = useRetryCooldown();
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -159,7 +162,8 @@ export function UserAuth() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!validate()) return;
+    if (formState === 'submitting' || remainingSeconds > 0 || !validate())
+      return;
 
     setFormState('submitting');
     setFormError(null);
@@ -180,21 +184,10 @@ export function UserAuth() {
       });
 
       if (!response.ok) {
-        let errorMessage = t('errors.failedToSendMagicLink');
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const error = await response.json();
-            errorMessage = error.detail || error.message || errorMessage;
-          } else {
-            const text = await response.text();
-            errorMessage = text || errorMessage;
-          }
-        } catch (parseError) {
-          // If JSON parsing fails, use status text or default message
-          errorMessage = response.statusText || errorMessage;
-        }
-        throw new Error(errorMessage);
+        throw await authRequestError(
+          response,
+          t('errors.failedToSendMagicLink')
+        );
       }
 
       // Store email for verification page
@@ -206,11 +199,15 @@ export function UserAuth() {
       setSubmittedEmail(formData.email);
       setFormState('success');
     } catch (error) {
-      console.error('Magic link error:', error);
+      if (error instanceof AuthRequestError && error.status === 429) {
+        startCooldown(error.retryAfterSeconds);
+      }
       setFormError(
-        error instanceof Error
-          ? error.message
-          : t('errors.failedToSendMagicLink')
+        error instanceof AuthRequestError && error.status === 429
+          ? t('errors.authRateLimited')
+          : error instanceof Error
+            ? error.message
+            : t('errors.failedToSendMagicLink')
       );
       setFormState('error');
     }
@@ -313,7 +310,7 @@ export function UserAuth() {
 
             <Button
               type="submit"
-              disabled={formState === 'submitting'}
+              disabled={formState === 'submitting' || remainingSeconds > 0}
               className="w-full mt-6"
               size="lg"
               leadingIcon={
@@ -327,9 +324,11 @@ export function UserAuth() {
                 )
               }
             >
-              {formState === 'submitting'
-                ? t('onboarding.auth.sendingLink')
-                : t('onboarding.auth.continueWithEmail')}
+              {remainingSeconds > 0
+                ? t('errors.authRetryAfter', { seconds: remainingSeconds })
+                : formState === 'submitting'
+                  ? t('onboarding.auth.sendingLink')
+                  : t('onboarding.auth.continueWithEmail')}
             </Button>
 
             <p className="text-xs text-text-muted text-center mt-4">

@@ -763,7 +763,8 @@
       "redirectingChat": "Ανακατεύθυνση στη συνομιλία...",
       "linkExpired": "Ο σύνδεσμος έληξε ή είναι άκυρος",
       "linkExpiredMessage": "Αυτός ο μαγικός σύνδεσμος μπορεί να έχει λήξει ή να έχει ήδη χρησιμοποιηθεί.",
-      "requestNewLink": "Ζητήστε νέο σύνδεσμο"
+      "requestNewLink": "Ζητήστε νέο σύνδεσμο",
+      "retryMessage": "Δοκιμάστε ξανά αυτόν τον σύνδεσμο. Δεν χρειάζεται να ζητήσετε νέο."
     },
     "profile": {
       "title": "Ολοκληρώστε το προφίλ σας",
@@ -974,7 +975,9 @@
     "failedToUpdateRetentionPolicy": "Αποτυχία ενημέρωσης πολιτικής διατήρησης",
     "failedToRunScheduledRetention": "Αποτυχία εκτέλεσης προγραμματισμένης διατήρησης",
     "failedToUpdateArtifactEncryptionPosture": "Αποτυχία ενημέρωσης κατάστασης κρυπτογράφησης αρχείου (artifact)",
-    "queryExecutionFailed": "Η εκτέλεση του ερωτήματος απέτυχε"
+    "queryExecutionFailed": "Η εκτέλεση του ερωτήματος απέτυχε",
+    "authRateLimited": "Πάρα πολλές προσπάθειες σύνδεσης. Περιμένετε πριν δοκιμάσετε ξανά.",
+    "authRetryAfter": "Δοκιμάστε ξανά σε {{seconds}} δ."
   },
   "adminGuides": {
     "card": {

@@ -98,13 +98,16 @@ class RateLimiter:
         self,
         limit: Union[int, Callable[[], int]],
         window_seconds: int,
-        key_func: Optional[Callable[[Request], str]] = None
+        key_func: Optional[Callable[[Request], str]] = None,
+        *,
+        namespace: str = "",
     ):
         if window_seconds <= 0:
             raise ValueError("window_seconds must be a positive number")
         self._limit = limit
         self.window = timedelta(seconds=window_seconds)
         self.window_seconds = window_seconds
+        self.namespace = namespace
         self.key_func = key_func or (lambda r: r.client.host if r.client else "unknown")
         self.requests: dict[str, list[datetime]] = defaultdict(list)
         self._last_cleanup = datetime.utcnow()
@@ -140,13 +143,15 @@ class RateLimiter:
     def _raise_rate_limited(self) -> None:
         raise HTTPException(
             status_code=429,
-            detail=f"Rate limit exceeded. Try again in {self.window_seconds} seconds."
+            detail=f"Rate limit exceeded. Try again in {self.window_seconds} seconds.",
+            headers={"Retry-After": str(self.window_seconds)},
         )
 
     async def _check_valkey(self, request: Request, limit: int) -> None:
         key = self.key_func(request)
         bucket = int(time.time() // self.window_seconds)
-        valkey_key = f"enclave:rate-limit:{self.window_seconds}:{bucket}:{_safe_key_part(key)}"
+        prefix = f"{self.namespace}:" if self.namespace else ""
+        valkey_key = f"enclave:rate-limit:{prefix}{self.window_seconds}:{bucket}:{_safe_key_part(key)}"
         try:
             client = _valkey_client()
             count = await client.incr(valkey_key)

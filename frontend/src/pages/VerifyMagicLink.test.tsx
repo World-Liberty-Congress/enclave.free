@@ -1,11 +1,172 @@
 import { StrictMode } from 'react';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_KEYS } from '../types/onboarding';
+import i18n from '../i18n';
 import { VerifyMagicLink } from './VerifyMagicLink';
 
 describe('VerifyMagicLink', () => {
+  it.each([429, 503])(
+    'ignores language changes after HTTP %s until an explicit retry',
+    async (status) => {
+      const previousLanguage = i18n.language;
+      const user = userEvent.setup();
+      const fetchMock = vi.fn(
+        (_input: RequestInfo | URL, _init?: RequestInit) =>
+          Promise.resolve(
+            Response.json(
+              { detail: 'Temporary failure' },
+              { status, headers: { 'Retry-After': '1' } }
+            )
+          )
+      );
+      vi.stubGlobal('fetch', fetchMock);
+      try {
+        render(
+          <StrictMode>
+            <MemoryRouter initialEntries={['/verify?token=language-token']}>
+              <VerifyMagicLink />
+            </MemoryRouter>
+          </StrictMode>
+        );
+        await screen.findByText(
+          i18n.t(
+            status === 429
+              ? 'errors.authRateLimited'
+              : 'errors.verificationFailed'
+          )
+        );
+        await act(async () => {
+          await i18n.changeLanguage('es');
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        await act(async () => {
+          await i18n.changeLanguage('en');
+        });
+        await waitFor(
+          () =>
+            expect(
+              screen.getByRole('button', { name: 'Try again' })
+            ).toBeEnabled(),
+          { timeout: 3000 }
+        );
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        await user.click(screen.getByRole('button', { name: 'Try again' }));
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+        expect(
+          fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)))
+        ).toEqual([{ token: 'language-token' }, { token: 'language-token' }]);
+      } finally {
+        await act(async () => {
+          await i18n.changeLanguage(previousLanguage);
+        });
+      }
+    }
+  );
+  it('preserves a rate-limited token and waits for a manual retry', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/auth/verify') && init?.method === 'POST') {
+        attempts += 1;
+        return Promise.resolve(
+          attempts === 1
+            ? new Response('<html>Too many requests</html>', {
+                status: 429,
+                headers: { 'Retry-After': '1' },
+              })
+            : Response.json({
+                user: {
+                  email: 'retry@example.test',
+                  approved: true,
+                  needs_onboarding: false,
+                  needs_user_type: false,
+                },
+              })
+        );
+      }
+      return Promise.resolve(Response.json({}));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <MemoryRouter initialEntries={['/verify?token=preserved-token']}>
+        <VerifyMagicLink />
+      </MemoryRouter>
+    );
+    expect(
+      await screen.findByText(
+        'Too many sign-in attempts. Please wait before trying again.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Link expired or invalid')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Request a new link')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Try again in/ })).toBeDisabled();
+    await waitFor(
+      () =>
+        expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled(),
+      { timeout: 3000 }
+    );
+    expect(attempts).toBe(1);
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('retry@example.test')).toBeInTheDocument();
+    const requests = fetchMock.mock.calls.filter(([input]) =>
+      String(input).endsWith('/auth/verify')
+    );
+    expect(requests).toHaveLength(2);
+    expect(requests.map(([, init]) => JSON.parse(String(init?.body)))).toEqual([
+      { token: 'preserved-token' },
+      { token: 'preserved-token' },
+    ]);
+  });
+
+  it('offers the same link again after a temporary service failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response('<html>Unavailable</html>', { status: 503 })
+        )
+      )
+    );
+    render(
+      <MemoryRouter initialEntries={['/verify?token=retryable-token']}>
+        <VerifyMagicLink />
+      </MemoryRouter>
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Try again' })
+    ).toBeEnabled();
+    expect(
+      screen.queryByText('Link expired or invalid')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/<html>/)).not.toBeInTheDocument();
+  });
+
+  it('offers a new link when the server confirms the token is invalid', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          Response.json({ detail: 'Invalid token' }, { status: 401 })
+        )
+      )
+    );
+    render(
+      <MemoryRouter initialEntries={['/verify?token=invalid-token']}>
+        <VerifyMagicLink />
+      </MemoryRouter>
+    );
+    expect(
+      await screen.findByText('Link expired or invalid')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Request a new link' })
+    ).toBeEnabled();
+  });
   beforeEach(() => {
     const storage = new Map<string, string>();
     vi.stubGlobal('localStorage', {

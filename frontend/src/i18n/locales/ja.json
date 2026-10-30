@@ -79,7 +79,8 @@
       "redirectingChat": "チャットに移動しています...",
       "linkExpired": "リンクの有効期限が切れているか無効です",
       "linkExpiredMessage": "このマジックリンクは期限切れ、または既に使用された可能性があります。",
-      "requestNewLink": "新しいリンクをリクエスト"
+      "requestNewLink": "新しいリンクをリクエスト",
+      "retryMessage": "このリンクで再度お試しください。新しいリンクをリクエストする必要はありません。"
     },
     "profile": {
       "title": "プロフィールを完成させましょう",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "保持ポリシーの更新に失敗しました",
     "failedToRunScheduledRetention": "スケジュールされた保持処理の実行に失敗しました",
     "failedToUpdateArtifactEncryptionPosture": "アーティファクトの暗号化体制の更新に失敗しました",
-    "queryExecutionFailed": "クエリの実行に失敗しました"
+    "queryExecutionFailed": "クエリの実行に失敗しました",
+    "authRateLimited": "ログインの試行回数が多すぎます。しばらく待ってから再試行してください。",
+    "authRetryAfter": "{{seconds}}秒後に再試行"
   },
   "adminGuides": {
     "card": {

@@ -79,7 +79,8 @@
       "redirectingChat": "Omdirigerar till chatten...",
       "linkExpired": "Länken har gått ut eller är ogiltig",
       "linkExpiredMessage": "Den här magiska länken kan ha gått ut eller redan använts.",
-      "requestNewLink": "Begär en ny länk"
+      "requestNewLink": "Begär en ny länk",
+      "retryMessage": "Försök med den här länken igen. Du behöver inte begära en ny."
     },
     "profile": {
       "title": "Slutför din profil",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "Misslyckades med att uppdatera lagringspolicy",
     "failedToRunScheduledRetention": "Misslyckades med att köra schemalagd lagring",
     "failedToUpdateArtifactEncryptionPosture": "Misslyckades med att uppdatera krypteringsläge för artefakter",
-    "queryExecutionFailed": "Frågeexekvering misslyckades"
+    "queryExecutionFailed": "Frågeexekvering misslyckades",
+    "authRateLimited": "För många inloggningsförsök. Vänta innan du försöker igen.",
+    "authRetryAfter": "Försök igen om {{seconds}} s"
   },
   "adminGuides": {
     "card": {

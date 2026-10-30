@@ -43,6 +43,8 @@ services:
       # Shared rate limiting store
       - RATE_LIMIT_BACKEND=${RATE_LIMIT_BACKEND:-valkey}
       - RATE_LIMIT_VALKEY_URL=${RATE_LIMIT_VALKEY_URL:-redis://valkey:6379/0}
+      # Only known gateway peers may supply the client IP to Uvicorn.
+      - FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:18000/health || exit 1"]
       interval: 10s
@@ -132,6 +134,7 @@ services:
         condition: service_healthy
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./gateway/trusted-proxies:/etc/nginx/trusted-proxies:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:18000/health || exit 1"]
       interval: 10s

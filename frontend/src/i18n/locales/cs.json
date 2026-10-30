@@ -79,7 +79,8 @@
       "redirectingChat": "Přesměrování do chatu...",
       "linkExpired": "Odkaz vypršel nebo je neplatný",
       "linkExpiredMessage": "Tento magický odkaz mohl vypršet nebo už byl použit.",
-      "requestNewLink": "Vyžádat nový odkaz"
+      "requestNewLink": "Vyžádat nový odkaz",
+      "retryMessage": "Zkuste tento odkaz znovu. Nemusíte žádat o nový."
     },
     "profile": {
       "title": "Dokončete svůj profil",
@@ -984,7 +985,9 @@
     "failedToUpdateRetentionPolicy": "Nepodařilo se aktualizovat retenční politiku",
     "failedToRunScheduledRetention": "Nepodařilo se spustit plánovanou retenci",
     "failedToUpdateArtifactEncryptionPosture": "Nepodařilo se aktualizovat úroveň šifrování artefaktů",
-    "queryExecutionFailed": "Provedení dotazu selhalo"
+    "queryExecutionFailed": "Provedení dotazu selhalo",
+    "authRateLimited": "Příliš mnoho pokusů o přihlášení. Před dalším pokusem chvíli počkejte.",
+    "authRetryAfter": "Zkusit znovu za {{seconds}} s"
   },
   "adminGuides": {
     "card": {

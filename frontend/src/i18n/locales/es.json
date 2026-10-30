@@ -82,7 +82,8 @@
       "redirectingChat": "Redirigiendo al chat...",
       "linkExpired": "Enlace caducado o inválido",
       "linkExpiredMessage": "Este enlace mágico puede haber caducado o ya fue usado.",
-      "requestNewLink": "Solicitar un nuevo enlace"
+      "requestNewLink": "Solicitar un nuevo enlace",
+      "retryMessage": "Vuelve a intentar con este enlace. No necesitas solicitar uno nuevo."
     },
     "profile": {
       "title": "Completa tu perfil",
@@ -2130,7 +2131,9 @@
     "failedToUpdateRetentionPolicy": "No se pudo actualizar la política de retención",
     "failedToRunScheduledRetention": "No se pudo ejecutar la retención programada",
     "failedToUpdateArtifactEncryptionPosture": "No se pudo actualizar la postura de cifrado de artefactos",
-    "queryExecutionFailed": "No se pudo ejecutar la consulta"
+    "queryExecutionFailed": "No se pudo ejecutar la consulta",
+    "authRateLimited": "Demasiados intentos de inicio de sesión. Espera antes de volver a intentarlo.",
+    "authRetryAfter": "Inténtalo de nuevo en {{seconds}} s"
   },
   "colors": {
     "blue": "Azul",

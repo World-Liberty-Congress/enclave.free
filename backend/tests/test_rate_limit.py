@@ -123,6 +123,28 @@ class RateLimitTest(unittest.TestCase):
             asyncio.run(limiter(self._request()))
         self.assertEqual(raised.exception.status_code, 503)
 
+    def test_auth_purposes_have_independent_shared_counters(self) -> None:
+        os.environ["RATE_LIMIT_BACKEND"] = "valkey"
+        fake_valkey = FakeValkey()
+        self.rate_limit._VALKEY_CLIENT = fake_valkey
+        magic = self.rate_limit.RateLimiter(limit=1, window_seconds=60, namespace="magic-link")
+        admin = self.rate_limit.RateLimiter(limit=1, window_seconds=60, namespace="admin-auth")
+        request = self._request()
+
+        asyncio.run(magic(request))
+        asyncio.run(admin(request))
+
+        with self.assertRaises(HTTPException) as raised:
+            asyncio.run(magic(request))
+        self.assertEqual(raised.exception.status_code, 429)
+        self.assertEqual(len(fake_valkey.counts), 2)
+
+    def test_rate_limit_response_includes_retry_timing(self) -> None:
+        limiter = self.rate_limit.RateLimiter(limit=1, window_seconds=60)
+        with self.assertRaises(HTTPException) as raised:
+            limiter._raise_rate_limited()
+        self.assertEqual(raised.exception.headers, {"Retry-After": "60"})
+
     def test_backend_status_reports_healthy_valkey(self) -> None:
         os.environ["RATE_LIMIT_BACKEND"] = "valkey"
         self.rate_limit._VALKEY_CLIENT = FakeValkey()

@@ -761,7 +761,8 @@
       "redirectingChat": "در حال انتقال به چت...",
       "linkExpired": "لینک منقضی شده یا نامعتبر است",
       "linkExpiredMessage": "ممکن است این لینک جادویی منقضی شده باشد یا قبلاً استفاده شده باشد.",
-      "requestNewLink": "درخواست لینک جدید"
+      "requestNewLink": "درخواست لینک جدید",
+      "retryMessage": "لطفاً با همین پیوند دوباره تلاش کنید. نیازی به درخواست پیوند جدید نیست."
     },
     "profile": {
       "title": "پروفایل خود را تکمیل کنید",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "خطا در به‌روزرسانی سیاست نگهداری",
     "failedToRunScheduledRetention": "خطا در اجرای نگهداری زمان‌بندی‌شده",
     "failedToUpdateArtifactEncryptionPosture": "خطا در به‌روزرسانی وضعیت رمزنگاری آرتیفکت",
-    "queryExecutionFailed": "اجرای پرس‌وجو با خطا مواجه شد"
+    "queryExecutionFailed": "اجرای پرس‌وجو با خطا مواجه شد",
+    "authRateLimited": "تعداد تلاش‌های ورود بیش از حد است. لطفاً پیش از تلاش دوباره کمی صبر کنید.",
+    "authRetryAfter": "{{seconds}} ثانیه دیگر دوباره تلاش کنید"
   },
   "adminGuides": {
     "card": {

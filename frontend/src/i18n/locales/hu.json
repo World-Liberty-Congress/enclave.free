@@ -79,7 +79,8 @@
       "redirectingChat": "Átirányítás a csevegéshez...",
       "linkExpired": "A link lejárt vagy érvénytelen",
       "linkExpiredMessage": "Ez a magikus link lejárhatott vagy már felhasználták.",
-      "requestNewLink": "Új link kérése"
+      "requestNewLink": "Új link kérése",
+      "retryMessage": "Próbálja meg újra ezzel a hivatkozással. Nem kell újat kérnie."
     },
     "profile": {
       "title": "Profilod befejezése",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "Nem sikerült frissíteni az élettartam-szabályt",
     "failedToRunScheduledRetention": "Nem sikerült futtatni az ütemezett élettartam-kezelést",
     "failedToUpdateArtifactEncryptionPosture": "Nem sikerült frissíteni az artefaktum-titkosítási beállításokat",
-    "queryExecutionFailed": "A lekérdezés végrehajtása sikertelen volt"
+    "queryExecutionFailed": "A lekérdezés végrehajtása sikertelen volt",
+    "authRateLimited": "Túl sok bejelentkezési kísérlet. Kérjük, várjon az újabb próbálkozás előtt.",
+    "authRetryAfter": "Újrapróbálkozás {{seconds}} mp múlva"
   },
   "adminGuides": {
     "card": {

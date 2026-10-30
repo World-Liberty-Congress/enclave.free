@@ -813,7 +813,8 @@
       "redirectingChat": "Redirecting to chat...",
       "linkExpired": "Link expired or invalid",
       "linkExpiredMessage": "This magic link may have expired or already been used.",
-      "requestNewLink": "Request a new link"
+      "requestNewLink": "Request a new link",
+      "retryMessage": "Please try this link again. You do not need to request a new one."
     },
     "profile": {
       "title": "Complete Your Profile",
@@ -1024,7 +1025,9 @@
     "failedToUpdateRetentionPolicy": "Failed to update retention policy",
     "failedToRunScheduledRetention": "Failed to run scheduled retention",
     "failedToUpdateArtifactEncryptionPosture": "Failed to update artifact encryption posture",
-    "queryExecutionFailed": "Query execution failed"
+    "queryExecutionFailed": "Query execution failed",
+    "authRateLimited": "Too many sign-in attempts. Please wait before trying again.",
+    "authRetryAfter": "Try again in {{seconds}}s"
   },
   "adminGuidedSetup": {
     "title": "Set up your instance",

@@ -79,7 +79,8 @@
       "redirectingChat": "Đang chuyển hướng tới chat...",
       "linkExpired": "Liên kết hết hạn hoặc không hợp lệ",
       "linkExpiredMessage": "Liên kết ma thuật này có thể đã hết hạn hoặc đã được sử dụng.",
-      "requestNewLink": "Yêu cầu liên kết mới"
+      "requestNewLink": "Yêu cầu liên kết mới",
+      "retryMessage": "Vui lòng thử lại liên kết này. Bạn không cần yêu cầu liên kết mới."
     },
     "profile": {
       "title": "Hoàn tất hồ sơ của bạn",
@@ -974,7 +975,9 @@
     "failedToUpdateRetentionPolicy": "Cập nhật chính sách lưu trữ thất bại",
     "failedToRunScheduledRetention": "Chạy lưu trữ theo lịch trình thất bại",
     "failedToUpdateArtifactEncryptionPosture": "Cập nhật trạng thái mã hóa artifact thất bại",
-    "queryExecutionFailed": "Thực thi truy vấn thất bại"
+    "queryExecutionFailed": "Thực thi truy vấn thất bại",
+    "authRateLimited": "Có quá nhiều lần thử đăng nhập. Vui lòng đợi trước khi thử lại.",
+    "authRetryAfter": "Thử lại sau {{seconds}} giây"
   },
   "adminGuides": {
     "card": {

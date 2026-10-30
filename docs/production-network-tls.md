@@ -15,6 +15,21 @@ Internet-exposed deployments should terminate TLS before requests reach Enclave 
 
 Enclave can validate visible configuration and apply HSTS when requests arrive as HTTPS or when the reverse proxy forwards `X-Forwarded-Proto: https`. It cannot prove every Deployment's edge routing, certificate renewal, or proxy header policy from inside the container. Operators remain responsible for the reverse proxy, DNS, certificates, load balancer, and firewall rules.
 
+## Client identity for rate limits
+
+For an edge proxy → Nginx gateway → core backend deployment, configure both
+trust boundaries using [the gateway proxy instructions](../gateway/trusted-proxies/README.md).
+The gateway trusts only locally configured exact edge peers and forwards one
+canonical client address. Set `FORWARDED_ALLOW_IPS` to the gateway's exact container
+IP for Uvicorn. `TRUSTED_PROXIES` is deployment metadata and does not configure
+either runtime trust boundary. Verify the gateway address after recreation and
+update the backend setting before restarting it.
+
+Magic-link requests, token verification, and admin authentication have independent
+gateway allowances. Application email-send and admin-auth counters are namespaced
+separately. Rate-limited auth responses include `Retry-After`; clients should wait
+and retry the same verification link rather than request another email.
+
 ## External Provider Endpoints
 
 External Model Provider and embedding endpoints should use HTTPS in production. Internal Compose endpoints such as `http://tinfoil-proxy:8089/v1`, `http://searxng:8080`, and `http://qdrant:6333` are local service-network exceptions and should not be exposed publicly.

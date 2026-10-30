@@ -79,7 +79,8 @@
       "redirectingChat": "Omdirigerer til chat...",
       "linkExpired": "Link udløbet eller ugyldigt",
       "linkExpiredMessage": "Dette magiske link kan være udløbet eller allerede blevet brugt.",
-      "requestNewLink": "Anmod om et nyt link"
+      "requestNewLink": "Anmod om et nyt link",
+      "retryMessage": "Prøv dette link igen. Du behøver ikke at anmode om et nyt."
     },
     "profile": {
       "title": "Fuldfør din profil",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "Kunne ikke opdatere opbevaringspolitik",
     "failedToRunScheduledRetention": "Kunne ikke køre planlagt opbevaring",
     "failedToUpdateArtifactEncryptionPosture": "Kunne ikke opdatere krypteringsstatus for artefakt",
-    "queryExecutionFailed": "Query-eksekvering mislykkedes"
+    "queryExecutionFailed": "Query-eksekvering mislykkedes",
+    "authRateLimited": "For mange loginforsøg. Vent, før du prøver igen.",
+    "authRetryAfter": "Prøv igen om {{seconds}} sek."
   },
   "adminGuides": {
     "card": {
