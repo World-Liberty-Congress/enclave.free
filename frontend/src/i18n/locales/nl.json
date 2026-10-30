@@ -761,7 +761,8 @@
       "redirectingChat": "Doorsturen naar chat...",
       "linkExpired": "Link verlopen of ongeldig",
       "linkExpiredMessage": "Deze magic link is mogelijk verlopen of al gebruikt.",
-      "requestNewLink": "Vraag een nieuwe link aan"
+      "requestNewLink": "Vraag een nieuwe link aan",
+      "retryMessage": "Probeer deze link opnieuw. Je hoeft geen nieuwe aan te vragen."
     },
     "profile": {
       "title": "Maak je profiel af",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "Bijwerken bewaarbeleid mislukt",
     "failedToRunScheduledRetention": "Uitvoeren geplande bewaarbeleid mislukt",
     "failedToUpdateArtifactEncryptionPosture": "Bijwerken encryptie-instellingen artifacts mislukt",
-    "queryExecutionFailed": "Uitvoeren van query mislukt"
+    "queryExecutionFailed": "Uitvoeren van query mislukt",
+    "authRateLimited": "Te veel aanmeldpogingen. Wacht even voordat je het opnieuw probeert.",
+    "authRetryAfter": "Probeer opnieuw over {{seconds}} s"
   },
   "adminGuides": {
     "card": {

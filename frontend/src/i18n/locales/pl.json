@@ -79,7 +79,8 @@
       "redirectingChat": "Przekierowanie do czatu...",
       "linkExpired": "Link wygasł lub jest nieprawidłowy",
       "linkExpiredMessage": "Ten magiczny link mógł wygasnąć lub został już użyty.",
-      "requestNewLink": "Poproś o nowy link"
+      "requestNewLink": "Poproś o nowy link",
+      "retryMessage": "Spróbuj ponownie użyć tego linku. Nie musisz prosić o nowy."
     },
     "profile": {
       "title": "Uzupełnij profil",
@@ -982,7 +983,9 @@
     "failedToUpdateRetentionPolicy": "Nie udało się zaktualizować polityki retencji",
     "failedToRunScheduledRetention": "Nie udało się uruchomić zaplanowanej retencji",
     "failedToUpdateArtifactEncryptionPosture": "Nie udało się zaktualizować poziomu szyfrowania artefaktów",
-    "queryExecutionFailed": "Nie udało się wykonać zapytania"
+    "queryExecutionFailed": "Nie udało się wykonać zapytania",
+    "authRateLimited": "Zbyt wiele prób logowania. Poczekaj przed kolejną próbą.",
+    "authRetryAfter": "Spróbuj ponownie za {{seconds}} s"
   },
   "adminGuides": {
     "card": {

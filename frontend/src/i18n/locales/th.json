@@ -79,7 +79,8 @@
       "redirectingChat": "กำลังนำไปยังแชต...",
       "linkExpired": "ลิงก์หมดอายุหรือไม่ถูกต้อง",
       "linkExpiredMessage": "ลิงก์มหัศจรรย์นี้อาจหมดอายุหรือถูกใช้ไปแล้ว",
-      "requestNewLink": "ขอรับลิงก์ใหม่"
+      "requestNewLink": "ขอรับลิงก์ใหม่",
+      "retryMessage": "โปรดลองใช้ลิงก์นี้อีกครั้ง คุณไม่จำเป็นต้องขอลิงก์ใหม่"
     },
     "profile": {
       "title": "กรอกโปรไฟล์ของคุณให้ครบ",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "ไม่สามารถอัปเดตนโยบายการเก็บรักษาข้อมูลได้",
     "failedToRunScheduledRetention": "ไม่สามารถรันการเก็บรักษาข้อมูลตามกำหนดการได้",
     "failedToUpdateArtifactEncryptionPosture": "ไม่สามารถอัปเดตสถานะการเข้ารหัส artifact ได้",
-    "queryExecutionFailed": "การประมวลผลคิวรีล้มเหลว"
+    "queryExecutionFailed": "การประมวลผลคิวรีล้มเหลว",
+    "authRateLimited": "พยายามลงชื่อเข้าใช้หลายครั้งเกินไป โปรดรอก่อนลองอีกครั้ง",
+    "authRetryAfter": "ลองอีกครั้งใน {{seconds}} วินาที"
   },
   "adminGuides": {
     "card": {

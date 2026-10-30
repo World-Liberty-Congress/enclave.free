@@ -761,7 +761,8 @@
       "redirectingChat": "চ্যাটে রিডাইরেক্ট করা হচ্ছে...",
       "linkExpired": "লিঙ্কের মেয়াদ শেষ বা অবৈধ",
       "linkExpiredMessage": "এই ম্যাজিক লিঙ্কটি মেয়াদোত্তীর্ণ হতে পারে বা ইতিমধ্যে ব্যবহার হয়েছে।",
-      "requestNewLink": "নতুন লিঙ্ক অনুরোধ করুন"
+      "requestNewLink": "নতুন লিঙ্ক অনুরোধ করুন",
+      "retryMessage": "অনুগ্রহ করে এই লিঙ্ক দিয়েই আবার চেষ্টা করুন। নতুন লিঙ্ক চাওয়ার প্রয়োজন নেই।"
     },
     "profile": {
       "title": "আপনার প্রোফাইল সম্পূর্ণ করুন",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "রিটেনশন পলিসি আপডেট করতে ব্যর্থ হয়েছে",
     "failedToRunScheduledRetention": "শিডিউল করা রিটেনশন চালাতে ব্যর্থ হয়েছে",
     "failedToUpdateArtifactEncryptionPosture": "আর্টিফ্যাক্ট এনক্রিপশন পোস্টার আপডেট করতে ব্যর্থ হয়েছে",
-    "queryExecutionFailed": "কুয়েরি এক্সিকিউশন ব্যর্থ হয়েছে"
+    "queryExecutionFailed": "কুয়েরি এক্সিকিউশন ব্যর্থ হয়েছে",
+    "authRateLimited": "সাইন ইন করার চেষ্টা অনেক বেশি হয়েছে। আবার চেষ্টা করার আগে অনুগ্রহ করে অপেক্ষা করুন।",
+    "authRetryAfter": "{{seconds}} সেকেন্ড পরে আবার চেষ্টা করুন"
   },
   "adminGuides": {
     "card": {

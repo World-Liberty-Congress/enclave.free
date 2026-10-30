@@ -762,7 +762,8 @@
       "redirectingChat": "正在前往聊天...",
       "linkExpired": "連結已過期或無效",
       "linkExpiredMessage": "此魔法連結可能已過期或已被使用。",
-      "requestNewLink": "請求新的連結"
+      "requestNewLink": "請求新的連結",
+      "retryMessage": "請使用此連結重試，無需申請新連結。"
     },
     "profile": {
       "title": "完成你的個人資料",
@@ -973,7 +974,9 @@
     "failedToUpdateRetentionPolicy": "更新保留政策失敗",
     "failedToRunScheduledRetention": "執行排程保留失敗",
     "failedToUpdateArtifactEncryptionPosture": "更新人工製品加密狀態失敗",
-    "queryExecutionFailed": "查詢執行失敗"
+    "queryExecutionFailed": "查詢執行失敗",
+    "authRateLimited": "登入嘗試過多。請稍候再試。",
+    "authRetryAfter": "{{seconds}} 秒後重試"
   },
   "adminGuides": {
     "card": {

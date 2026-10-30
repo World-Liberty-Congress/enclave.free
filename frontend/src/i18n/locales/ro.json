@@ -79,7 +79,8 @@
       "redirectingChat": "Redirecționare către chat...",
       "linkExpired": "Link expirat sau invalid",
       "linkExpiredMessage": "Acest link magic poate să fi expirat sau să fi fost folosit deja.",
-      "requestNewLink": "Solicită un link nou"
+      "requestNewLink": "Solicită un link nou",
+      "retryMessage": "Încearcă din nou acest link. Nu trebuie să soliciți unul nou."
     },
     "profile": {
       "title": "Completează-ți profilul",
@@ -989,7 +990,9 @@
     "failedToUpdateRetentionPolicy": "Eroare la actualizarea politicii de retenție",
     "failedToRunScheduledRetention": "Eroare la rularea procesului programat de retenție",
     "failedToUpdateArtifactEncryptionPosture": "Eroare la actualizarea posturii de criptare a artefactelor",
-    "queryExecutionFailed": "Executarea interogării a eșuat"
+    "queryExecutionFailed": "Executarea interogării a eșuat",
+    "authRateLimited": "Prea multe încercări de autentificare. Așteaptă înainte să încerci din nou.",
+    "authRetryAfter": "Încearcă din nou peste {{seconds}} s"
   },
   "adminGuides": {
     "card": {

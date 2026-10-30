@@ -79,7 +79,8 @@
       "redirectingChat": "Weiterleitung zum Chat...",
       "linkExpired": "Link abgelaufen oder ungültig",
       "linkExpiredMessage": "Dieser Magic-Link ist möglicherweise abgelaufen oder wurde bereits verwendet.",
-      "requestNewLink": "Neuen Link anfordern"
+      "requestNewLink": "Neuen Link anfordern",
+      "retryMessage": "Bitte versuche es erneut mit diesem Link. Du musst keinen neuen anfordern."
     },
     "profile": {
       "title": "Vervollständige dein Profil",
@@ -2109,7 +2110,9 @@
     "failedToUpdateRetentionPolicy": "Aktualisierung der Aufbewahrungsrichtlinie fehlgeschlagen",
     "failedToRunScheduledRetention": "Geplante Aufbewahrung fehlgeschlagen",
     "failedToUpdateArtifactEncryptionPosture": "Aktualisierung der Artefakt-Verschlüsselung fehlgeschlagen",
-    "queryExecutionFailed": "Abfrageausführung fehlgeschlagen"
+    "queryExecutionFailed": "Abfrageausführung fehlgeschlagen",
+    "authRateLimited": "Zu viele Anmeldeversuche. Bitte warte, bevor du es erneut versuchst.",
+    "authRetryAfter": "In {{seconds}} s erneut versuchen"
   },
   "colors": {
     "blue": "Blau",

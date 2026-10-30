@@ -769,7 +769,8 @@
       "redirectingChat": "正在跳转到聊天...",
       "linkExpired": "链接已过期或无效",
       "linkExpiredMessage": "此魔法链接可能已过期或已被使用。",
-      "requestNewLink": "请求新的链接"
+      "requestNewLink": "请求新的链接",
+      "retryMessage": "请使用此链接重试，无需申请新链接。"
     },
     "profile": {
       "title": "完成你的个人资料",
@@ -980,7 +981,9 @@
     "failedToUpdateRetentionPolicy": "无法更新保留策略",
     "failedToRunScheduledRetention": "无法运行计划保留任务",
     "failedToUpdateArtifactEncryptionPosture": "无法更新工件加密状态",
-    "queryExecutionFailed": "查询执行失败"
+    "queryExecutionFailed": "查询执行失败",
+    "authRateLimited": "登录尝试过多。请稍等后再试。",
+    "authRetryAfter": "{{seconds}} 秒后重试"
   },
   "adminGuides": {
     "card": {

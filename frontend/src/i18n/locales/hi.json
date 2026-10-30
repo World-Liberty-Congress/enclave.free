@@ -79,7 +79,8 @@
       "redirectingChat": "चैट पर रीडायरेक्ट किया जा रहा है...",
       "linkExpired": "लिंक की समय-सीमा समाप्त हो गई या अमान्य है",
       "linkExpiredMessage": "यह मैजिक लिंक समाप्त हो सकता है या पहले ही उपयोग किया जा चुका है।",
-      "requestNewLink": "नया लिंक मांगें"
+      "requestNewLink": "नया लिंक मांगें",
+      "retryMessage": "कृपया इसी लिंक से दोबारा प्रयास करें। नया लिंक माँगने की ज़रूरत नहीं है।"
     },
     "profile": {
       "title": "अपनी प्रोफ़ाइल पूरी करें",
@@ -974,7 +975,9 @@
     "failedToUpdateRetentionPolicy": "रिटेंशन पॉलिसी अपडेट करने में विफल",
     "failedToRunScheduledRetention": "शेड्यूल्ड रिटेंशन चलाने में विफल",
     "failedToUpdateArtifactEncryptionPosture": "आर्टिफैक्ट एन्क्रिप्शन पोस्चर अपडेट करने में विफल",
-    "queryExecutionFailed": "क्वेरी निष्पादन विफल रहा"
+    "queryExecutionFailed": "क्वेरी निष्पादन विफल रहा",
+    "authRateLimited": "साइन इन के बहुत अधिक प्रयास हुए हैं। दोबारा प्रयास करने से पहले कृपया प्रतीक्षा करें।",
+    "authRetryAfter": "{{seconds}} सेकंड में फिर से प्रयास करें"
   },
   "adminGuides": {
     "card": {

@@ -82,7 +82,8 @@
       "redirectingChat": "Перенаправление в чат...",
       "linkExpired": "Ссылка истекла или недействительна",
       "linkExpiredMessage": "Эта магическая ссылка могла истечь или уже была использована.",
-      "requestNewLink": "Запросить новую ссылку"
+      "requestNewLink": "Запросить новую ссылку",
+      "retryMessage": "Попробуйте открыть эту ссылку ещё раз. Запрашивать новую не нужно."
     },
     "profile": {
       "title": "Завершите свой профиль",
@@ -988,7 +989,9 @@
     "failedToUpdateRetentionPolicy": "Не удалось обновить политику хранения",
     "failedToRunScheduledRetention": "Не удалось запустить плановое хранение",
     "failedToUpdateArtifactEncryptionPosture": "Не удалось обновить состояние шифрования артефактов",
-    "queryExecutionFailed": "Не удалось выполнить запрос"
+    "queryExecutionFailed": "Не удалось выполнить запрос",
+    "authRateLimited": "Слишком много попыток входа. Подождите, прежде чем повторить попытку.",
+    "authRetryAfter": "Повторить через {{seconds}} с"
   },
   "adminGuides": {
     "card": {

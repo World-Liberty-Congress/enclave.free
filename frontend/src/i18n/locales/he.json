@@ -79,7 +79,8 @@
       "redirectingChat": "מעבירים לצ'אט...",
       "linkExpired": "הקישור פג תוקף או לא תקין",
       "linkExpiredMessage": "ייתכן שקישור הקסם הזה פג תוקף או שכבר נעשה בו שימוש.",
-      "requestNewLink": "בקש קישור חדש"
+      "requestNewLink": "בקש קישור חדש",
+      "retryMessage": "יש לנסות שוב עם הקישור הזה. אין צורך לבקש קישור חדש."
     },
     "profile": {
       "title": "השלם את הפרופיל שלך",
@@ -977,7 +978,9 @@
     "failedToUpdateRetentionPolicy": "נכשל עדכון מדיניות שמירת נתונים",
     "failedToRunScheduledRetention": "נכשל הרצת שמירת נתונים מתוזמנת",
     "failedToUpdateArtifactEncryptionPosture": "נכשל עדכון מצב הצפנת ארטיפקטים",
-    "queryExecutionFailed": "ביצוע השאילתה נכשל"
+    "queryExecutionFailed": "ביצוע השאילתה נכשל",
+    "authRateLimited": "יותר מדי ניסיונות כניסה. יש להמתין לפני ניסיון נוסף.",
+    "authRetryAfter": "אפשר לנסות שוב בעוד {{seconds}} שניות"
   },
   "adminGuides": {
     "card": {

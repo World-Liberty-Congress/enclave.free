@@ -79,7 +79,8 @@
       "redirectingChat": "Sohbete yönlendiriliyor...",
       "linkExpired": "Bağlantı süresi dolmuş veya geçersiz",
       "linkExpiredMessage": "Bu sihirli bağlantının süresi dolmuş veya daha önce kullanılmış olabilir.",
-      "requestNewLink": "Yeni bağlantı iste"
+      "requestNewLink": "Yeni bağlantı iste",
+      "retryMessage": "Lütfen bu bağlantıyı tekrar deneyin. Yeni bir bağlantı istemeniz gerekmiyor."
     },
     "profile": {
       "title": "Profilinizi tamamlayın",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "Saklama politikasını güncelleme başarısız oldu",
     "failedToRunScheduledRetention": "Zamanlanmış saklama işlemi çalıştırma başarısız oldu",
     "failedToUpdateArtifactEncryptionPosture": "Artefakt şifreleme durumunu güncelleme başarısız oldu",
-    "queryExecutionFailed": "Sorgu yürütme başarısız oldu"
+    "queryExecutionFailed": "Sorgu yürütme başarısız oldu",
+    "authRateLimited": "Çok fazla oturum açma denemesi. Yeniden denemeden önce lütfen bekleyin.",
+    "authRetryAfter": "{{seconds}} sn sonra tekrar deneyin"
   },
   "adminGuides": {
     "card": {

@@ -79,7 +79,8 @@
       "redirectingChat": "Перенаправлення до чату...",
       "linkExpired": "Посилання прострочене або недійсне",
       "linkExpiredMessage": "Це магічне посилання могло прострочитися або вже було використане.",
-      "requestNewLink": "Запросити нове посилання"
+      "requestNewLink": "Запросити нове посилання",
+      "retryMessage": "Спробуйте скористатися цим посиланням ще раз. Запитувати нове не потрібно."
     },
     "profile": {
       "title": "Завершіть свій профіль",
@@ -982,7 +983,9 @@
     "failedToUpdateRetentionPolicy": "Не вдалося оновити політику зберігання",
     "failedToRunScheduledRetention": "Не вдалося запустити заплановане очищення",
     "failedToUpdateArtifactEncryptionPosture": "Не вдалося оновити параметри шифрування артефактів",
-    "queryExecutionFailed": "Помилка виконання запиту"
+    "queryExecutionFailed": "Помилка виконання запиту",
+    "authRateLimited": "Забагато спроб входу. Зачекайте, перш ніж повторити спробу.",
+    "authRetryAfter": "Спробувати через {{seconds}} с"
   },
   "adminGuides": {
     "card": {

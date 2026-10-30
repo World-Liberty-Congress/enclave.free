@@ -79,7 +79,8 @@
       "redirectingChat": "Redirecionando para o chat...",
       "linkExpired": "Link expirado ou inválido",
       "linkExpiredMessage": "Este link mágico pode ter expirado ou já ter sido usado.",
-      "requestNewLink": "Solicitar um novo link"
+      "requestNewLink": "Solicitar um novo link",
+      "retryMessage": "Tente novamente com este link. Não precisa de pedir um novo."
     },
     "profile": {
       "title": "Complete seu perfil",
@@ -1911,7 +1912,9 @@
     "failedToUpdateRetentionPolicy": "Falha ao atualizar política de retenção",
     "failedToRunScheduledRetention": "Falha ao executar retenção agendada",
     "failedToUpdateArtifactEncryptionPosture": "Falha ao atualizar postura de criptografia de artefato",
-    "queryExecutionFailed": "Falha na execução da consulta"
+    "queryExecutionFailed": "Falha na execução da consulta",
+    "authRateLimited": "Demasiadas tentativas de início de sessão. Aguarde antes de tentar novamente.",
+    "authRetryAfter": "Tentar novamente em {{seconds}} s"
   },
   "upload": {
     "invalidFileType": "Tipo de arquivo inválido. Permitido: {{extensions}}",

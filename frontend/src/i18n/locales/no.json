@@ -79,7 +79,8 @@
       "redirectingChat": "Omdirigerer til chat...",
       "linkExpired": "Lenke utlopt eller ugyldig",
       "linkExpiredMessage": "Denne magiske lenken kan ha utlopt eller allerede blitt brukt.",
-      "requestNewLink": "Be om en ny lenke"
+      "requestNewLink": "Be om en ny lenke",
+      "retryMessage": "Prøv denne lenken igjen. Du trenger ikke å be om en ny."
     },
     "profile": {
       "title": "Fullfør profilen din",
@@ -973,7 +974,9 @@
     "failedToUpdateRetentionPolicy": "Kunne ikke oppdatere oppbevaringspolicy",
     "failedToRunScheduledRetention": "Kunne ikke kjøre planlagt oppbevaring",
     "failedToUpdateArtifactEncryptionPosture": "Kunne ikke oppdatere krypteringsstatus for artefakter",
-    "queryExecutionFailed": "Spørringseksekvering mislyktes"
+    "queryExecutionFailed": "Spørringseksekvering mislyktes",
+    "authRateLimited": "For mange påloggingsforsøk. Vent før du prøver igjen.",
+    "authRetryAfter": "Prøv igjen om {{seconds}} s"
   },
   "adminGuides": {
     "card": {

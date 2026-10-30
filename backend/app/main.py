@@ -305,6 +305,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Retry-After"],
 )
 
 # Include routers
@@ -338,8 +339,8 @@ async def shutdown_event():
     await lifecycle.close_sage_client()
 
 # Rate limiters for auth endpoints
-magic_link_limiter = RateLimiter(limit=5, window_seconds=60)   # 5 per minute
-admin_auth_limiter = RateLimiter(limit=10, window_seconds=60)  # 10 per minute
+magic_link_limiter = RateLimiter(limit=5, window_seconds=60, namespace="magic-link")
+admin_auth_limiter = RateLimiter(limit=10, window_seconds=60, namespace="admin-auth")
 
 
 def _rate_limit_key(request: Request) -> str:

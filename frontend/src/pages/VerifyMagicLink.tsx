@@ -10,6 +10,8 @@ import {
   clearSelectedUserTypeId,
 } from '../types/onboarding';
 import { clearLogoutBrowserStorage } from '../utils/browserStoragePosture';
+import { AuthRequestError, authRequestError } from '../utils/authRequestError';
+import { useRetryCooldown } from '../hooks/useRetryCooldown';
 
 type VerifyState = 'verifying' | 'success' | 'error';
 
@@ -30,8 +32,7 @@ const verificationRequestsByToken = new Map<
 >();
 
 function verifyMagicLinkTokenOnce(
-  token: string,
-  fallbackErrorMessage: string
+  token: string
 ): Promise<VerifiedMagicLinkResponse> {
   const existing = verificationRequestsByToken.get(token);
   if (existing) return existing;
@@ -45,20 +46,7 @@ function verifyMagicLinkTokenOnce(
     });
 
     if (!response.ok) {
-      let errorMessage = fallbackErrorMessage;
-      try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const error = await response.json();
-          errorMessage = error.detail || error.message || errorMessage;
-        } else {
-          const text = await response.text();
-          errorMessage = text || errorMessage;
-        }
-      } catch {
-        errorMessage = response.statusText || errorMessage;
-      }
-      throw new Error(errorMessage);
+      throw await authRequestError(response, response.statusText);
     }
 
     return response.json();
@@ -76,6 +64,7 @@ function verifyMagicLinkTokenOnce(
 export function VerifyMagicLink() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
   const { t } = useTranslation();
   const [state, setState] = useState<VerifyState>('verifying');
   const [email, setEmail] = useState<string | null>(null);
@@ -83,12 +72,16 @@ export function VerifyMagicLink() {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [needsUserType, setNeedsUserType] = useState(false);
   const [isApproved, setIsApproved] = useState(true);
+  const [failure, setFailure] = useState<'invalid' | 'temporary' | 'limited'>(
+    'invalid'
+  );
+  const [attempt, setAttempt] = useState(0);
+  const { remainingSeconds, startCooldown } = useRetryCooldown();
   const hasVerified = useRef(false); // Prevent double-execution in StrictMode
   const hasOnboardingWork = needsUserType || needsOnboarding;
 
   useEffect(() => {
     let active = true;
-    const token = searchParams.get('token');
 
     async function inferOnboardingNeeds() {
       try {
@@ -139,15 +132,14 @@ export function VerifyMagicLink() {
       }
 
       if (!token) {
+        setFailure('invalid');
         setState('error');
         return;
       }
 
       try {
-        const data = await verifyMagicLinkTokenOnce(
-          token,
-          t('errors.verificationFailed')
-        );
+        setState('verifying');
+        const data = await verifyMagicLinkTokenOnce(token);
         if (!active) return;
 
         if (
@@ -210,7 +202,17 @@ export function VerifyMagicLink() {
         setState('success');
       } catch (error) {
         if (active) {
-          console.error('Verification error:', error);
+          if (error instanceof AuthRequestError && error.status === 429) {
+            setFailure('limited');
+            startCooldown(error.retryAfterSeconds);
+          } else {
+            setFailure(
+              error instanceof AuthRequestError &&
+                [400, 401].includes(error.status)
+                ? 'invalid'
+                : 'temporary'
+            );
+          }
           setState('error');
         }
       }
@@ -221,7 +223,7 @@ export function VerifyMagicLink() {
     return () => {
       active = false;
     };
-  }, [searchParams, t]);
+  }, [token, attempt, startCooldown]);
 
   useEffect(() => {
     // Redirect after success
@@ -316,13 +318,31 @@ export function VerifyMagicLink() {
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-text mb-2">
-            {t('onboarding.verify.linkExpired')}
+            {failure === 'invalid'
+              ? t('onboarding.verify.linkExpired')
+              : failure === 'limited'
+                ? t('errors.authRateLimited')
+                : t('errors.verificationFailed')}
           </h2>
           <p className="text-sm text-text-muted mb-6">
-            {t('onboarding.verify.linkExpiredMessage')}
+            {failure === 'invalid'
+              ? t('onboarding.verify.linkExpiredMessage')
+              : t('onboarding.verify.retryMessage')}
           </p>
-          <Button onClick={() => navigate('/login')} size="lg">
-            {t('onboarding.verify.requestNewLink')}
+          <Button
+            onClick={() =>
+              failure === 'invalid'
+                ? navigate('/login')
+                : setAttempt((value) => value + 1)
+            }
+            disabled={remainingSeconds > 0}
+            size="lg"
+          >
+            {failure === 'invalid'
+              ? t('onboarding.verify.requestNewLink')
+              : remainingSeconds > 0
+                ? t('errors.authRetryAfter', { seconds: remainingSeconds })
+                : t('common.tryAgain')}
           </Button>
         </div>
       )}

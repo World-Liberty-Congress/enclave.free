@@ -37,6 +37,7 @@ jobs:
             backend.tests.test_query_retrieval_hydration \
             backend.tests.test_sql_safety \
             backend.tests.test_rate_limit \
+            backend.tests.test_proxy_rate_limits \
             backend.tests.test_deployment_config_rate_limits \
             backend.tests.test_operational_readiness_docs \
             backend.tests.test_browser_storage_posture_docs \
@@ -69,7 +70,8 @@ jobs:
           npm test -- --run \
             src/components/chat/ChatMessage.test.tsx \
             src/pages/AdminDeploymentConfig.test.tsx \
-            src/pages/UserAuth.test.tsx
+            src/pages/UserAuth.test.tsx \
+            src/pages/VerifyMagicLink.test.tsx
 
   localization-contract:
     name: Localization contract
@@ -107,6 +109,8 @@ jobs:
           persist-credentials: false
       - name: Verify production and development Compose contracts
         run: python3 scripts/tests/DEPLOYMENT/test_frontend_compose_contract.py
+      - name: Verify gateway client isolation and auth rate limits
+        run: python3 scripts/tests/AUTH/test_gateway_rate_limits.py
       - name: Build and verify the production frontend container
         run: scripts/test_frontend_runtime.sh docker
 

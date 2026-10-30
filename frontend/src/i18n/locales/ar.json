@@ -82,7 +82,8 @@
       "redirectingChat": "جارٍ التحويل إلى الدردشة...",
       "linkExpired": "الرابط منتهي أو غير صالح",
       "linkExpiredMessage": "قد يكون هذا الرابط السحري منتهيًا أو تم استخدامه بالفعل.",
-      "requestNewLink": "طلب رابط جديد"
+      "requestNewLink": "طلب رابط جديد",
+      "retryMessage": "يُرجى المحاولة باستخدام هذا الرابط مجددًا. لا حاجة لطلب رابط جديد."
     },
     "profile": {
       "title": "أكمل ملفك الشخصي",
@@ -998,7 +999,9 @@
     "failedToUpdateRetentionPolicy": "تعذر تحديث سياسة الاحتفاظ",
     "failedToRunScheduledRetention": "تعذر تشغيل الاحتفاظ المجدول",
     "failedToUpdateArtifactEncryptionPosture": "تعذر تحديث وضع تشفير العناصر",
-    "queryExecutionFailed": "تعذر تنفيذ الاستعلام"
+    "queryExecutionFailed": "تعذر تنفيذ الاستعلام",
+    "authRateLimited": "محاولات تسجيل دخول كثيرة جدًا. يُرجى الانتظار قبل المحاولة مجددًا.",
+    "authRetryAfter": "حاول مجددًا بعد {{seconds}} ثانية"
   },
   "adminGuides": {
     "card": {

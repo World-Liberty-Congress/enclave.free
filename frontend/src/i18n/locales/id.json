@@ -761,7 +761,8 @@
       "redirectingChat": "Mengalihkan ke chat...",
       "linkExpired": "Tautan kedaluwarsa atau tidak valid",
       "linkExpiredMessage": "Tautan ajaib ini mungkin sudah kedaluwarsa atau sudah digunakan.",
-      "requestNewLink": "Minta tautan baru"
+      "requestNewLink": "Minta tautan baru",
+      "retryMessage": "Silakan coba tautan ini lagi. Anda tidak perlu meminta tautan baru."
     },
     "profile": {
       "title": "Lengkapi profil Anda",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "Gagal memperbarui kebijakan retensi",
     "failedToRunScheduledRetention": "Gagal menjalankan retensi terjadwal",
     "failedToUpdateArtifactEncryptionPosture": "Gagal memperbarui postur enkripsi artefak",
-    "queryExecutionFailed": "Eksekusi kueri gagal"
+    "queryExecutionFailed": "Eksekusi kueri gagal",
+    "authRateLimited": "Terlalu banyak percobaan masuk. Harap tunggu sebelum mencoba lagi.",
+    "authRetryAfter": "Coba lagi dalam {{seconds}} dtk"
   },
   "adminGuides": {
     "card": {

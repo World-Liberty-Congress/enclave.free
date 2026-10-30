@@ -79,7 +79,8 @@
       "redirectingChat": "채팅으로 이동 중...",
       "linkExpired": "링크가 만료되었거나 유효하지 않습니다",
       "linkExpiredMessage": "이 매직 링크는 만료되었거나 이미 사용되었을 수 있습니다.",
-      "requestNewLink": "새 링크 요청"
+      "requestNewLink": "새 링크 요청",
+      "retryMessage": "이 링크로 다시 시도해 주세요. 새 링크를 요청할 필요가 없습니다."
     },
     "profile": {
       "title": "프로필을 완료하세요",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "보존 정책 업데이트에 실패했습니다.",
     "failedToRunScheduledRetention": "예약된 보존 작업을 실행하는 데 실패했습니다.",
     "failedToUpdateArtifactEncryptionPosture": "아티팩트 암호화 상태 업데이트에 실패했습니다.",
-    "queryExecutionFailed": "쿼리 실행에 실패했습니다."
+    "queryExecutionFailed": "쿼리 실행에 실패했습니다.",
+    "authRateLimited": "로그인 시도가 너무 많습니다. 잠시 기다린 후 다시 시도해 주세요.",
+    "authRetryAfter": "{{seconds}}초 후 다시 시도"
   },
   "adminGuides": {
     "card": {

@@ -79,7 +79,8 @@
       "redirectingChat": "Ohjataan chattiin...",
       "linkExpired": "Linkki vanhentunut tai virheellinen",
       "linkExpiredMessage": "Tämä taikalinkki on voinut vanhentua tai se on jo käytetty.",
-      "requestNewLink": "Pyydä uusi linkki"
+      "requestNewLink": "Pyydä uusi linkki",
+      "retryMessage": "Yritä tätä linkkiä uudelleen. Sinun ei tarvitse pyytää uutta."
     },
     "profile": {
       "title": "Viimeistele profiilisi",
@@ -972,7 +973,9 @@
     "failedToUpdateRetentionPolicy": "Säilytyspolitiikan päivittäminen epäonnistui",
     "failedToRunScheduledRetention": "Ajan varattu säilytyksen suorittaminen epäonnistui",
     "failedToUpdateArtifactEncryptionPosture": "Artefaktin salausasetusten päivittäminen epäonnistui",
-    "queryExecutionFailed": "Kyselyn suoritus epäonnistui"
+    "queryExecutionFailed": "Kyselyn suoritus epäonnistui",
+    "authRateLimited": "Liian monta kirjautumisyritystä. Odota ennen kuin yrität uudelleen.",
+    "authRetryAfter": "Yritä uudelleen {{seconds}} s kuluttua"
   },
   "adminGuides": {
     "card": {
