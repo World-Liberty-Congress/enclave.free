@@ -24,7 +24,9 @@ class BackupError(RuntimeError):
 
 def run(args: list[str], **kwargs) -> str:
     # Runtime env and command errors can contain credentials. Keep them private.
-    result = subprocess.run(args, capture_output=True, text=True, **kwargs)
+    # The coordinator owns cancellation; terminal Ctrl-C must not abandon an
+    # accepted Docker stop or interrupt restic's repository-lock cleanup.
+    result = subprocess.run(args, capture_output=True, text=True, start_new_session=True, **kwargs)
     if result.returncode:
         raise BackupError(f"{args[0]} operation failed (exit {result.returncode}); no successful backup reported")
     return result.stdout
@@ -106,12 +108,45 @@ def restart_original(containers: list[dict]) -> None:
         raise BackupError("Service recovery incomplete: " + "; ".join(errors))
 
 
-def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
+def checkpoint_repository(state_dir: Path) -> list[str]:
+    """Keep encryption/chunk boundaries compatible with the off-host repository."""
+    repository = state_dir / "checkpoint"
+    command = ["restic", "--repo", str(repository)]
+    if not (repository / "config").exists():
+        run([*command, "init", "--copy-chunker-params", "--from-repo", os.environ["RESTIC_REPOSITORY"],
+             "--from-password-file", os.environ["RESTIC_PASSWORD_FILE"]])
+    else:
+        run([*command, "snapshots", "--json"])
+    return command
+
+
+def check_capture_space(paths: list[Path], state_dir: Path, image_bytes: int) -> None:
+    # Conservative full-copy estimate, even when restic will deduplicate most data.
+    size = 2 * image_bytes + 1024 ** 3  # image archive + encrypted copy + headroom
+    for path in paths:
+        if path.is_dir():
+            for parent, _, names in os.walk(path):
+                size += sum((Path(parent) / name).lstat().st_size for name in names)
+        else:
+            size += path.lstat().st_size
+    if shutil.disk_usage(state_dir).free < size:
+        raise BackupError("Insufficient local checkpoint space; services have not been stopped")
+
+
+def backup(project: str, config_paths: list[Path], state_dir: Path, maintenance_file: Path | None = None) -> dict:
     containers = inspect_project(project)
     paths = source_paths(containers, config_paths)
-    original_running = [c["Id"] for c in containers if c["State"]["Running"]]
-    if not original_running:
+    if not any(c["State"]["Running"] for c in containers):
         raise BackupError("No running services; inspect the deployment before backing it up")
+    # Only the stateless frontend may remain online during the consistent capture.
+    for c in containers:
+        if c["Config"]["Labels"].get("com.docker.compose.service") == "frontend":
+            if any(m.get("RW", True) and m["Type"] in {"bind", "volume"} for m in c["Mounts"]):
+                raise BackupError("Frontend has writable persistent storage; cannot keep it online safely")
+    paused = [c for c in containers if c["Config"]["Labels"].get("com.docker.compose.service") != "frontend"]
+    original_running = [c["Id"] for c in paused if c["State"]["Running"]]
+    if not original_running:
+        raise BackupError("No running application/storage services; inspect the deployment before backing it up")
     # Custom images must survive account/host loss independently of local tags.
     images = {image: json.loads(run(["docker", "image", "inspect", image]))[0]
               for image in sorted({c["Image"] for c in containers})}
@@ -122,7 +157,7 @@ def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
         "format_version": 1,
         "project": project,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "consistency": "all originally running project containers stopped for entire snapshot",
+        "consistency": "all persistent writers stopped for local encrypted checkpoint; stateless frontend remains online",
         "sources": [str(p) for p in paths],
         "containers": containers,  # Contains secrets: encrypted repository only.
         "images": images,  # Registry digests permit exact infrastructure recovery.
@@ -138,56 +173,99 @@ def backup(project: str, config_paths: list[Path], state_dir: Path) -> dict:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise BackupError("Another backup is running") from None
+        if maintenance_file and (not maintenance_file.is_absolute() or maintenance_file.exists() or maintenance_file.is_symlink()):
+            raise BackupError("Maintenance path must be absolute and absent; inspect any existing maintenance marker")
         # Stable stage path allows image archives and manifest to deduplicate.
         stage = state_dir / "recovery"
         stage.mkdir(mode=0o700, exist_ok=False)
         interrupted = False
-        recovering = False
 
         def on_signal(signum, frame):
             nonlocal interrupted
-            first_signal = not interrupted
+            # Never kill a Docker client with an accepted stop still in flight,
+            # or restic before it releases its repository locks. Finish the
+            # command, then honor cancellation at the next safe boundary.
             interrupted = True
-            if first_signal and not recovering:
-                raise BackupError("Backup interrupted; restarting original services")
+
+        def check_interrupted():
+            if interrupted:
+                raise BackupError("Backup interrupted; original service recovery completed")
 
         previous = {s: signal.signal(s, on_signal) for s in (signal.SIGTERM, signal.SIGINT)}
         stopping_started = False
+        maintenance_created = False
         try:
+            checkpoint = checkpoint_repository(state_dir)
+            check_interrupted()
+            # Reclaim obsolete local data before checking the capture budget.
+            run([*checkpoint, "forget", "--keep-last", "2", "--group-by", "", "--prune"])
+            check_interrupted()
+            check_capture_space(paths, state_dir, sum(images[i].get("Size", 0) for i in custom_images))
+            check_interrupted()
             (stage / "runtime.json").write_text(json.dumps(manifest, indent=2) + "\n")
             if custom_images:
                 run(["docker", "image", "save", "--output", str(stage / "custom-images.tar"), *custom_images])
-            stopping_started = True
-            run(["docker", "stop", "--time", "60", *original_running])
-            current = json.loads(run(["docker", "inspect", *original_running]))
-            if any(c["State"]["Running"] for c in current):
-                raise BackupError("Could not quiesce all application/storage writers")
+            check_interrupted()
             candidate_tag = f"enclave:{project}:candidate"
-            output = run(["restic", "backup", "--json", "--tag", candidate_tag, *map(str, paths), str(stage)])
-            summaries = [json.loads(line) for line in output.splitlines() if line.startswith("{")]
-            summary = next((s for s in summaries if s.get("message_type") == "summary" and s.get("snapshot_id")), None)
-            if not summary:
-                raise BackupError("Restic did not report a complete snapshot")
+            pause_started = time.monotonic()
+            try:
+                if maintenance_file:
+                    with maintenance_file.open("x") as marker:
+                        maintenance_created = True
+                        marker.write("Scheduled backup in progress\n")
+                    maintenance_file.chmod(0o644)  # Caddy can read the marker; it contains no private data.
+                stopping_started = True
+                # Drain application writers while their databases are still up.
+                writers = [c["Id"] for c in paused if c["State"]["Running"] and
+                           c["Config"]["Labels"].get("com.docker.compose.service") in {"core-backend", "sage", "backend"}]
+                storage = [i for i in original_running if i not in writers]
+                for ids in (writers, storage):
+                    if ids:
+                        run(["docker", "stop", "--time", "60", *ids])
+                        check_interrupted()
+                current = json.loads(run(["docker", "inspect", *original_running]))
+                if any(c["State"]["Running"] for c in current):
+                    raise BackupError("Could not quiesce all application/storage writers")
+                output = run([*checkpoint, "backup", "--json", "--tag", candidate_tag, *map(str, paths), str(stage)])
+                summaries = [json.loads(line) for line in output.splitlines() if line.startswith("{")]
+                summary = next((s for s in summaries if s.get("message_type") == "summary" and s.get("snapshot_id")), None)
+                if not summary:
+                    raise BackupError("Restic did not report a complete local checkpoint")
+            finally:
+                # Cancellation cannot interrupt dependency-ordered recovery itself.
+                if stopping_started:
+                    restart_original(paused)
+                if maintenance_created:
+                    maintenance_file.unlink()
+                    maintenance_created = False
+            pause_seconds = round(time.monotonic() - pause_started, 3)
+            check_interrupted()
+            # The network is deliberately outside the pause/recovery section.
+            local_id = summary["snapshot_id"]
+            run(["restic", "copy", "--from-repo", str(state_dir / "checkpoint"),
+                 "--from-password-file", os.environ["RESTIC_PASSWORD_FILE"], local_id])
+            check_interrupted()
+            copied = json.loads(run(["restic", "snapshots", "--json", "--tag", candidate_tag]))
+            check_interrupted()
+            matches = [s for s in copied if s.get("original") == local_id]
+            if len(matches) != 1:
+                raise BackupError("Could not identify the complete off-host copy")
+            snapshot_id = matches[0]["id"]
             # Partial restic snapshots must never displace a complete daily copy.
-            tagged = run(["restic", "tag", "--json", "--remove", candidate_tag, "--add", f"enclave:{project}", summary["snapshot_id"]])
+            tagged = run(["restic", "tag", "--json", "--remove", candidate_tag, "--add", f"enclave:{project}", snapshot_id])
+            check_interrupted()
             changes = [json.loads(line) for line in tagged.splitlines() if line.startswith("{")]
-            changed = next((r for r in changes if r.get("old_snapshot_id") == summary["snapshot_id"] and r.get("new_snapshot_id")), None)
+            changed = next((r for r in changes if r.get("old_snapshot_id") == snapshot_id and r.get("new_snapshot_id")), None)
             if not changed:
                 raise BackupError("Complete snapshot tag change did not report a new snapshot ID")
-            return {"project": project, "snapshot_id": changed["new_snapshot_id"], "source_count": len(paths), "custom_image_count": len(custom_images)}
+            return {"project": project, "snapshot_id": changed["new_snapshot_id"], "source_count": len(paths),
+                    "custom_image_count": len(custom_images), "pause_seconds": pause_seconds}
         finally:
-            # Cancellation must not interrupt dependency-ordered recovery itself.
-            recovering = True
             try:
-                # Includes containers stopped before docker stop was interrupted.
-                if stopping_started:
-                    restart_original(containers)
+                shutil.rmtree(stage)
             finally:
                 for s, handler in previous.items():
                     signal.signal(s, handler)
-                shutil.rmtree(stage)
-            if interrupted:
-                raise BackupError("Backup interrupted; original service recovery completed")
 
 
 def restore(snapshot: str, target: Path) -> dict:
@@ -222,6 +300,7 @@ def main() -> None:
     b.add_argument("--project", required=True)
     b.add_argument("--config-path", action="append", type=Path, required=True, help="Private env/key/TLS config path; repeat as needed")
     b.add_argument("--state-dir", type=Path, default=Path("/var/lib/enclave-backup"))
+    b.add_argument("--maintenance-file", type=Path, help="Caddy-readable marker; removed only after healthy recovery")
     r = sub.add_parser("restore")
     r.add_argument("--snapshot", required=True)
     r.add_argument("--target", type=Path, required=True)
@@ -235,7 +314,7 @@ def main() -> None:
     try:
         check_repository(args.allow_local_repository)
         if args.command == "backup":
-            result = backup(args.project, args.config_path, args.state_dir)
+            result = backup(args.project, args.config_path, args.state_dir, args.maintenance_file)
         elif args.command == "restore":
             result = restore(args.snapshot, args.target)
         elif args.command == "check":

@@ -30,6 +30,9 @@ class ProductionComposeTests(unittest.TestCase):
         result = self.render(include_maple_key=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         services = json.loads(result.stdout)["services"]
+        self.assertEqual(len(services), 10)
+        for name, service in services.items():
+            self.assertEqual(service["logging"], {"driver": "journald", "options": {"tag": "liberator/{{.Name}}"}}, name)
         self.assertIn("maple-proxy", services)
         self.assertFalse(services["maple-proxy"].get("profiles"))
         self.assertEqual(services["sage"]["environment"]["MAPLE_API_KEY"], "REPLACE_WITH_ORGANIZATION_MAPLE_KEY")

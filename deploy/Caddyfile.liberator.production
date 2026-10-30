@@ -5,13 +5,28 @@ www.liberator.global {
 
 liberator.global {
 	encode zstd gzip
-	handle_path /api/* {
-		reverse_proxy 127.0.0.1:18000
+	@backup {
+		path /api /api/*
+		file {
+			root /
+			try_files /run/enclave-backup/maintenance
+		}
 	}
-	handle /api {
-		reverse_proxy 127.0.0.1:18000
-	}
-	handle {
-		reverse_proxy 127.0.0.1:5173
+	route {
+		handle @backup {
+			header Retry-After 30
+			header Cache-Control no-store
+			header Content-Type application/json
+			respond `{"detail":"Scheduled backup in progress. Please retry shortly."}` 503
+		}
+		handle_path /api/* {
+			reverse_proxy 127.0.0.1:18000
+		}
+		handle /api {
+			reverse_proxy 127.0.0.1:18000
+		}
+		handle {
+			reverse_proxy 127.0.0.1:5173
+		}
 	}
 }

@@ -1,0 +1,109 @@
+{
+  "checked_at_utc": "2026-10-30T02:05:50.150296+00:00",
+  "implementation_base": "0cc5400cf2de02fc1dda9675243b05d6e82442e1",
+  "production_rollout": "pending review and release gate",
+  "automated_operations_suite": {
+    "tests": 33,
+    "passed": 30,
+    "skipped_opt_in": 3
+  },
+  "real_restic_rehearsal": {
+    "status": "passed",
+    "encrypted_backup_and_verified_restore": true,
+    "successive_backups": 4,
+    "final_local_checkpoints": 3,
+    "complete_offhost_snapshots": 4,
+    "full_repository_data_check": true
+  },
+  "linux_runtime_rehearsal": [
+    {
+      "status": "passed",
+      "project": "liberator-backup-fixture-1248fc2c",
+      "pause_seconds": 49.954,
+      "frontend_statuses": [
+        200
+      ],
+      "api_statuses": [
+        200,
+        503
+      ],
+      "observations": 4629,
+      "delayed_upload_healthy": true,
+      "sqlite_integrity": "ok",
+      "postgres_restored": true,
+      "qdrant_vector_restored": true,
+      "encrypted_repository_full_read_check": true,
+      "journal_survives_container_removal": true,
+      "cancellation_rehearsals": [
+        {
+          "phase": "stop",
+          "healthy_after_accepted_stop_finishes": true,
+          "restic_locks_remaining": 0,
+          "next_local_prune_succeeds": true,
+          "offhost_snapshots": 0
+        },
+        {
+          "phase": "capture",
+          "healthy_after_accepted_stop_finishes": true,
+          "restic_locks_remaining": 0,
+          "next_local_prune_succeeds": true,
+          "offhost_snapshots": 0
+        }
+      ]
+    },
+    {
+      "cleanup": "complete",
+      "project": "liberator-backup-fixture-1248fc2c"
+    }
+  ],
+  "limits": {
+    "backup": "Persistent writers still pause for a consistent local capture and health recovery. This is not zero-downtime backup. The fixture duration does not predict production duration.",
+    "logs": "Whole-host persistent journal targets 1 GiB with seven-day maximum retention; active file granularity may exceed the target and heavy traffic can shorten retention."
+  },
+  "production_deployment_preflight": {
+    "status": "passed",
+    "services": 10,
+    "distinct_overlay_stacks": 4,
+    "only_compose_change": "logging",
+    "immutable_images_match": true,
+    "environment_matches": true,
+    "commands_match": true,
+    "mounts_match": true,
+    "ports_match": true,
+    "all_live_services_healthy": true
+  },
+  "systemd_unit_validation": "passed on production Linux host without installing or starting the candidate unit",
+  "latest_cancellation_rehearsal": [
+    {
+      "status": "passed",
+      "cancellation_rehearsals": [
+        {
+          "phase": "stop",
+          "healthy_after_accepted_stop_finishes": true,
+          "restic_locks_remaining": 0,
+          "next_local_prune_succeeds": true,
+          "offhost_snapshots": 0
+        },
+        {
+          "phase": "capture",
+          "healthy_after_accepted_stop_finishes": true,
+          "restic_locks_remaining": 0,
+          "next_local_prune_succeeds": true,
+          "offhost_snapshots": 0
+        }
+      ],
+      "frontend_statuses": [
+        200
+      ],
+      "api_statuses": [
+        200,
+        503
+      ]
+    },
+    {
+      "cleanup": "complete",
+      "project": "liberator-backup-fixture-242f157f"
+    }
+  ],
+  "terminal_process_group_cancellation": "passed: coordinator receives SIGINT; isolated outstanding child finishes"
+}

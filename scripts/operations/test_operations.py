@@ -187,64 +187,171 @@ class CarryoverTests(unittest.TestCase):
 
 
 class BackupTests(unittest.TestCase):
-    def test_interruption_finishes_all_recovery_tiers_and_reports_failure(self):
-        for phase in ("snapshot", "recovery-start", "recovery-health"):
-            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as temp:
-                root = Path(temp)
-                config = root / "config.env"
-                config.write_text("fixture config")
-                state = root / "backup-state"
-                containers = [{"Id": service, "Image": "fixture-image", "State": {"Running": True},
-                               "Config": {"Labels": {"com.docker.compose.service": service}}, "Mounts": []}
-                              for service in ("postgres", "sage", "backend")]
-                started = []
-                ready = set()
-                stopped = False
-                signalled = False
-                previous = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGINT)}
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.config = self.root / "config.env"
+        self.config.write_text("fixture private config")
+        self.state = self.root / "state"
+        self.marker = self.root / "maintenance"
+        self.environment = patch.dict(os.environ, RESTIC_REPOSITORY="s3:fixture.invalid/repo", RESTIC_PASSWORD_FILE=str(self.config))
+        self.environment.start()
+        self.containers = [{"Id": name, "Image": "fixture-image", "State": {"Running": name != "stopped"},
+                            "Config": {"Labels": {"com.docker.compose.service": name}}, "Mounts": []}
+                           for name in ("core-backend", "sage", "postgres", "qdrant", "frontend", "backend", "stopped")]
+        self.running = {c["Id"] for c in self.containers if c["State"]["Running"]}
+        self.original = self.running.copy()
+        self.calls = []
+        self.failure = None
+        self.signal_phase = None
+        self.signalled = False
+        self.stop_finished = False
 
-                def interrupt():
-                    nonlocal signalled
-                    signalled = True
-                    signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
-                    signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
+    def tearDown(self):
+        self.environment.stop()
+        self.temp.cleanup()
 
-                def runner(args, **kwargs):
-                    nonlocal stopped
-                    if args[:3] == ["docker", "image", "inspect"]:
-                        return json.dumps([{"RepoDigests": []}])
-                    if args[:2] == ["docker", "stop"]:
-                        stopped = True
-                    if args[:2] == ["docker", "start"]:
-                        for service in args[2:]:
-                            dependency = {"sage": "postgres", "backend": "sage"}.get(service)
-                            if dependency and dependency not in ready:
-                                raise backup.BackupError("fixture dependency not ready")
-                        started.extend(args[2:])
-                        if phase == "recovery-start" and not signalled:
-                            interrupt()
-                    if args[:2] == ["docker", "inspect"]:
-                        if phase == "recovery-health" and started and not signalled:
-                            interrupt()
-                        ready.update(service for service in args[2:] if service in started)
-                        return json.dumps([{"State": {"Running": not stopped or service in started}}
-                                           for service in args[2:]])
-                    if args[:2] == ["restic", "backup"]:
-                        if phase == "snapshot":
-                            interrupt()
-                        return json.dumps({"message_type": "summary", "snapshot_id": "candidate"})
-                    if args[:2] == ["restic", "tag"]:
-                        return json.dumps({"old_snapshot_id": "candidate", "new_snapshot_id": "complete"})
-                    return ""
+    def interrupt(self, phase):
+        if phase == self.signal_phase and not self.signalled:
+            self.signalled = True
+            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+            signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
 
-                with patch.object(backup, "inspect_project", return_value=containers), patch.object(backup, "run", side_effect=runner):
-                    with self.assertRaisesRegex(backup.BackupError, "Backup interrupted"):
-                        backup.backup("fixture", [config], state)
-                self.assertTrue(signalled)
-                self.assertEqual(started, ["postgres", "sage", "backend"])
-                self.assertEqual(ready, {"postgres", "sage", "backend"})
-                self.assertFalse((state / "recovery").exists())
+    def runner(self, args, **kwargs):
+        self.calls.append(args)
+        if args[:3] == ["docker", "image", "inspect"]:
+            return json.dumps([{"RepoDigests": ["fixture@sha256:fixture"]}])
+        if args[:2] == ["docker", "stop"]:
+            self.assertTrue(self.marker.exists())
+            self.assertNotIn("frontend", args[4:])
+            self.interrupt("stop")
+            self.running.difference_update(args[4:])
+            self.stop_finished = True
+        if args[:2] == ["docker", "start"]:
+            self.running.update(args[2:])
+            if self.failure == "recovery" and "core-backend" in args[2:]:
+                self.running.remove("core-backend")
+            self.interrupt("recovery-start")
+        if args[:2] == ["docker", "inspect"]:
+            if any(c[:2] == ["docker", "start"] for c in self.calls):
+                self.interrupt("recovery-health")
+            return json.dumps([{"State": {"Running": name in self.running}} for name in args[2:]])
+        if args[0] == "restic":
+            local = args[1:2] == ["--repo"]
+            command = args[3] if local else args[1]
+            if command == "backup":
+                self.assertTrue(local, "The capture must not use the network repository")
+                self.assertEqual(self.running, {"frontend"})
+                self.interrupt("capture")
+                if self.failure == "capture":
+                    raise backup.BackupError("fixture capture failure")
+                return json.dumps({"message_type": "summary", "snapshot_id": "local-checkpoint"})
+            if command == "copy":
+                self.assertEqual(self.running, self.original)
+                self.assertFalse(self.marker.exists())
+                self.interrupt("upload")
+                if self.failure == "upload":
+                    raise backup.BackupError("fixture upload failure")
+            if command == "snapshots":
+                return "[]" if local else json.dumps([{"id": "remote-candidate", "original": "local-checkpoint"}])
+            if command == "tag":
+                return json.dumps({"old_snapshot_id": "remote-candidate", "new_snapshot_id": "complete"})
+        return ""
+
+    def capture(self):
+        with patch.object(backup, "inspect_project", return_value=self.containers), patch.object(backup, "run", side_effect=self.runner):
+            return backup.backup("fixture", [self.config], self.state, self.marker)
+
+    def test_offhost_upload_starts_only_after_recovery_and_frontend_stays_online(self):
+        result = self.capture()
+        self.assertEqual(result["snapshot_id"], "complete")
+        self.assertGreaterEqual(result["pause_seconds"], 0)
+        self.assertEqual(self.running, self.original)
+        self.assertFalse(self.marker.exists())
+        self.assertFalse((self.state / "recovery").exists())
+        stops = [a for a in self.calls if a[:2] == ["docker", "stop"]]
+        self.assertEqual(set(stops[0][4:]), {"core-backend", "sage", "backend"})
+        self.assertEqual(set(stops[1][4:]), {"postgres", "qdrant"})
+
+    def test_capture_and_upload_failures_recover_without_completing_backup(self):
+        for phase in ("capture", "upload"):
+            with self.subTest(phase=phase):
+                self.calls.clear()
+                self.failure = phase
+                with self.assertRaisesRegex(backup.BackupError, f"fixture {phase} failure"):
+                    self.capture()
+                self.assertEqual(self.running, self.original)
+                self.assertFalse(self.marker.exists())
+                self.assertFalse((self.state / "recovery").exists())
+                self.assertFalse(any(a[:2] == ["restic", "tag"] for a in self.calls))
+
+    def test_interruption_finishes_recovery_and_never_reports_complete(self):
+        previous = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGINT)}
+        for phase in ("stop", "capture", "recovery-start", "recovery-health", "upload"):
+            with self.subTest(phase=phase):
+                self.calls.clear()
+                self.signalled = False
+                self.stop_finished = False
+                self.signal_phase = phase
+                with self.assertRaisesRegex(backup.BackupError, "Backup interrupted"):
+                    self.capture()
+                self.assertTrue(self.signalled)
+                self.assertTrue(self.stop_finished)
+                self.assertEqual(self.running, self.original)
+                self.assertFalse(self.marker.exists())
+                self.assertFalse(any(a[:2] == ["restic", "tag"] for a in self.calls))
                 self.assertEqual({s: signal.getsignal(s) for s in previous}, previous)
+
+    def test_local_pruning_can_reclaim_capture_space_before_preflight(self):
+        def space_check(*args):
+            self.assertTrue(any("forget" in c and "--prune" in c for c in self.calls))
+            self.assertFalse(any(c[:2] == ["docker", "stop"] for c in self.calls))
+        with patch.object(backup, "check_capture_space", side_effect=space_check):
+            self.capture()
+
+    def test_terminal_interrupt_does_not_kill_outstanding_child_command(self):
+        program = """
+import os, signal, sys, threading
+import backup
+interrupted = []
+signal.signal(signal.SIGINT, lambda *_: interrupted.append(True))
+sender = threading.Timer(.3, lambda: os.killpg(os.getpgrp(), signal.SIGINT))
+sender.start()
+output = backup.run([sys.executable, '-c', 'import time; time.sleep(.6); print("completed")'])
+sender.join()
+assert interrupted and output.strip() == 'completed'
+"""
+        result = subprocess.run([sys.executable, "-c", program], cwd=ROOT / "scripts/operations",
+                                capture_output=True, text=True, start_new_session=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_failed_recovery_keeps_maintenance_and_skips_upload(self):
+        self.failure = "recovery"
+        with self.assertRaisesRegex(backup.BackupError, "Service recovery incomplete"):
+            self.capture()
+        self.assertTrue(self.marker.exists())
+        self.assertIn("backend", self.running, "Remaining recovery tiers must still be attempted")
+        self.assertFalse(any(a[:2] == ["restic", "copy"] for a in self.calls))
+        with self.assertRaisesRegex(backup.BackupError, "existing maintenance marker"):
+            self.capture()
+
+    def test_preflight_rejects_writable_frontend_and_full_disk_before_stopping(self):
+        self.containers[4]["Mounts"] = [{"Type": "bind", "Source": str(self.config), "RW": True}]
+        with self.assertRaisesRegex(backup.BackupError, "writable persistent storage"):
+            self.capture()
+        self.containers[4]["Mounts"] = []
+        with patch.object(backup.shutil, "disk_usage", return_value=type("Disk", (), {"free": 0})()):
+            with self.assertRaisesRegex(backup.BackupError, "Insufficient local checkpoint space"):
+                self.capture()
+        self.assertFalse(any(a[:2] == ["docker", "stop"] for a in self.calls))
+        self.assertFalse(self.marker.exists())
+
+    def test_installed_unit_and_notification_override_both_enable_maintenance(self):
+        for name in ("enclave-backup.service", "enclave-backup.service.d/notifications.conf"):
+            command = next(line for line in (ROOT / "scripts/operations" / name).read_text().splitlines()
+                           if line.startswith("ExecStart=/"))
+            self.assertIn("--maintenance-file /run/enclave-backup/maintenance", command)
+            self.assertIn("--config-path /etc/systemd/journald.conf.d/enclave-retention.conf", command)
 
     def test_retention_rejects_a_project_that_could_select_multiple_tag_sets(self):
         with patch.object(backup, "run") as runner, self.assertRaises(backup.BackupError):
@@ -267,37 +374,6 @@ class BackupTests(unittest.TestCase):
                 result = subprocess.run(["bash", str(ROOT / "scripts" / (command + ".sh")), temp], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(marker.read_text(), "must remain unchanged")
-
-    def test_backup_restarts_original_services_if_upload_fails(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            config = root / "config.env"
-            config.write_text("private test config")
-            mount = root / "data"
-            mount.mkdir()
-            state = root / "backup-state"
-            calls = []
-            running = True
-            container = {"Id": "original-running", "Image": "image-id", "State": {"Running": True}, "Config": {"Labels": {"com.docker.compose.service": "sage"}}, "Mounts": [{"Type": "bind", "Source": str(mount)}]}
-            def runner(args, **kwargs):
-                nonlocal running
-                calls.append(args)
-                if args[:3] == ["docker", "image", "inspect"]:
-                    return json.dumps([{"RepoDigests": []}])
-                if args[:2] == ["docker", "stop"]:
-                    running = False
-                if args[:2] == ["docker", "start"]:
-                    running = True
-                if args[:2] == ["docker", "inspect"]:
-                    return json.dumps([{"State": {"Running": running}}])
-                if args[:2] == ["restic", "backup"]:
-                    raise backup.BackupError("fixture upload failure")
-                return ""
-            with patch.object(backup, "inspect_project", return_value=[container]), patch.object(backup, "run", side_effect=runner), self.assertRaisesRegex(backup.BackupError, "fixture upload failure"):
-                backup.backup("fixture", [config], state)
-            self.assertIn(["docker", "start", "original-running"], calls)
-            self.assertLess(next(i for i,a in enumerate(calls) if a[:2] == ["docker", "stop"]), next(i for i,a in enumerate(calls) if a[:2] == ["restic", "backup"]))
-            self.assertFalse((state / "recovery").exists())
 
     def test_recovery_waits_for_dependencies_and_keeps_stopped_services_stopped(self):
         containers = [{"Id": service, "State": {"Running": service != "stopped"},
